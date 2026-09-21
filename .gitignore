@@ -1,0 +1,32 @@
+# Build artefacts
+build/
+*.beam
+.eunit/
+
+# Local environment & secrets
+.env
+
+# Curl cookie jars (session credentials)
+cookie.txt
+cookies.txt
+
+# Gleam / Erlang
+*.ez
+priv/static/currency-status.json
+
+# Node (yalnızca Playwright e2e testleri için)
+node_modules/
+
+# Playwright çıktıları
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Large archives and media
+*.zip
+*.png
+*.log
+.local/
+scratch/
+

@@ -1,0 +1,176 @@
+/* ==========================================================================
+   AI 6-LANGUAGE MULTI-TRANSLATION SUITE & FORM GRID-4
+   ========================================================================== */
+.form-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 18px;
+}
+@media (max-width: 900px) {
+  .form-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 580px) {
+  .form-grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.btn-ai-translate-glow {
+  background: linear-gradient(135deg, var(--tint-purple-strong), var(--tint-cyan)) !important;
+  border: 1px solid var(--tint-purple-strong) !important;
+  color: var(--neon-purple) !important;
+  font-weight: 700 !important;
+  padding: 10px 20px !important;
+  border-radius: 12px !important;
+  cursor: pointer !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 4px 18px var(--tint-purple-strong) !important;
+}
+.btn-ai-translate-glow:hover {
+  background: linear-gradient(135deg, var(--tint-purple-strong), var(--tint-cyan-strong)) !important;
+  border-color: var(--neon-purple) !important;
+  color: var(--text-pure) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px var(--tint-purple-strong) !important;
+}
+
+.ai-translations-card {
+  margin-top: 20px;
+  background: var(--overlay-heavy);
+  border: 1px solid var(--tint-purple-strong);
+  border-radius: 16px;
+  padding: 22px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 12px 36px var(--shadow-abyss), 0 0 24px var(--tint-purple);
+  animation: fadeInDown 0.3s ease;
+}
+.ai-translations-card.hidden {
+  display: none !important;
+}
+
+.translations-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line-glass);
+  margin-bottom: 18px;
+}
+.badge-polyglot {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--tint-purple);
+  color: var(--neon-purple);
+  border: 1px solid var(--tint-purple-strong);
+  display: inline-block;
+  margin-bottom: 4px;
+}
+.muted-polyglot {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: 0;
+}
+.btn-close-trans-card {
+  background: var(--fill-soft);
+  border: 1px solid var(--line-edge);
+  color: var(--text-dim);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-close-trans-card:hover {
+  background: var(--tint-rose);
+  color: var(--neon-rose);
+  border-color: var(--tint-rose-strong);
+}
+
+.translations-tabs-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.trans-tab-btn {
+  background: var(--glass-card);
+  border: 1px solid var(--line-glass);
+  color: var(--text-dim);
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.trans-tab-btn:hover {
+  color: var(--text-pure);
+  background: var(--panel-sunken);
+  border-color: var(--line-strong);
+}
+.trans-tab-btn.active {
+  background: linear-gradient(135deg, var(--tint-purple-strong), var(--tint-cyan-strong));
+  border-color: var(--neon-purple);
+  color: var(--text-pure);
+  box-shadow: 0 0 16px var(--tint-purple-strong);
+}
+
+.trans-editor-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.trans-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.trans-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-soft);
+  text-transform: none !important;
+}
+.trans-input {
+  width: 100%;
+  background: var(--overlay-modal) !important;
+  border: 1px solid var(--line-strong) !important;
+  border-radius: 10px !important;
+  padding: 10px 14px !important;
+  color: var(--text-pure) !important;
+  font-size: 14px !important;
+  outline: none !important;
+  transition: all 0.2s ease !important;
+}
+.trans-input:focus {
+  border-color: var(--neon-purple) !important;
+  box-shadow: 0 0 16px var(--tint-purple-strong) !important;
+}
+.trans-textarea {
+  width: 100%;
+  background: var(--overlay-modal) !important;
+  border: 1px solid var(--line-strong) !important;
+  border-radius: 10px !important;
+  padding: 12px 14px !important;
+  color: var(--text-pure) !important;
+  font-size: 13.5px !important;
+  line-height: 1.6 !important;
+  outline: none !important;
+  resize: vertical !important;
+  transition: all 0.2s ease !important;
+}
+.trans-textarea:focus {
+  border-color: var(--neon-purple) !important;
+  box-shadow: 0 0 16px var(--tint-purple-strong) !important;
+}
+

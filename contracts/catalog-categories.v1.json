@@ -1,0 +1,23 @@
+{
+  "contract_version": "1.1.0",
+  "contract_type": "nexus.catalog.categories",
+  "categories": [
+    { "code": "hotel", "name_tr": "Otel", "slug_tr": "otel", "legacy_agency_code": "OTEL", "position": 1 },
+    { "code": "holiday_home", "name_tr": "Tatil Evi", "slug_tr": "tatil-evi", "legacy_agency_code": "VILLA", "position": 2 },
+    { "code": "yacht", "name_tr": "Yat", "slug_tr": "yat", "legacy_agency_code": "YAT", "position": 3 },
+    { "code": "tour", "name_tr": "Tur", "slug_tr": "tur", "legacy_agency_code": "TUR", "position": 4 },
+    { "code": "activity", "name_tr": "Aktivite", "slug_tr": "aktivite", "legacy_agency_code": "AKTIVITE", "position": 5 },
+    { "code": "flight", "name_tr": "Uçuş", "slug_tr": "ucus", "legacy_agency_code": "UCUS", "position": 6 },
+    { "code": "car", "name_tr": "Araç", "slug_tr": "arac", "legacy_agency_code": "ARAC", "position": 7 },
+    { "code": "cruise", "name_tr": "Kruvaziyer", "slug_tr": "kruvaziyer", "legacy_agency_code": "KRUVAZIYER", "position": 8 },
+    { "code": "pilgrimage", "name_tr": "Hac & Umre", "slug_tr": "hac-umre", "legacy_agency_code": "HAC_UMRE", "position": 9 },
+    { "code": "visa", "name_tr": "Vize", "slug_tr": "vize", "legacy_agency_code": "VIZE", "position": 10 },
+    { "code": "ferry", "name_tr": "Feribot", "slug_tr": "feribot", "legacy_agency_code": "FERIBOT", "position": 11 },
+    { "code": "transfer", "name_tr": "Transfer", "slug_tr": "transfer", "legacy_agency_code": "TRANSFER", "position": 12 },
+    { "code": "beach", "name_tr": "Şezlong", "slug_tr": "sezlong", "legacy_agency_code": "SEZLONG", "position": 13 },
+    { "code": "cinema", "name_tr": "Sinema", "slug_tr": "sinema", "legacy_agency_code": "SINEMA", "position": 14 },
+    { "code": "event", "name_tr": "Etkinlik", "slug_tr": "etkinlik", "legacy_agency_code": "ETKINLIK", "position": 15 },
+    { "code": "restaurant", "name_tr": "Restoran", "slug_tr": "restoran", "legacy_agency_code": "RESTORAN", "position": 16 },
+    { "code": "bus", "name_tr": "Otobüs", "slug_tr": "otobus", "legacy_agency_code": "OTOBUS", "position": 17 }
+  ]
+}

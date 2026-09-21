@@ -1,0 +1,69 @@
+/* ==========================================================================
+   GLOBAL UTILITIES & BUTTON GEOMETRY REFINEMENTS
+   ========================================================================== */
+.hidden {
+  display: none !important;
+}
+
+/* Universal Anti-Stretch Button Rules */
+form button,
+form input[type="submit"],
+.quick form button,
+.sub-workspace-wrapper button {
+  width: auto;
+  max-width: fit-content;
+}
+
+.btn-compact {
+  height: 38px !important;
+  padding: 0 18px !important;
+  font-size: 13px !important;
+  font-weight: 650 !important;
+  border-radius: 9px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  width: auto !important;
+  max-width: fit-content !important;
+  white-space: nowrap !important;
+}
+
+.btn-icon {
+  font-size: 14px;
+}
+
+/* ==========================================================================
+   ACCESSIBILITY HELPERS
+   ========================================================================== */
+
+/* Ekran okuyucu için görünür, görsel olarak gizli metin */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Wizard adım sekmeleri: aktif adım halkası */
+.wizard-step-tab[aria-current="step"]:focus-visible {
+  outline: 3px solid var(--neon-emerald);
+  outline-offset: 2px;
+}
+
+/* Mod geçiş düğmeleri: basılı durumu vurgula */
+.btn-mode-tab[aria-pressed="true"]:focus-visible {
+  outline: 3px solid var(--neon-cyan);
+  outline-offset: 2px;
+}
+
+/* Kapatma düğmeleri gibi simge-butonlar: güçlü kontrast halka */
+button[aria-label]:focus-visible {
+  outline-offset: 3px;
+}
+

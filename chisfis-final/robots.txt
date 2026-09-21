@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Yayın sonrası aşağıdaki satırı gerçek alan adınızla güncelleyin:
+# Sitemap: https://sizin-alan-adiniz.com/sitemap.xml

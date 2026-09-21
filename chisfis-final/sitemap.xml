@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Chisfis statik site haritası.
+  ÖNEMLİ: https://REPLACE-ME.example adresini yayın yaptığınız gerçek alan adınızla
+  değiştirin (tüm <loc> satırları + alttaki yorumları arayıp değiştirebilirsiniz).
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://REPLACE-ME.example/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>https://REPLACE-ME.example/index.html</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>https://REPLACE-ME.example/stay-categories.html</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
+  <url><loc>https://REPLACE-ME.example/flight-categories.html</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
+  <url><loc>https://REPLACE-ME.example/flights.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://REPLACE-ME.example/car.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://REPLACE-ME.example/experiences.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://REPLACE-ME.example/new-york.html</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://REPLACE-ME.example/listing.html</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://REPLACE-ME.example/stay-map-london-uk.html</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://REPLACE-ME.example/stay-map-new-york-usa.html</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://REPLACE-ME.example/stay-map-tokyo-japan.html</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://REPLACE-ME.example/stay-map-paris-france.html</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://REPLACE-ME.example/stay-map-singapore.html</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://REPLACE-ME.example/stay-map-maldives.html</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://REPLACE-ME.example/stay-map-roma-italy.html</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://REPLACE-ME.example/authors.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://REPLACE-ME.example/author-truelock-alric.html</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://REPLACE-ME.example/author-birrell-chariot.html</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://REPLACE-ME.example/author-foulcher-nathanil.html</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://REPLACE-ME.example/author-falconar-agnes.html</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://REPLACE-ME.example/author-tousy-vita.html</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://REPLACE-ME.example/author-friar-donna.html</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://REPLACE-ME.example/author-royal-sergei.html</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://REPLACE-ME.example/author-sleite-claudetta.html</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://REPLACE-ME.example/author-pillifant-vern.html</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://REPLACE-ME.example/author-fones-mimi.html</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://REPLACE-ME.example/real-estate.html</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://REPLACE-ME.example/account.html</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
+</urlset>

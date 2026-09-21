@@ -1,0 +1,15 @@
+{
+  "name": "nexus-agency-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gerçek tarayıcı (Playwright) uçtan uca testleri: popover/çekmece animasyonları ve görünürlük sözleşmesi. Uygulamanın kendisi Gleam'dır; bu paket yalnızca tarayıcı testlerini barındırır.",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:anim": "playwright test e2e/animations.spec.js",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
+}

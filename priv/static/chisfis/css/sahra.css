@@ -1,0 +1,40 @@
+/* ==========================================================================
+   NEXUS × Chisfis — Sahra varyantı (sıcak amber)
+   Panel tarafındaki Aurora "Sahra" paletinin mağaza karşılığı.
+   Tailwind v4 utiliteleri var(--color-primary-*)'a referans verdiği için
+   yalnızca palette değişkenlerini ezmek tüm mağazayı (düğmeler, odak
+   halkaları, tarih seçici, slider, kategori pill'leri) amber'a çevirir.
+   Kullanım: <html class="sahra"> — main.js chisfis-theme=anahtarıyla yönetir.
+   ========================================================================== */
+
+/* Sahra aydınlık mod: sıcak amber primary basamakları.
+   Hem .sahra class (eski main.js) hem [data-theme="sahra"] (yeni unified sistem) desteklenir. */
+html.sahra,
+html[data-theme="sahra"] {
+  /* Şablonun indigo primary basamaklarının sıcak amber karşılıkları.
+     600/700 uçları beyaz metinle AA+ (WCAG) seçildi — panel --accent-solid
+     ile aynı değerler. */
+  --color-primary-50: #faf3e8;
+  --color-primary-100: #f5e7cd;
+  --color-primary-200: #eacd9d;
+  --color-primary-300: #dfae67;
+  --color-primary-500: #a16207; /* amber-600: 4.92:1 vs white (AA) */
+  --color-primary-600: #b45309; /* amber-700: 5.02:1 vs white (AA) */
+  --color-primary-700: #92400e; /* amber-800: 7.09:1 vs white (AAA) */
+  /* Sekonder teal de paletle uyumlu koyu basamaklara çekilir */
+  --color-secondary-500: #0d9488;
+  --color-secondary-600: #0f766e;
+  --color-secondary-700: #115e59;
+
+  /* shadcn alias katmanı (custom.css bileşenleri --primary kullanır) */
+  --primary: #b45309; /* amber-700: 5.02:1 vs white (AA) */
+  --primary-foreground: #fffbeb; /* cream on amber: 4.84:1 (AA) */
+  --ring: #a16207; /* focus ring: 4.92:1 vs white (AA) */
+}
+
+/* Sahra koyu mod: nötr gri primary (arka plan zaten koyu, beyaz metin yeterli kontrast) */
+html.sahra.dark,
+html[data-theme="sahra"].dark {
+  --primary: #e5e5e5;
+  --primary-foreground: #171717;
+}

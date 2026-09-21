@@ -1,0 +1,672 @@
+/* ==========================================================================
+   NEXUS AGENCY — DESIGN SYSTEM v3 "AURORA"
+   Üç palet: karanlık (Abyss, varsayılan) + aydınlık (Porcelain) + gece
+   (Midnight, mor-indigo) ve çöl (Sahra, sıcak amber). Tema anahtarı:
+   <html data-theme="dark|light|midnight|sahra">. Tema değişkenleri yalnızca
+   burada tanımlanır; diğer modüller var(--token) okur — palet değişimi tek
+   dosyadan, tüm panele yayılır.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,400&family=JetBrains+Mono:wght@500;600&display=swap');
+
+/* ==========================================================================
+   PALET 1 — ABYSS (karanlık, varsayılan)
+   Derin okyanus laciverti üzerine aurora vurgular: cyan, emerald, indigo.
+   ========================================================================== */
+:root,
+:root[data-theme='dark'] {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  /* Glass Surface Tokens */
+  --bg-space: #060a13;
+  --bg-glow-1: rgba(6, 182, 212, 0.09);
+  --bg-glow-2: rgba(16, 185, 129, 0.07);
+  --bg-glow-3: rgba(99, 102, 241, 0.07);
+  --bg-glow-4: rgba(168, 85, 247, 0.06);
+  --glass-base: rgba(13, 20, 36, 0.68);
+  --glass-card: rgba(17, 27, 47, 0.58);
+  --glass-card-hover: rgba(25, 37, 63, 0.74);
+  --glass-sidebar: rgba(8, 13, 24, 0.84);
+  --glass-topbar: rgba(10, 16, 30, 0.78);
+  --glass-input: rgba(7, 12, 24, 0.72);
+  --glass-modal: rgba(13, 21, 40, 0.9);
+
+  /* Glass Borders & Highlights */
+  --border-glass: rgba(148, 180, 230, 0.09);
+  --border-glass-light: rgba(148, 180, 230, 0.17);
+  --border-glass-focus: rgba(34, 211, 238, 0.5);
+  --glass-shine: inset 0 1px 0 0 rgba(190, 220, 255, 0.1);
+
+  /* Vibrant Accent Glows — aurora çekirdeği */
+  --neon-cyan: #22d3ee;
+  /* Solid accent yüzeyi: aktif sekme gibi dolgu zeminlerinde beyaz metin AA garantisi */
+  --accent-solid: #0e7490;
+  --neon-emerald: #34d399;
+  --neon-indigo: #818cf8;
+  --neon-amber: #fbbf24;
+  --neon-rose: #fb7185;
+  --neon-purple: #c084fc;
+
+  /* Text & Contrast */
+  --text-pure: #ffffff;
+  --text-main: #eef4fd;
+  --text-muted: #9fb2cc;
+  --text-dim: #7d92aa;
+  --text-soft: #c6d4e8;
+
+  /* Shadows & Depth */
+  --shadow-glass: 0 16px 40px -10px rgba(2, 6, 16, 0.65), 0 0 1px 1px rgba(190, 220, 255, 0.06);
+  --shadow-card: 0 10px 30px -5px rgba(2, 6, 16, 0.5);
+  --shadow-glow-cyan: 0 0 25px rgba(34, 211, 238, 0.28);
+  --shadow-glow-emerald: 0 0 25px rgba(52, 211, 153, 0.26);
+
+  /* ------------------------------------------------------------------
+     DESIGN SYSTEM — ölçekler. Yeni stiller bu değişkenleri kullanır;
+     ham px/rgba değerleri yalnızca token'a sığmayan özel durumlarda.
+     ------------------------------------------------------------------ */
+
+  /* Radius ölçeği */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-pill: 999px;
+
+  /* Spacing ölçeği (4px taban) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Tipografi ölçeği */
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12.5px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 26px;
+  --text-3xl: 32px;
+  --font-semibold: 650;
+  --font-bold: 750;
+  --font-extrabold: 800;
+  --tracking-caps: 0.16em;
+  --tracking-tight: -0.04em;
+  /* Heading uyumu: h1/h2 daha sıkı harf aralığı, display ağırlığı */
+  --heading-weight: 800;
+  --heading-tracking: -0.035em;
+
+  /* Hareket */
+  --ease-glass: cubic-bezier(0.4, 0, 0.2, 1);
+  --speed-fast: 0.15s;
+  --speed-base: 0.22s;
+  --speed-slow: 0.3s;
+
+  /* Vurgu renk tonları — neon'ların yumuşak/zemin formları */
+  --tint-cyan: rgba(34, 211, 238, 0.13);
+  --tint-cyan-strong: rgba(34, 211, 238, 0.22);
+  --tint-emerald: rgba(52, 211, 153, 0.13);
+  --tint-emerald-strong: rgba(52, 211, 153, 0.22);
+  --tint-amber: rgba(251, 191, 36, 0.14);
+  --tint-rose: rgba(251, 113, 133, 0.13);
+  --tint-rose-strong: rgba(251, 113, 133, 0.2);
+  --tint-purple: rgba(129, 140, 248, 0.14);
+  --tint-purple-strong: rgba(129, 140, 248, 0.22);
+  --tint-amber-strong: rgba(251, 191, 36, 0.22);
+  --tint-white: rgba(210, 230, 255, 0.05);
+  --tint-white-strong: rgba(210, 230, 255, 0.1);
+
+  /* Yüzey katmanları — koyu cam sayıları token'a bağla */
+  --overlay-heavy: rgba(8, 14, 26, 0.75);
+  --overlay-modal: rgba(15, 23, 42, 0.8);
+  --overlay-drawer: rgba(2, 6, 23, 0.62);
+  --panel-deep: #0f172a;
+  --panel-sunken: #111a2d;
+  --shadow-veil: rgba(0, 0, 0, 0.35);
+  --shadow-abyss: rgba(0, 0, 0, 0.6);
+
+  /* Beyaz-alfa çizgi/yüzey skalası (karanlık palet değerleri) */
+  --line-faint: rgba(255, 255, 255, 0.03);
+  --line-soft: rgba(255, 255, 255, 0.06);
+  --line-glass: rgba(255, 255, 255, 0.08);
+  --line-edge: rgba(255, 255, 255, 0.12);
+  --line-strong: rgba(255, 255, 255, 0.18);
+  --line-contrast: rgba(255, 255, 255, 0.25);
+  --fill-whisper: rgba(255, 255, 255, 0.04);
+  --fill-subtle: rgba(255, 255, 255, 0.05);
+  --fill-soft: rgba(255, 255, 255, 0.06);
+  --fill-lift: rgba(255, 255, 255, 0.07);
+  --fill-lifted: rgba(255, 255, 255, 0.09);
+  --fill-strong: rgba(255, 255, 255, 0.12);
+  --fill-intense: rgba(255, 255, 255, 0.14);
+
+  /* Marka + durum: palet uyumlu neon alt tonları */
+  --brand-whatsapp: #25d366;
+  --status-ok: #10b981;
+  --status-ok-glow: rgba(16, 185, 156, 0.45);
+  --status-ok-soft: #86efac;
+  --status-warn: #fcd34d;
+  --link-sky: #38bdf8;
+  --link-sky-deep: #0ea5e9;
+  --link-sky-dim: #0284c7;
+  --text-frost: #f8fafc;
+
+  /* Beyaz-alfa beyaz içerik: karşılığı palet başına değişir */
+  --on-tinted: color-mix(in srgb, #ffffff 86%, var(--neon-cyan));
+  --on-tinted-strong: color-mix(in srgb, #ffffff 92%, var(--neon-cyan));
+
+  /* Gradient/renkli zemin üstü metin, scrim ve form ipucu renkleri */
+  --on-accent: #ffffff;
+  --on-accent-soft: color-mix(in srgb, #ffffff 85%, var(--neon-cyan));
+  --scrim-dark: rgba(0, 0, 0, 0.75);
+  --scrim-veil: rgba(0, 0, 0, 0.4);
+  --scrim-glass: rgba(0, 0, 0, 0.3);
+  --placeholder: rgba(148, 163, 184, 0.45);
+
+  /* Odak halkası — tek kaynak */
+  --focus-ring: 2px solid var(--neon-cyan);
+  --focus-ring-offset: 2px;
+}
+
+/* ==========================================================================
+   PALET 2 — PORCELAIN (aydınlık)
+   Buzlu beyaz cam; metin koyu mürekkep, vurgular bir tık koyu.
+   ========================================================================== */
+:root[data-theme='light'] {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  --bg-space: #eef2f8;
+  --bg-glow-1: rgba(8, 145, 178, 0.08);
+  --bg-glow-2: rgba(5, 150, 105, 0.07);
+  --bg-glow-3: rgba(79, 70, 229, 0.05);
+  --bg-glow-4: rgba(147, 51, 234, 0.04);
+  --glass-base: rgba(255, 255, 255, 0.84);
+  --glass-card: rgba(255, 255, 255, 0.76);
+  --glass-card-hover: rgba(255, 255, 255, 0.94);
+  --glass-sidebar: rgba(255, 255, 255, 0.88);
+  --glass-topbar: rgba(255, 255, 255, 0.82);
+  --glass-input: rgba(255, 255, 255, 0.88);
+  --glass-modal: rgba(255, 255, 255, 0.97);
+
+  --border-glass: rgba(15, 23, 42, 0.09);
+  --border-glass-light: rgba(15, 23, 42, 0.15);
+  /* 0.55 alpha → input bg üstünde 2.09:1 düşüktü; tam opak 3.62:1 ile AA */
+  --border-glass-focus: rgba(8, 145, 178, 1);
+  --glass-shine: inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+
+  /* Vurgular açık zeminde bir tık koyu (kontrast için) */
+  --neon-cyan: #0e7490;
+  --neon-emerald: #047857;
+  --neon-indigo: #4f46e5;
+  --neon-amber: #92400e;
+  --neon-rose: #be123c;
+  --neon-purple: #7e22ce;
+
+  --text-pure: #0f172a;
+  --text-main: #1c2839;
+  --text-muted: #5b6b82;
+  /* #62748c: beyaz cam üstünde 4.78:1 — AA (önceki #8496ad 3.0:1 idi) */
+  --text-dim: #62748c;
+  --text-soft: #3f4f66;
+
+  --shadow-glass: 0 16px 40px -14px rgba(15, 23, 42, 0.16), 0 0 1px 1px rgba(15, 23, 42, 0.04);
+  --shadow-card: 0 10px 30px -8px rgba(15, 23, 42, 0.13);
+  --shadow-glow-cyan: 0 0 25px rgba(14, 116, 144, 0.18);
+  --shadow-glow-emerald: 0 0 25px rgba(4, 120, 87, 0.18);
+
+  --tint-cyan: rgba(14, 116, 144, 0.06);
+  --tint-cyan-strong: rgba(14, 116, 144, 0.07);
+  --tint-emerald: rgba(4, 120, 87, 0.06);
+  --tint-emerald-strong: rgba(4, 120, 87, 0.08);
+  --tint-amber: rgba(180, 83, 9, 0.08);
+  --tint-rose: rgba(190, 18, 60, 0.06);
+  --tint-rose-strong: rgba(190, 18, 60, 0.12);
+  --tint-purple: rgba(79, 70, 229, 0.06);
+  --tint-purple-strong: rgba(79, 70, 229, 0.12);
+  --tint-amber-strong: rgba(180, 83, 9, 0.12);
+  --tint-white: rgba(15, 23, 42, 0.04);
+  --tint-white-strong: rgba(15, 23, 42, 0.08);
+
+  /* Yüzey katmanları — ışık paletinde buzlu beyaz karşılıklar */
+  --overlay-heavy: rgba(15, 23, 42, 0.55);
+  --overlay-modal: rgba(255, 255, 255, 0.92);
+  --overlay-drawer: rgba(15, 23, 42, 0.35);
+  --panel-deep: #ffffff;
+  --panel-sunken: #f1f5f9;
+  --shadow-veil: rgba(15, 23, 42, 0.18);
+  --shadow-abyss: rgba(15, 23, 42, 0.3);
+
+  /* Beyaz-alfa çizgi/yüzey skalası — koyu mürekkep karşılıkları */
+  --line-faint: rgba(15, 23, 42, 0.04);
+  --line-soft: rgba(15, 23, 42, 0.06);
+  --line-glass: rgba(15, 23, 42, 0.08);
+  --line-edge: rgba(15, 23, 42, 0.12);
+  --line-strong: rgba(15, 23, 42, 0.18);
+  --line-contrast: rgba(15, 23, 42, 0.25);
+  --fill-whisper: rgba(15, 23, 42, 0.03);
+  --fill-subtle: rgba(15, 23, 42, 0.04);
+  --fill-soft: rgba(15, 23, 42, 0.05);
+  --fill-lift: rgba(15, 23, 42, 0.06);
+  --fill-lifted: rgba(15, 23, 42, 0.08);
+  --fill-strong: rgba(15, 23, 42, 0.1);
+  --fill-intense: rgba(15, 23, 42, 0.12);
+
+  /* Marka + durum: ışık paletinde koyu okunur tonlar */
+  --brand-whatsapp: #1eb85a;
+  /* Emerald ucu gradient düğmelerde beyaz metinle 5.4:1 — WCAG AA (eski #059669 → 3.66) */
+  --status-ok: #047857;
+  --status-ok-glow: rgba(5, 150, 105, 0.35);
+  --status-ok-soft: #047857;
+  --status-warn: #b45309;
+  /* Sky-700: code-badge/btn-mode-tab.active zeminlerinde beyaz dışı metinle ≥ 4.5:1 (eski #0284c7 → 4.34) */
+  --link-sky: #075985;
+  /* Solid accent yüzeyi: aktif sekme gibi dolgu zeminlerinde beyaz metin AA garantisi */
+  --accent-solid: #075985;
+  --link-sky-deep: #0369a1;
+  --link-sky-dim: #075985;
+  --text-frost: #0f172a;
+
+  /* Beyaz-alfa beyaz içerik: ışıkta koyu mürekkep */
+  --on-tinted: color-mix(in srgb, #0f172a 88%, var(--neon-cyan));
+  --on-tinted-strong: color-mix(in srgb, #0f172a 92%, var(--neon-cyan));
+
+  /* Gradient/renkli zemin üstü metin, scrim ve form ipucu renkleri */
+  --on-accent: #ffffff;
+  --on-accent-soft: color-mix(in srgb, #ffffff 82%, var(--neon-cyan));
+  --scrim-dark: rgba(15, 23, 42, 0.45);
+  --scrim-veil: rgba(15, 23, 42, 0.28);
+  --scrim-glass: rgba(15, 23, 42, 0.22);
+  --placeholder: rgba(15, 23, 42, 0.4);
+
+  --focus-ring: 2px solid var(--neon-cyan);
+}
+
+/* ==========================================================================
+   PALET 3 — MIDNIGHT (gece, mor-indigo)
+   Aurora'nın mor kanadı: derin indigo zemin, menekşe/lavanta vurgular.
+   ========================================================================== */
+:root[data-theme='midnight'] {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  --bg-space: #0c0a1a;
+  --bg-glow-1: rgba(129, 140, 248, 0.10);
+  --bg-glow-2: rgba(192, 132, 252, 0.08);
+  --bg-glow-3: rgba(244, 114, 182, 0.05);
+  --bg-glow-4: rgba(56, 189, 248, 0.05);
+  --glass-base: rgba(23, 20, 45, 0.68);
+  --glass-card: rgba(29, 25, 58, 0.6);
+  --glass-card-hover: rgba(40, 34, 80, 0.76);
+  --glass-sidebar: rgba(16, 13, 33, 0.85);
+  --glass-topbar: rgba(19, 16, 40, 0.78);
+  --glass-input: rgba(15, 12, 32, 0.72);
+  --glass-modal: rgba(24, 20, 50, 0.9);
+
+  --border-glass: rgba(190, 180, 255, 0.1);
+  --border-glass-light: rgba(190, 180, 255, 0.18);
+  /* 0.55 alpha → input bg üstünde 2.91:1 düşüktü; 0.65 ile 3.22:1 AA */
+  --border-glass-focus: rgba(167, 139, 250, 0.65);
+  --glass-shine: inset 0 1px 0 0 rgba(220, 210, 255, 0.12);
+
+  /* Vurgular: menekşe/lavanta çekirdek, cyan yardımcı */
+  --neon-cyan: #a78bfa;
+  /* Solid accent yüzeyi: aktif sekme gibi dolgu zeminlerinde beyaz metin AA garantisi */
+  --accent-solid: #6d28d9;
+  --neon-emerald: #6ee7b7;
+  --neon-indigo: #818cf8;
+  --neon-amber: #fcd34d;
+  --neon-rose: #fda4af;
+  --neon-purple: #d8b4fe;
+
+  --text-pure: #ffffff;
+  --text-main: #f2f0ff;
+  --text-muted: #afa5ce;
+  --text-dim: #8677ad;
+  --text-soft: #d5cdf2;
+
+  --shadow-glass: 0 16px 40px -10px rgba(4, 2, 14, 0.65), 0 0 1px 1px rgba(220, 210, 255, 0.07);
+  --shadow-card: 0 10px 30px -5px rgba(4, 2, 14, 0.5);
+  --shadow-glow-cyan: 0 0 25px rgba(167, 139, 250, 0.3);
+  --shadow-glow-emerald: 0 0 25px rgba(110, 231, 183, 0.22);
+
+  --tint-cyan: rgba(167, 139, 250, 0.13);
+  --tint-cyan-strong: rgba(167, 139, 250, 0.22);
+  --tint-emerald: rgba(110, 231, 183, 0.12);
+  --tint-emerald-strong: rgba(110, 231, 183, 0.22);
+  --tint-amber: rgba(252, 211, 77, 0.13);
+  --tint-rose: rgba(253, 164, 175, 0.13);
+  --tint-rose-strong: rgba(253, 164, 175, 0.22);
+  --tint-purple: rgba(129, 140, 248, 0.14);
+  --tint-purple-strong: rgba(129, 140, 248, 0.22);
+  --tint-amber-strong: rgba(252, 211, 77, 0.22);
+  --tint-white: rgba(225, 215, 255, 0.05);
+  --tint-white-strong: rgba(225, 215, 255, 0.1);
+
+  /* Yüzey katmanları — gece paleti derin mor katmanlar */
+  --overlay-heavy: rgba(7, 5, 18, 0.75);
+  --overlay-modal: rgba(17, 14, 38, 0.85);
+  --overlay-drawer: rgba(5, 3, 14, 0.6);
+  --panel-deep: #1a1633;
+  --panel-sunken: #221d42;
+  --shadow-veil: rgba(0, 0, 0, 0.35);
+  --shadow-abyss: rgba(0, 0, 0, 0.6);
+
+  /* Beyaz-alfa çizgi/yüzey skalası (gece değerleri) */
+  --line-faint: rgba(235, 230, 255, 0.03);
+  --line-soft: rgba(235, 230, 255, 0.06);
+  --line-glass: rgba(235, 230, 255, 0.08);
+  --line-edge: rgba(235, 230, 255, 0.12);
+  --line-strong: rgba(235, 230, 255, 0.18);
+  --line-contrast: rgba(235, 230, 255, 0.25);
+  --fill-whisper: rgba(235, 230, 255, 0.04);
+  --fill-subtle: rgba(235, 230, 255, 0.05);
+  --fill-soft: rgba(235, 230, 255, 0.06);
+  --fill-lift: rgba(235, 230, 255, 0.07);
+  --fill-lifted: rgba(235, 230, 255, 0.09);
+  --fill-strong: rgba(235, 230, 255, 0.12);
+  --fill-intense: rgba(235, 230, 255, 0.14);
+
+  /* Marka + durum: lavanta uyumlu tonlar */
+  --brand-whatsapp: #25d366;
+  --status-ok: #10b981;
+  --status-ok-glow: rgba(16, 185, 156, 0.45);
+  --status-ok-soft: #6ee7b7;
+  --status-warn: #fcd34d;
+  --link-sky: #7dd3fc;
+  --link-sky-deep: #38bdf8;
+  --link-sky-dim: #0ea5e9;
+  --text-frost: #f5f3ff;
+
+  /* Beyaz-alfa beyaz içerik: karşılığı palet başına değişir */
+  --on-tinted: color-mix(in srgb, #ffffff 86%, var(--neon-purple));
+  --on-tinted-strong: color-mix(in srgb, #ffffff 92%, var(--neon-purple));
+
+  /* Gradient/renkli zemin üstü metin, scrim ve form ipucu renkleri */
+  --on-accent: #ffffff;
+  --on-accent-soft: color-mix(in srgb, #ffffff 85%, var(--neon-purple));
+  --scrim-dark: rgba(0, 0, 0, 0.75);
+  --scrim-veil: rgba(0, 0, 0, 0.4);
+  --scrim-glass: rgba(0, 0, 0, 0.3);
+  --placeholder: rgba(148, 163, 184, 0.45);
+
+  --focus-ring: 2px solid var(--neon-cyan);
+}
+
+/* ==========================================================================
+   PALET 4 — SAHRA (çöl amberi)
+   Sıcak umber/kavrulmuş kahve zemin, amber ana vurgu, turkuaz vaha ikincili.
+   ========================================================================== */
+
+/* ==========================================================================
+   PALET 4 — SAHRA (çöl amberi)
+   Sıcak umber/kavrulmuş kahve zemin, amber ana vurgu, turkuaz vaha ikincili.
+   ========================================================================== */
+:root[data-theme='sahra'] {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  --bg-space: #170f08;
+  --bg-glow-1: rgba(217, 119, 6, 0.1);
+  --bg-glow-2: rgba(45, 212, 191, 0.06);
+  --bg-glow-3: rgba(251, 146, 60, 0.07);
+  --bg-glow-4: rgba(250, 204, 21, 0.05);
+  --glass-base: rgba(43, 29, 17, 0.68);
+  --glass-card: rgba(52, 36, 21, 0.6);
+  --glass-card-hover: rgba(70, 49, 29, 0.76);
+  --glass-sidebar: rgba(30, 20, 12, 0.85);
+  --glass-topbar: rgba(35, 24, 14, 0.78);
+  --glass-input: rgba(29, 19, 11, 0.72);
+  --glass-modal: rgba(46, 32, 19, 0.9);
+
+  --border-glass: rgba(255, 214, 165, 0.1);
+  --border-glass-light: rgba(255, 214, 165, 0.18);
+  --border-glass-focus: rgba(245, 158, 11, 0.55);
+  --glass-shine: inset 0 1px 0 0 rgba(255, 236, 205, 0.12);
+
+  --neon-cyan: #f59e0b;
+  /* Solid accent yüzeyi: aktif sekme gibi dolgu zeminlerinde beyaz metin AA garantisi */
+  --accent-solid: #b45309;
+  --neon-emerald: #2dd4bf;
+  --neon-indigo: #fb923c;
+  --neon-amber: #fbbf24;
+  --neon-rose: #fb7185;
+  --neon-purple: #f472b6;
+
+  --text-pure: #fff8ee;
+  --text-main: #fdf0dc;
+  --text-muted: #c9a882;
+  --text-dim: #a68a67;
+  --text-soft: #e3c9a4;
+
+  --shadow-glass: 0 16px 40px -10px rgba(10, 5, 1, 0.65), 0 0 1px 1px rgba(255, 236, 205, 0.07);
+  --shadow-card: 0 10px 30px -5px rgba(10, 5, 1, 0.5);
+  --shadow-glow-cyan: 0 0 25px rgba(245, 158, 11, 0.3);
+  --shadow-glow-emerald: 0 0 25px rgba(45, 212, 191, 0.22);
+
+  --tint-cyan: rgba(245, 158, 11, 0.13);
+  --tint-cyan-strong: rgba(245, 158, 11, 0.22);
+  --tint-emerald: rgba(45, 212, 191, 0.12);
+  --tint-emerald-strong: rgba(45, 212, 191, 0.22);
+  --tint-amber: rgba(251, 191, 36, 0.14);
+  --tint-rose: rgba(251, 113, 133, 0.13);
+  --tint-rose-strong: rgba(251, 113, 133, 0.2);
+  --tint-purple: rgba(244, 114, 182, 0.14);
+  --tint-purple-strong: rgba(244, 114, 182, 0.22);
+  --tint-amber-strong: rgba(251, 191, 36, 0.22);
+  --tint-white: rgba(255, 236, 205, 0.05);
+  --tint-white-strong: rgba(255, 236, 205, 0.1);
+
+  --overlay-heavy: rgba(16, 10, 4, 0.78);
+  --overlay-modal: rgba(26, 17, 9, 0.85);
+  --overlay-drawer: rgba(12, 7, 3, 0.6);
+  --panel-deep: #2a1c10;
+  --panel-sunken: #33220f;
+  --shadow-veil: rgba(0, 0, 0, 0.38);
+  --shadow-abyss: rgba(0, 0, 0, 0.62);
+
+  --line-faint: rgba(255, 236, 205, 0.03);
+  --line-soft: rgba(255, 236, 205, 0.06);
+  --line-glass: rgba(255, 236, 205, 0.08);
+  --line-edge: rgba(255, 236, 205, 0.12);
+  --line-strong: rgba(255, 236, 205, 0.18);
+  --line-contrast: rgba(255, 236, 205, 0.25);
+  --fill-whisper: rgba(255, 236, 205, 0.04);
+  --fill-subtle: rgba(255, 236, 205, 0.05);
+  --fill-soft: rgba(255, 236, 205, 0.06);
+  --fill-lift: rgba(255, 236, 205, 0.07);
+  --fill-lifted: rgba(255, 236, 205, 0.09);
+  --fill-strong: rgba(255, 236, 205, 0.12);
+  --fill-intense: rgba(255, 236, 205, 0.14);
+
+  --brand-whatsapp: #25d366;
+  --status-ok: #14b8a6;
+  --status-ok-glow: rgba(20, 184, 166, 0.45);
+  --status-ok-soft: #5eead4;
+  --status-warn: #fcd34d;
+  --link-sky: #fbbf24;
+  --link-sky-deep: #f59e0b;
+  --link-sky-dim: #d97706;
+  --text-frost: #fff8ee;
+
+  --on-tinted: color-mix(in srgb, #fff8ee 86%, var(--neon-cyan));
+  --on-tinted-strong: color-mix(in srgb, #fff8ee 92%, var(--neon-cyan));
+
+  --on-accent: #ffffff;
+  --on-accent-soft: color-mix(in srgb, #ffffff 85%, var(--neon-cyan));
+  --scrim-dark: rgba(0, 0, 0, 0.75);
+  --scrim-veil: rgba(0, 0, 0, 0.4);
+  --scrim-glass: rgba(0, 0, 0, 0.3);
+  --placeholder: rgba(205, 175, 135, 0.45);
+
+  --focus-ring: 2px solid var(--neon-cyan);
+}
+
+/* Geçiş: tema değişince yüzeyler yumuşakça uyar (transform/opacity hariç) */
+html.theme-transition body,
+html.theme-transition .sidebar,
+html.theme-transition .panel-topbar,
+html.theme-transition .metric,
+html.theme-transition .quick {
+  transition:
+    background-color var(--speed-slow) var(--ease-glass),
+    border-color var(--speed-slow) var(--ease-glass),
+    color var(--speed-slow) var(--ease-glass);
+}
+
+/* ==========================================================================
+   TÜRENMİŞ TOKENLAR — her palet kendi değerlerini bildirir
+   ========================================================================== */
+:root,
+:root[data-theme='dark'] {
+  --shadow-ambient: rgba(0, 0, 0, 0.5);
+  --welcome-gradient: linear-gradient(135deg, rgba(15, 24, 44, 0.88), rgba(6, 60, 74, 0.72));
+
+  /* SERP canlı önizleme: Google arama sonucu taklidi — palet dışı sabit */
+  --serp-surface: #ffffff;
+  --serp-ink: #202124;
+  --serp-muted: #5f6368;
+  --serp-body: #4d5156;
+  --serp-link: #1a0dab;
+  --serp-title: #0369a1;
+  --serp-title-hover: #075985;
+  --input-fill: rgba(7, 12, 24, 0.45);
+  --table-shadow: 0 16px 36px rgba(2, 6, 16, 0.5);
+  --card-shadow-hover: 0 20px 40px rgba(2, 6, 16, 0.55);
+  /* Gradient uçları beyaz metinle AA+ olacak şekilde seçildi (en zayıf uç ≥5:1) */
+  --gradient-primary: linear-gradient(135deg, #0e7490 0%, #1d4ed8 100%);
+  --gradient-success: linear-gradient(135deg, #047857 0%, #065f46 100%);
+}
+
+:root[data-theme='light'] {
+  --shadow-ambient: rgba(15, 23, 42, 0.16);
+  --welcome-gradient: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(224, 245, 250, 0.86));
+
+  /* SERP canlı önizleme: ışık paletinde de beyaz kart korunur */
+  --serp-surface: #ffffff;
+  --serp-ink: #202124;
+  --serp-muted: #5f6368;
+  --serp-body: #4d5156;
+  --serp-link: #1a0dab;
+  --serp-title: #0369a1;
+  --serp-title-hover: #075985;
+  --input-fill: rgba(255, 255, 255, 0.92);
+  --table-shadow: 0 16px 36px rgba(15, 23, 42, 0.12);
+  --card-shadow-hover: 0 20px 40px rgba(15, 23, 42, 0.16);
+  --gradient-primary: linear-gradient(135deg, #0e7490 0%, #1d4ed8 100%);
+  --gradient-success: linear-gradient(135deg, #047857 0%, #065f46 100%);
+}
+
+:root[data-theme='midnight'] {
+  --shadow-ambient: rgba(4, 2, 14, 0.55);
+  --welcome-gradient: linear-gradient(135deg, rgba(34, 27, 74, 0.9), rgba(70, 32, 104, 0.62));
+
+  /* SERP canlı önizleme: Google arama sonucu taklidi — palet dışı sabit */
+  --serp-surface: #ffffff;
+  --serp-ink: #202124;
+  --serp-muted: #5f6368;
+  --serp-body: #4d5156;
+  --serp-link: #1a0dab;
+  --serp-title: #0369a1;
+  --serp-title-hover: #075985;
+  --input-fill: rgba(15, 12, 32, 0.5);
+  --table-shadow: 0 16px 36px rgba(4, 2, 14, 0.55);
+  --card-shadow-hover: 0 20px 40px rgba(4, 2, 14, 0.6);
+  --gradient-primary: linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%);
+  --gradient-success: linear-gradient(135deg, #115e59 0%, #134e4a 100%);
+}
+
+:root[data-theme='sahra'] {
+  --shadow-ambient: rgba(10, 5, 1, 0.55);
+  --welcome-gradient: linear-gradient(135deg, rgba(58, 38, 18, 0.92), rgba(120, 63, 10, 0.68));
+
+  --serp-surface: #ffffff;
+  --serp-ink: #202124;
+  --serp-muted: #5f6368;
+  --serp-body: #4d5156;
+  --serp-link: #1a0dab;
+  --serp-title: #0369a1;
+  --serp-title-hover: #075985;
+  --input-fill: rgba(29, 19, 11, 0.5);
+  --table-shadow: 0 16px 36px rgba(10, 5, 1, 0.55);
+  --card-shadow-hover: 0 20px 40px rgba(10, 5, 1, 0.6);
+  --gradient-primary: linear-gradient(135deg, #8a3f07 0%, #9a3209 100%);
+  --gradient-success: linear-gradient(135deg, #115e59 0%, #134e4a 100%);
+}
+
+/* ==========================================================================
+   TİPOGRAFİ v3 — başlıklar display uyumuyla (ağırlık + sıkı harf aralığı)
+   ========================================================================== */
+h1,
+h2,
+h3 {
+  font-weight: var(--heading-weight);
+  letter-spacing: var(--heading-tracking);
+}
+
+code,
+kbd,
+pre,
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* ==========================================================================
+   VIEW TRANSITIONS — Tema geçiş crossfade animasyonu
+   ==========================================================================
+   document.startViewTransition() çağrıldığında tarayıcı eski/yeni durumun
+   snapshot'larını alır ve ::view-transition-old / ::view-transition-new
+   pseudo-element'lerini canlandırır. Tema değişiminde tüm sayfa boyunca
+   yumuşak bir crossfade (dissolve) efekti uygulanır.
+
+   Desteklemeyen tarayıcılarda JS tarafında fallback çalışır (anında geçiş).
+   ========================================================================== */
+
+/* Tema geçişinin hedefi: <html> element'i */
+html {
+  view-transition-name: theme-transition;
+}
+
+/* Eski durum snapshot'ı: sadece opacity ile solar */
+::view-transition-old(theme-transition) {
+  animation: theme-fade-out 0.3s ease-out forwards;
+}
+
+/* Yeni durum snapshot'ı: sadece opacity ile belirir */
+::view-transition-new(theme-transition) {
+  animation: theme-fade-in 0.3s ease-in forwards;
+}
+
+@keyframes theme-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes theme-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Tema geçişinde backdrop/overlay'leri devre dışı bırak —
+   yalnızca renk değişimi crossfade olsun, layout kayması olmasın */
+::view-transition-group(theme-transition) {
+  animation-duration: 0.3s;
+}
+
+/* prefers-reduced-motion: animasyon hassasiyeti olan kullanıcılar için anında geçiş */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(theme-transition),
+  ::view-transition-new(theme-transition) {
+    animation-duration: 0s;
+  }
+}

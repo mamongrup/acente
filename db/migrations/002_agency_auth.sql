@@ -1,0 +1,34 @@
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE TABLE IF NOT EXISTS auth.sessions (
+  token_digest text PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES agency.users(id) ON DELETE CASCADE,
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS auth_sessions_expiry_idx ON auth.sessions(expires_at);
+DROP FUNCTION IF EXISTS auth.login(text,text,text);
+CREATE OR REPLACE FUNCTION auth.login(p_email text,p_password text,p_token text)
+RETURNS TABLE(tenant_id text,user_id text,display_name text,membership_type text)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public,agency,auth AS $$
+DECLARE u agency.users%ROWTYPE;
+BEGIN
+ SELECT * INTO u FROM agency.users WHERE lower(email)=lower(trim(p_email)) AND active FOR UPDATE;
+ IF NOT FOUND OR u.password_hash IS NULL OR crypt(p_password,u.password_hash) <> u.password_hash THEN RETURN; END IF;
+ INSERT INTO auth.sessions(token_digest,user_id,expires_at) VALUES(encode(digest(p_token,'sha256'),'hex'),u.id,now()+interval '8 hours')
+ ON CONFLICT(token_digest) DO UPDATE SET expires_at=excluded.expires_at,user_id=excluded.user_id;
+ RETURN QUERY SELECT u.tenant_id::text,u.id::text,u.display_name,u.membership_type;
+END $$;
+CREATE OR REPLACE FUNCTION auth.session(p_token text)
+RETURNS TABLE(tenant_id text,user_id text,display_name text,membership_type text)
+LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog,public,agency,auth AS $$
+ SELECT u.tenant_id::text,u.id::text,u.display_name,u.membership_type
+ FROM auth.sessions s JOIN agency.users u ON u.id=s.user_id
+ WHERE s.token_digest=encode(digest(p_token,'sha256'),'hex') AND s.expires_at>now() AND u.active;
+$$;
+CREATE OR REPLACE FUNCTION auth.logout(p_token text) RETURNS void
+LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog,public,agency,auth AS $$
+ DELETE FROM auth.sessions WHERE token_digest=encode(digest(p_token,'sha256'),'hex');
+$$;
+GRANT USAGE ON SCHEMA auth,agency TO agency_app;
+GRANT SELECT,INSERT,UPDATE,DELETE ON auth.sessions TO agency_app;
+GRANT EXECUTE ON FUNCTION auth.login(text,text,text),auth.session(text),auth.logout(text) TO agency_app;

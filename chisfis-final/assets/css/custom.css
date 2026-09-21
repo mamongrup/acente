@@ -1,0 +1,742 @@
+/* Chisfis static — helper styles for vanilla-JS interactivity */
+
+/* panels that JS opens/closes get a smooth fade/slide like the original */
+[data-state="open"].transition,
+.absolute.transition {
+  transition: opacity .15s ease, transform .15s ease;
+}
+
+/* mobile menu */
+.mobile-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: none;
+}
+.mobile-menu[data-state="open"] {
+  display: block;
+}
+.mobile-menu__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, .45);
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+.mobile-menu[data-state="open"] .mobile-menu__backdrop {
+  opacity: 1;
+}
+.mobile-menu__panel {
+  position: absolute;
+  top: 0;
+  inset-inline-end: 0;
+  height: 100%;
+  width: min(26rem, 92vw);
+  background: #fff;
+  padding: 1.25rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .18);
+  transform: translateX(100%);
+  transition: transform .25s ease;
+}
+/* flex çocuklar içeriği kısalmasın — panel kaydırılır */
+.mobile-menu__panel > * {
+  flex-shrink: 0;
+}
+html[dir="rtl"] .mobile-menu__panel {
+  transform: none;
+}
+.mobile-menu[data-state="open"] .mobile-menu__panel {
+  transform: translateX(0);
+}
+.dark .mobile-menu__panel {
+  background: var(--color-neutral-900, #171717);
+}
+/* --- üst satır: logo + kapat --- */
+.mm-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+.mm-logo svg,
+.mm-logo img {
+  height: 44px;
+  width: auto;
+  max-width: 180px;
+  object-fit: contain;
+}
+/* klonlanan logoda açık/koyu varyant çakışmasını engelle */
+.mm-logo .dark\:hidden { display: block !important; }
+.dark .mm-logo .dark\:hidden { display: none !important; }
+.mm-logo .dark\:block { display: none !important; }
+.dark .mm-logo .dark\:block { display: block !important; }
+.mm-logo .light\:hidden,
+.mm-logo .light\:block { display: none !important; }
+.mobile-menu__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  border: 1px solid var(--color-neutral-200, #e5e5e5);
+  background: #fff;
+  cursor: pointer;
+  color: var(--color-neutral-700, #404040);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  flex-shrink: 0;
+}
+.mobile-menu__close svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.dark .mobile-menu__close {
+  background: var(--color-neutral-800, #262626);
+  border-color: var(--color-neutral-700, #404040);
+  color: var(--color-neutral-100, #f5f5f5);
+}
+.mobile-menu__brand {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-primary-600, #e61e4d);
+  margin: 0;
+}
+.mobile-menu__theme {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin: 0 .25rem .5rem;
+  padding: .5rem .75rem;
+  border-radius: .5rem;
+  font-size: .875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--color-neutral-200, #e5e5e5);
+  background: transparent;
+  color: var(--color-neutral-800, #262626);
+}
+.dark .mobile-menu__theme {
+  border-color: var(--color-neutral-700, #404040);
+  color: var(--color-neutral-100, #f5f5f5);
+}
+.mobile-menu__theme:hover {
+  background: var(--color-neutral-100, #f5f5f5);
+}
+.dark .mobile-menu__theme:hover {
+  background: var(--color-neutral-800, #262626);
+}
+
+/* --- ikinci satır: telefon, whatsapp, globe/kod, bildirim, hesap --- */
+.mm-actions {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+}
+.mm-flex {
+  flex: 1;
+}
+.mm-ico {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  border: 1px solid var(--color-neutral-200, #e5e5e5);
+  background: #fff;
+  color: var(--color-neutral-700, #404040);
+  cursor: pointer;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.mm-ico svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.mm-ico--wa {
+  background: #22c55e;
+  border-color: #22c55e;
+  color: #fff;
+}
+.mm-dot {
+  position: absolute;
+  top: .5rem;
+  right: .625rem;
+  width: .5rem;
+  height: .5rem;
+  border-radius: 9999px;
+  background: #e61e4d;
+}
+.dark .mm-ico {
+  background: var(--color-neutral-800, #262626);
+  border-color: var(--color-neutral-700, #404040);
+  color: var(--color-neutral-100, #f5f5f5);
+}
+.dark .mm-ico--wa {
+  background: #22c55e;
+  border-color: #22c55e;
+  color: #fff;
+}
+.mm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  height: 2.75rem;
+  padding: 0 .75rem;
+  border-radius: 9999px;
+  border: 1px solid var(--color-neutral-200, #e5e5e5);
+  background: #fff;
+  color: var(--color-neutral-700, #404040);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.mm-pill svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.mm-pill .mm-sep {
+  width: 1px;
+  height: 1.25rem;
+  background: var(--color-neutral-200, #e5e5e5);
+}
+.dark .mm-pill {
+  background: var(--color-neutral-800, #262626);
+  border-color: var(--color-neutral-700, #404040);
+  color: var(--color-neutral-100, #f5f5f5);
+}
+
+/* --- arama kutusu --- */
+.mm-search {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  padding: .75rem 1rem;
+  border-radius: .75rem;
+  border: 1px solid var(--color-neutral-200, #e5e5e5);
+  background: var(--color-neutral-50, #fafafa);
+  color: var(--color-neutral-400, #a3a3a3);
+}
+.mm-search svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+.mm-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-size: .875rem;
+  color: var(--color-neutral-800, #262626);
+  outline: none;
+}
+.dark .mm-search {
+  background: var(--color-neutral-800, #262626);
+  border-color: var(--color-neutral-700, #404040);
+}
+.dark .mm-search input {
+  color: var(--color-neutral-100, #f5f5f5);
+}
+
+/* --- kategori etiketi --- */
+.mm-cats-label {
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500, #737373);
+  margin: .25rem 0 0;
+}
+
+/* --- accordion kategoriler --- */
+.mm-acc {
+  border: 1px solid var(--color-neutral-200, #e5e5e5);
+  border-radius: 1rem;
+  background: #fff;
+  overflow: hidden;
+}
+.dark .mm-acc {
+  background: var(--color-neutral-800, #262626);
+  border-color: var(--color-neutral-700, #404040);
+}
+.mm-acc-head {
+  display: flex;
+  align-items: center;
+  gap: .875rem;
+  width: 100%;
+  padding: 1rem 1.125rem;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: start;
+  font-size: .9375rem;
+  font-weight: 600;
+  color: var(--color-neutral-900, #171717);
+}
+.dark .mm-acc-head {
+  color: var(--color-neutral-100, #f5f5f5);
+}
+.mm-acc-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: .75rem;
+  background: #eef2ff;
+  color: #4f46e5;
+  flex-shrink: 0;
+}
+.mm-acc-ico svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.mm-acc-chev {
+  display: inline-flex;
+  margin-inline-start: auto;
+  color: var(--color-neutral-400, #a3a3a3);
+  transition: transform .2s ease;
+}
+.mm-acc-chev svg {
+  width: 1rem;
+  height: 1rem;
+}
+.mm-acc[data-open="1"] .mm-acc-chev {
+  transform: rotate(180deg);
+}
+.mm-acc-body {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height .3s ease;
+}
+.mm-acc[data-open="1"] .mm-acc-body {
+  max-height: 320px;
+}
+.mm-acc-inner {
+  min-height: 0;
+}
+.mm-acc-inner > a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .75rem 1.125rem;
+  margin-inline-start: 2.25rem;
+  border-top: 1px solid var(--color-neutral-100, #f5f5f5);
+  font-size: .875rem;
+  font-weight: 500;
+  color: var(--color-neutral-700, #404040);
+  text-decoration: none;
+}
+.dark .mm-acc-inner > a {
+  border-top-color: var(--color-neutral-700, #404040);
+  color: var(--color-neutral-300, #d4d4d4);
+}
+.mm-acc-inner > a svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--color-neutral-400, #a3a3a3);
+  flex-shrink: 0;
+}
+.mm-acc-inner > a:hover {
+  background: var(--color-neutral-50, #fafafa);
+  color: var(--color-primary-600, #e61e4d);
+}
+.dark .mm-acc-inner > a:hover {
+  background: var(--color-neutral-700, #404040);
+}
+
+/* --- doğrudan link (araba, uçuşlar) --- */
+.mm-direct {
+  display: flex;
+  align-items: center;
+  gap: .875rem;
+  padding: .875rem 1.125rem;
+  border: 1px solid var(--color-neutral-200, #e5e5e5);
+  border-radius: 1rem;
+  background: #fff;
+  font-size: .9375rem;
+  font-weight: 600;
+  color: var(--color-neutral-900, #171717);
+  text-decoration: none;
+}
+.dark .mm-direct {
+  background: var(--color-neutral-800, #262626);
+  border-color: var(--color-neutral-700, #404040);
+  color: var(--color-neutral-100, #f5f5f5);
+}
+.mm-direct .mm-dir-arrow {
+  width: 1rem;
+  height: 1rem;
+  margin-inline-start: auto;
+  color: var(--color-neutral-400, #a3a3a3);
+}
+
+/* --- alt: tema + dil --- */
+.mm-foot {
+  display: flex;
+  gap: .625rem;
+  margin-top: auto;
+  padding-top: .75rem;
+}
+.mm-foot-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  padding: .625rem .75rem;
+  border-radius: .75rem;
+  border: 1px solid var(--color-neutral-200, #e5e5e5);
+  background: transparent;
+  font-size: .8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--color-neutral-700, #404040);
+}
+.dark .mm-foot-btn {
+  border-color: var(--color-neutral-700, #404040);
+  color: var(--color-neutral-100, #f5f5f5);
+}
+.mm-foot-btn:hover {
+  background: var(--color-neutral-100, #f5f5f5);
+}
+.dark .mm-foot-btn:hover {
+  background: var(--color-neutral-800, #262626);
+}
+.mobile-menu__panel > a:not(.mobile-menu__brand) {
+  display: block;
+  padding: .625rem .75rem;
+  border-radius: .5rem;
+  font-size: .875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  letter-spacing: .025em;
+  text-transform: uppercase;
+  color: var(--color-neutral-900, #171717);
+}
+.dark .mobile-menu__panel > a:not(.mobile-menu__brand) {
+  color: var(--color-neutral-100, #f5f5f5);
+}
+.mobile-menu__panel > a:not(.mobile-menu__brand):hover {
+  background: var(--color-neutral-100, #f5f5f5);
+}
+.dark .mobile-menu__panel > a:not(.mobile-menu__brand):hover {
+  background: var(--color-neutral-800, #262626);
+}
+
+/* ================================================================
+   HOVER EFFECTS & ANIMATIONS
+   ================================================================ */
+
+/* --- 1. Listing kartları: hover scale + gölge --- */
+.group/cardGallerySlider,
+.group/cardGallerySlider > div {
+  transition: transform .3s cubic-bezier(.4,0,.2,1), box-shadow .3s ease;
+}
+.group/cardGallerySlider:hover {
+  transform: translateY(-4px);
+  z-index: 10;
+}
+.group/cardGallerySlider:hover > div {
+  box-shadow: 0 20px 40px rgba(0,0,0,.12), 0 8px 16px rgba(0,0,0,.08);
+}
+.dark .group/cardGallerySlider:hover > div {
+  box-shadow: 0 20px 40px rgba(0,0,0,.35), 0 8px 16px rgba(0,0,0,.25);
+}
+
+/* --- 2. Kart görselleri: hover zoom --- */
+.group/cardGallerySlider img {
+  transition: transform .5s cubic-bezier(.4,0,.2,1);
+}
+.group/cardGallerySlider:hover img {
+  transform: scale(1.06);
+}
+
+/* --- 3. Favori kalp butonu: pulse --- */
+.group/cardGallerySlider .flex.cursor-pointer.rounded-full {
+  transition: transform .2s ease, background .2s ease;
+}
+.group/cardGallerySlider:hover .flex.cursor-pointer.rounded-full {
+  transform: scale(1.1);
+}
+.group/cardGallerySlider .flex.cursor-pointer.rounded-full:active {
+  transform: scale(0.9);
+}
+
+/* --- 4. Yazar kartları: hover lift --- */
+.card-author-box {
+  transition: transform .3s cubic-bezier(.4,0,.2,1), box-shadow .3s ease, border-color .3s ease;
+}
+.card-author-box:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 28px rgba(0,0,0,.1);
+}
+.dark .card-author-box:hover {
+  box-shadow: 0 12px 28px rgba(0,0,0,.3);
+}
+
+/* --- 5. Tab butonları: sliding indicator --- */
+[role="tab"] {
+  position: relative;
+  transition: color .2s ease;
+}
+[role="tab"][data-selected]::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+  animation: tabSlide .25s ease;
+}
+@keyframes tabSlide {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* --- 6. Şehir kartları (explore nearby): hover --- */
+.grid > a[href].group {
+  transition: transform .3s ease, box-shadow .3s ease;
+}
+.grid > a[href].group:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.1);
+}
+
+/* --- 7. Sayfa açılış fade-in animasyonu --- */
+main > div {
+  animation: fadeInUp .5s ease both;
+}
+main > div:nth-child(2) { animation-delay: .05s; }
+main > div:nth-child(3) { animation-delay: .1s; }
+main > div:nth-child(4) { animation-delay: .15s; }
+main > div:nth-child(5) { animation-delay: .2s; }
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- 8. Buton hover pulse --- */
+a.inline-flex.shrink-0:hover,
+button.inline-flex.shrink-0:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+a.inline-flex.shrink-0:active,
+button.inline-flex.shrink-0:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* --- 9. Galeri ok butonları: fade in on hover --- */
+.group\/cardGallerySlider > div > div[class*="opacity-0"] {
+  transition: opacity .3s ease;
+}
+.group\/cardGallerySlider:hover > div > div[class*="opacity-0"] {
+  opacity: 1 !important;
+}
+
+/* --- 10. Dropdown panel: slide + fade --- */
+.hidden-scrollbar.max-h-96 {
+  transition: opacity .15s ease, transform .15s ease;
+}
+
+/* --- 11. Badge (-20% OFF): bounce --- */
+.absolute.start-3.top-3 {
+  animation: badgeBounce .4s ease .3s both;
+}
+@keyframes badgeBounce {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* --- 12. Yıldız puanı: glow on hover --- */
+.text-orange-400,
+.text-amber-500 {
+  transition: filter .2s ease;
+}
+.group\/cardGallerySlider:hover .text-orange-400,
+.card-author-box:hover .text-amber-500 {
+  filter: drop-shadow(0 0 4px rgba(251,191,36,.5));
+}
+
+/* --- 13. Mobil alt bar: her zaman görünür --- */
+.fixed.inset-x-0.bottom-0 {
+  transform: none !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* --- 14. Real Estate kartları: hover lift + gölge --- */
+a.group.block.overflow-hidden {
+  transition: transform .3s cubic-bezier(.4,0,.2,1), box-shadow .3s ease;
+}
+a.group.block.overflow-hidden:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 32px rgba(0,0,0,.12);
+}
+.dark a.group.block.overflow-hidden:hover {
+  box-shadow: 0 16px 32px rgba(0,0,0,.3);
+}
+a.group.block.overflow-hidden img {
+  transition: transform .5s cubic-bezier(.4,0,.2,1);
+}
+a.group.block.overflow-hidden:hover img {
+  transform: scale(1.05);
+}
+
+/* --- 14. Account kartları: hover lift + border --- */
+a.flex.items-center.gap-4.rounded-2xl {
+  transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+}
+a.flex.items-center.gap-4.rounded-2xl:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0,0,0,.08);
+}
+.dark a.flex.items-center.gap-4.rounded-2xl:hover {
+  box-shadow: 0 8px 20px rgba(0,0,0,.25);
+}
+
+/* --- 15. Tüm link kartları: ortak scale efekti --- */
+a[class*="rounded-2xl"]:hover {
+  transform: translateY(-4px);
+}
+a[class*="rounded-2xl"] img {
+  transition: transform .4s ease;
+}
+a[class*="rounded-2xl"]:hover img {
+  transform: scale(1.04);
+}
+
+/* --- 16. Mobil alt bar: yükseltilmiş orta buton (sepet) --- */
+.bnav-fab {
+  position: relative;
+  top: -2rem;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 9999px;
+  background: #7c3aed;
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(124, 58, 237, .45);
+  transition: transform .2s ease, background-color .2s ease, box-shadow .2s ease;
+}
+.bnav-fab:hover {
+  background: #6d28d9;
+  box-shadow: 0 12px 28px rgba(124, 58, 237, .55);
+}
+.bnav-fab:active {
+  transform: scale(.94);
+}
+
+/* --- 17. Mobilde sağdaki yüzen butonlar gizlenir (artık alt barda) --- */
+@media (max-width: 1023px) {
+  #search-fab-wrap,
+  #cart-fab-wrap {
+    display: none !important;
+  }
+}
+
+/* --- 18. Mobil üst bar (logo + arama + hamburger) --- */
+.mh-logo {
+  flex: none;
+  display: inline-block;
+  width: 4.5rem;
+  margin-right: .625rem;
+  line-height: 0;
+}
+.mh-logo svg {
+  width: 100%;
+  height: auto;
+}
+.mh-search {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.mh-menu-btn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-left: .625rem;
+  border-radius: 9999px;
+  color: #404040;
+  background: #f5f5f5;
+  cursor: pointer;
+  transition: background-color .2s ease, transform .15s ease;
+}
+.mh-menu-btn:hover {
+  background: #e5e5e5;
+}
+.mh-menu-btn:active {
+  transform: scale(.94);
+}
+.dark .mh-menu-btn {
+  color: #e5e5e5;
+  background: #262626;
+}
+.dark .mh-menu-btn:hover {
+  background: #404040;
+}
+.mh-menu-btn svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+/* --- 19. Alt bar yerleşimi --- */
+.bnav-bar {
+  align-items: flex-end;
+  overflow: visible;
+}
+.bnav-inner {
+  display: flex;
+  width: 100%;
+  max-width: 32rem;
+  margin-inline: auto;
+  align-items: flex-end;
+  justify-content: space-between;
+  text-align: center;
+}
+.bnav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .125rem;
+  width: 3.75rem;
+  color: inherit;
+}
+.bnav-item svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+.bnav-item p {
+  font-size: .75rem;
+  line-height: 1.5;
+}
+.bnav-fab svg {
+  width: 1.75rem;
+  height: 1.75rem;
+}

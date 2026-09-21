@@ -1,0 +1,233 @@
+{
+  "contract_name": "nexus.supplier_listing",
+  "contract_version": "1.1.0",
+  "description": "Acente ve Nexustraveltech projelerinde tedarikçi olma, tedarikçi paneli, ilan ekleme ve kategori öznitelikleri için ortak sözleşme.",
+  "supplier_onboarding": {
+    "required_identity_fields": [
+      "supplier_type",
+      "legal_name",
+      "display_name",
+      "tax_country",
+      "tax_office",
+      "tax_number",
+      "authorized_person_name",
+      "authorized_person_email",
+      "authorized_person_phone"
+    ],
+    "required_business_fields": [
+      "business_category_codes",
+      "service_regions",
+      "default_currency",
+      "invoice_address",
+      "support_email",
+      "support_phone"
+    ],
+    "required_documents": [
+      "tax_certificate",
+      "authorized_signature",
+      "trade_registry_or_chamber_record",
+      "service_license_if_required",
+      "bank_account_verification"
+    ],
+    "approval_statuses": [
+      "draft",
+      "submitted",
+      "in_review",
+      "approved",
+      "rejected",
+      "suspended"
+    ]
+  },
+  "supplier_panel_modules": [
+    "dashboard",
+    "company_profile",
+    "documents",
+    "catalog",
+    "availability",
+    "pricing",
+    "reservations",
+    "offers",
+    "customers",
+    "messages",
+    "tasks",
+    "staff",
+    "accounting",
+    "payments",
+    "reports",
+    "integrations",
+    "settings"
+  ],
+  "supplier_panel_module_details": {
+    "dashboard": {
+      "family": "operations",
+      "label_tr": "Genel Bakış",
+      "scope": ["daily_summary", "alerts", "performance_kpis", "pending_actions"],
+      "permissions": ["supplier.dashboard.view"]
+    },
+    "company_profile": {
+      "family": "governance",
+      "label_tr": "Şirket Profili",
+      "scope": ["legal_profile", "tax_profile", "contact_profile", "bank_profile", "service_regions"],
+      "permissions": ["supplier.company.view", "supplier.company.manage"]
+    },
+    "documents": {
+      "family": "governance",
+      "label_tr": "Belgeler",
+      "scope": ["required_documents", "expiry_tracking", "renewal_requests", "approval_history"],
+      "permissions": ["supplier.documents.view", "supplier.documents.manage"]
+    },
+    "catalog": {
+      "family": "inventory",
+      "label_tr": "Katalog",
+      "scope": ["listings", "media", "category_contract_fields", "publication_state", "quality_score"],
+      "permissions": ["supplier.catalog.view", "supplier.catalog.manage", "supplier.catalog.submit_review"]
+    },
+    "availability": {
+      "family": "inventory",
+      "label_tr": "Müsaitlik",
+      "scope": ["calendar", "stock", "capacity", "blackout_dates", "ical_connections"],
+      "permissions": ["supplier.availability.view", "supplier.availability.manage"]
+    },
+    "pricing": {
+      "family": "commercial",
+      "label_tr": "Fiyatlandırma",
+      "scope": ["base_rates", "season_rates", "commission_rules", "discounts", "price_parity"],
+      "permissions": ["supplier.pricing.view", "supplier.pricing.manage"]
+    },
+    "reservations": {
+      "family": "operations",
+      "label_tr": "Rezervasyonlar",
+      "scope": ["requests", "options", "confirmations", "cancellations", "checkin_checkout"],
+      "permissions": ["supplier.reservations.view", "supplier.reservations.manage"]
+    },
+    "offers": {
+      "family": "commercial",
+      "label_tr": "Teklifler",
+      "scope": ["quotes", "corporate_offers", "packages", "approval_flow"],
+      "permissions": ["supplier.offers.view", "supplier.offers.manage"]
+    },
+    "customers": {
+      "family": "crm",
+      "label_tr": "Müşteriler",
+      "scope": ["guest_profiles", "agency_customers", "preferences", "history"],
+      "permissions": ["supplier.customers.view", "supplier.customers.manage"]
+    },
+    "messages": {
+      "family": "crm",
+      "label_tr": "Mesajlar",
+      "scope": ["customer_messages", "agency_messages", "internal_notes", "templates"],
+      "permissions": ["supplier.messages.view", "supplier.messages.manage"]
+    },
+    "tasks": {
+      "family": "operations",
+      "label_tr": "İş Takibi",
+      "scope": ["tasks", "checklists", "maintenance_jobs", "operation_followups"],
+      "permissions": ["supplier.tasks.view", "supplier.tasks.manage"]
+    },
+    "staff": {
+      "family": "hr",
+      "label_tr": "Personel",
+      "scope": ["users", "roles", "shifts", "departments", "attendance"],
+      "permissions": ["supplier.staff.view", "supplier.staff.manage"]
+    },
+    "accounting": {
+      "family": "finance",
+      "label_tr": "Muhasebe",
+      "scope": ["current_accounts", "invoices", "ledger", "tax_reports", "cash_desk"],
+      "permissions": ["supplier.accounting.view", "supplier.accounting.manage"]
+    },
+    "payments": {
+      "family": "finance",
+      "label_tr": "Ödemeler",
+      "scope": ["collections", "refunds", "deposits", "payouts", "reconciliation"],
+      "permissions": ["supplier.payments.view", "supplier.payments.manage"]
+    },
+    "reports": {
+      "family": "analytics",
+      "label_tr": "Raporlar",
+      "scope": ["sales_reports", "operation_reports", "finance_reports", "supplier_scorecards"],
+      "permissions": ["supplier.reports.view"]
+    },
+    "integrations": {
+      "family": "integration",
+      "label_tr": "Entegrasyonlar",
+      "scope": ["channel_manager", "pms", "accounting_integrations", "payment_gateways", "webhooks"],
+      "permissions": ["supplier.integrations.view", "supplier.integrations.manage"]
+    },
+    "settings": {
+      "family": "governance",
+      "label_tr": "Ayarlar",
+      "scope": ["panel_preferences", "notification_rules", "workflow_rules", "security_settings"],
+      "permissions": ["supplier.settings.view", "supplier.settings.manage"]
+    }
+  },
+  "listing_common": {
+    "required_fields": [
+      "category_code",
+      "title",
+      "short_description",
+      "description",
+      "region",
+      "locality",
+      "currency",
+      "base_price_minor",
+      "price_unit",
+      "availability_mode",
+      "contact_policy",
+      "cancellation_policy",
+      "images"
+    ],
+    "recommended_fields": [
+      "seo_title",
+      "seo_description",
+      "map_lat",
+      "map_lng",
+      "languages",
+      "included_services",
+      "excluded_services",
+      "terms"
+    ],
+    "statuses": [
+      "draft",
+      "pending_review",
+      "published",
+      "paused",
+      "archived"
+    ]
+  },
+  "category_attributes": {
+    "hotel": ["property_type", "room_types", "board_type", "check_in_time", "check_out_time", "amenities", "star_rating"],
+    "holiday_home": ["property_type", "bedroom_count", "bathroom_count", "guest_capacity", "pool_type", "kitchen", "season_rules"],
+    "yacht": ["yacht_type", "capacity", "cabin_count", "departure_port", "route", "captain_included", "fuel_policy"],
+    "tour": ["tour_type", "duration", "start_point", "end_point", "guide_languages", "group_size_min", "group_size_max"],
+    "activity": ["activity_type", "duration", "difficulty", "age_limit", "equipment_included", "meeting_point"],
+    "flight": ["airline_or_provider", "route_from", "route_to", "fare_class", "baggage_policy", "ticket_rules"],
+    "car": ["vehicle_type", "brand_model", "transmission", "fuel_type", "seat_count", "pickup_locations", "deposit_policy"],
+    "cruise": ["ship_or_provider", "route", "departure_port", "cabin_types", "duration", "board_type"],
+    "pilgrimage": ["package_type", "departure_city", "duration", "hotel_class", "visa_included", "guidance_included"],
+    "visa": ["destination_country", "visa_type", "processing_time", "required_documents", "appointment_required"],
+    "ferry": ["route_from", "route_to", "operator", "schedule", "vehicle_allowed", "ticket_rules"],
+    "transfer": ["transfer_type", "pickup_location", "dropoff_location", "vehicle_type", "capacity", "waiting_policy"],
+    "beach": ["beach_name", "access_type", "seat_type", "capacity", "food_beverage_policy", "time_slot"],
+    "cinema": ["venue", "movie_or_program", "session_time", "seat_type", "ticket_rules"],
+    "event": ["event_type", "venue", "start_datetime", "end_datetime", "ticket_type", "age_limit"],
+    "restaurant": ["cuisine_type", "venue", "reservation_type", "capacity", "menu_options", "service_hours"],
+    "bus": ["operator", "route_from", "route_to", "seat_type", "baggage_policy", "ticket_rules"]
+  },
+  "field_definitions": {
+    "holiday_home.property_type": {
+      "label_tr": "Tatil evi türü",
+      "type": "select",
+      "required": true,
+      "options": ["Villa", "Apart", "Bungalov", "Daire", "Residence"],
+      "rule": "Villa, apart, bungalov, daire ve residence bağımsız ana kategori değildir; holiday_home ana kategorisinin property_type alt türüdür."
+    },
+    "yacht.yacht_type": {
+      "label_tr": "Yat / tekne türü",
+      "type": "select",
+      "required": true,
+      "options": ["Gulet", "Motoryat", "Yelkenli", "Katamaran", "Tekne"],
+      "rule": "Gulet, motoryat, yelkenli, katamaran ve tekne bağımsız ana kategori değildir; yacht ana kategorisinin yacht_type alt türüdür."
+    }
+  }
+}
