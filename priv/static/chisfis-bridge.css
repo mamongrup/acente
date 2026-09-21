@@ -5581,3 +5581,90 @@ html.dark .category-detail-page .detail-empty-reviews { border-color: #404040; }
   .category-detail-page .detail-amenities .category-feature-strip { grid-template-columns: 1fr 1fr; }
   .detail-calendar-preview { grid-template-columns: 1fr; }
 }
+
+/* ==========================================================================
+   ASAMA 3 - Vitrin UX / Kategori Filtre & Mobil Drawer / WCAG AA
+   ========================================================================== */
+
+/* Kategori hero arama formu */
+.category-search { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; background: #fff; border-radius: 20px; padding: 14px 18px; box-shadow: 0 4px 24px rgba(0,0,0,.10); }
+html.dark .category-search { background: #1e1e2e; }
+.category-search label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px; }
+.category-search label > span { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #64748b; }
+.category-search input { border: none; background: transparent; font-size: 15px; font-weight: 500; color: #0f172a; padding: 6px 0; outline: none; }
+html.dark .category-search input { color: #f1f5f9; }
+.category-search button[type="submit"] { display: flex; align-items: center; justify-content: center; flex: 0 0 52px; height: 52px; border-radius: 14px; background: #4f46e5; border: none; cursor: pointer; transition: background .15s; align-self: flex-end; color: #fff; font-size: 22px; }
+.category-search button[type="submit"]:hover { background: #4338ca; }
+.category-search button[type="submit"]:focus-visible { outline: 3px solid #818cf8; outline-offset: 2px; }
+@media (max-width: 640px) { .category-search { flex-direction: column; padding: 16px; gap: 12px; } .category-search label { flex: 1 1 100%; } .category-search button[type="submit"] { width: 100%; height: 48px; border-radius: 12px; } }
+
+/* Yonetilebilir filtre gruplari */
+.category-managed-filters { margin: 36px 0 16px; animation: catFilterFadeIn .35s ease both; }
+@keyframes catFilterFadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.category-filter-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; margin-top: 24px; }
+.category-filter-group { border: 1px solid #e2e8f0; border-radius: 18px; padding: 22px 20px 18px; background: #fff; transition: box-shadow .2s, border-color .2s; }
+.category-filter-group:hover { box-shadow: 0 4px 16px rgba(79,70,229,.08); border-color: #a5b4fc; }
+html.dark .category-filter-group { background: #1e1e2e; border-color: #334155; }
+.category-filter-group h3 { font-size: 14px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #475569; margin: 0 0 14px; }
+html.dark .category-filter-group h3 { color: #94a3b8; }
+.category-filter-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.category-filter-chips a { display: inline-flex; align-items: center; padding: 7px 14px; border-radius: 999px; border: 1.5px solid #e2e8f0; font-size: 13px; font-weight: 500; color: #334155; text-decoration: none; transition: background .15s, border-color .15s, color .15s, transform .1s; min-height: 36px; }
+.category-filter-chips a:hover { background: #eef2ff; border-color: #818cf8; color: #4338ca; transform: translateY(-1px); }
+.category-filter-chips a:focus-visible { outline: 3px solid #818cf8; outline-offset: 2px; }
+html.dark .category-filter-chips a { border-color: #475569; color: #cbd5e1; }
+html.dark .category-filter-chips a:hover { background: #312e81; border-color: #818cf8; color: #e0e7ff; }
+
+/* Mobil Filtre Dugmesi - bottom FAB */
+.mobile-filter-fab { display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 200; gap: 8px; align-items: center; padding: 13px 28px; border-radius: 999px; background: #4f46e5; color: #fff; font-size: 14px; font-weight: 600; border: none; cursor: pointer; box-shadow: 0 8px 32px rgba(79,70,229,.35); transition: background .15s, transform .1s; white-space: nowrap; }
+.mobile-filter-fab:hover { background: #4338ca; }
+.mobile-filter-fab:focus-visible { outline: 3px solid #a5b4fc; outline-offset: 3px; }
+.mobile-filter-fab:active { transform: translateX(-50%) scale(.97); }
+@media (max-width: 768px) { .mobile-filter-fab { display: flex; } }
+
+/* Mobil Filtre Drawer - Bottom Sheet */
+.mobile-filter-drawer-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.48); z-index: 300; backdrop-filter: blur(2px); opacity: 0; transition: opacity .25s; }
+.mobile-filter-drawer-backdrop.is-open { display: block; opacity: 1; }
+.mobile-filter-drawer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 301; background: #fff; border-radius: 24px 24px 0 0; padding: 0 0 env(safe-area-inset-bottom, 16px); box-shadow: 0 -8px 48px rgba(0,0,0,.18); max-height: 88dvh; overflow-y: auto; overscroll-behavior: contain; transform: translateY(100%); transition: transform .3s cubic-bezier(.32,1,.64,1); }
+html.dark .mobile-filter-drawer { background: #1e1e2e; }
+.mobile-filter-drawer.is-open { transform: translateY(0); }
+.mobile-filter-drawer-handle { display: flex; justify-content: center; padding: 14px 0 8px; cursor: grab; }
+.mobile-filter-drawer-handle::before { content: ''; width: 40px; height: 4px; border-radius: 2px; background: #cbd5e1; }
+.mobile-filter-drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 0 20px 16px; border-bottom: 1px solid #f1f5f9; }
+.mobile-filter-drawer-header h2 { font-size: 17px; font-weight: 700; margin: 0; }
+html.dark .mobile-filter-drawer-header { border-color: #334155; }
+.mobile-filter-drawer-close { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; border: none; background: #f1f5f9; cursor: pointer; font-size: 18px; color: #475569; transition: background .15s; }
+.mobile-filter-drawer-close:hover { background: #e2e8f0; }
+.mobile-filter-drawer-close:focus-visible { outline: 3px solid #818cf8; outline-offset: 2px; }
+html.dark .mobile-filter-drawer-close { background: #334155; color: #94a3b8; }
+.mobile-filter-drawer-body { padding: 16px 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+.mobile-filter-drawer-body .category-filter-group { border-radius: 14px; }
+
+/* Kategori directory kartlari */
+.category-directory { margin: 40px 0; }
+.category-directory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-top: 20px; }
+.category-directory-card { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border: 1.5px solid #e2e8f0; border-radius: 16px; text-decoration: none; color: #334155; font-size: 14px; font-weight: 500; transition: border-color .15s, background .15s, box-shadow .15s, transform .1s; background: #fff; min-height: 44px; }
+.category-directory-card:hover { border-color: #818cf8; background: #eef2ff; box-shadow: 0 4px 16px rgba(79,70,229,.10); transform: translateY(-2px); }
+.category-directory-card.is-active { border-color: #6366f1; background: #eef2ff; color: #4338ca; font-weight: 700; }
+.category-directory-card:focus-visible { outline: 3px solid #818cf8; outline-offset: 2px; }
+html.dark .category-directory-card { background: #1e1e2e; border-color: #334155; color: #cbd5e1; }
+html.dark .category-directory-card:hover { background: #312e81; border-color: #818cf8; color: #e0e7ff; }
+html.dark .category-directory-card.is-active { background: #312e81; border-color: #818cf8; color: #c7d2fe; }
+.category-directory-card strong { display: block; font-size: 14px; }
+.category-directory-card small { display: block; font-size: 11px; font-weight: 400; color: #64748b; letter-spacing: .05em; text-transform: uppercase; }
+
+/* Kategori pill mobil scroll iyilestirme */
+@media (max-width: 768px) { .product-category-pills { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; } .product-category-pills::-webkit-scrollbar { display: none; } .product-category-pills a { scroll-snap-align: start; flex: 0 0 auto; min-height: 44px; display: flex; align-items: center; } }
+
+/* WCAG AA renk kontrastÄ± */
+.muted { color: #475569 !important; }
+html.dark .muted { color: #94a3b8 !important; }
+.product-category-pills a { color: #475569; }
+.product-category-pills a:hover, .product-category-pills a.active { color: #4338ca; background: #eef2ff; border-color: #818cf8; }
+.product-category-pills a:focus-visible { outline: 3px solid #818cf8; outline-offset: 2px; }
+
+/* Skip-to-content (WCAG 2.4.1) */
+.skip-to-content { position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+.skip-to-content:focus { position: fixed; top: 8px; left: 8px; width: auto; height: auto; padding: 10px 20px; background: #4f46e5; color: #fff; font-weight: 700; border-radius: 8px; z-index: 9999; text-decoration: none; outline: none; }
+
+/* Filtreler mobilde gizlenir, drawer uzerinden gosterilir */
+@media (max-width: 768px) { .category-managed-filters { display: none; } .category-managed-filters.drawer-visible { display: block; } }
