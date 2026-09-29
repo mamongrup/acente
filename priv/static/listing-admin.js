@@ -277,6 +277,16 @@
       });
       tdActions.appendChild(editBtn);
 
+      var shareBtn = document.createElement('a');
+      shareBtn.className = 'btn-table-action btn-share-listing';
+      shareBtn.href = '/admin/ai?listing_id=' + encodeURIComponent(listing.id) + '#social-compose-form';
+      shareBtn.innerHTML = '📱 AI Paylaş';
+      shareBtn.title = 'AI ile Sosyal Medya Gönderisi Üret ve Paylaş';
+      shareBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+      });
+      tdActions.appendChild(shareBtn);
+
       var deleteBtn = document.createElement('button');
       deleteBtn.className = 'btn-table-action btn-delete-listing';
       deleteBtn.type = 'button';

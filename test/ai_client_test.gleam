@@ -175,3 +175,121 @@ pub fn listing_translation_fallback_is_valid_json_test() {
 fn lang_decoder() {
   decode.dict(decode.string, decode.string)
 }
+
+pub fn social_post_falls_back_without_api_key_test() {
+  let assert Ok(insta) =
+    ai_client.generate_social_post(
+      cfg(),
+      "instagram",
+      "villa",
+      "Villa Manzara",
+      "Sonsuzluk havuzlu",
+      "tr",
+      "luxury",
+    )
+  string.contains(insta, "Villa Manzara") |> should.be_true
+  string.contains(insta, "#tatil") |> should.be_true
+
+  let assert Ok(threads) =
+    ai_client.generate_social_post(
+      cfg(),
+      "threads",
+      "hotel",
+      "Otel Nirvana",
+      "Plaja sıfır",
+      "tr",
+      "catchy",
+    )
+  string.contains(threads, "Otel Nirvana") |> should.be_true
+}
+
+pub fn campaign_offer_falls_back_without_api_key_test() {
+  let assert Ok(offer) =
+    ai_client.generate_campaign_offer(
+      cfg(),
+      "Erken Rezervasyon",
+      "email",
+      "%25 İndirim",
+      "Aileler",
+      "tr",
+    )
+  string.contains(offer, "Erken Rezervasyon") |> should.be_true
+  string.contains(offer, "%25 İndirim") |> should.be_true
+}
+
+pub fn concierge_query_falls_back_without_api_key_test() {
+  let assert Ok(res) =
+    ai_client.parse_concierge_query(cfg(), "Fethiye'de çocuklu aile için korunaklı villa")
+  string.contains(res, "holiday_home") |> should.be_true
+  string.contains(res, "Fethiye") |> should.be_true
+}
+
+pub fn extract_listing_specs_falls_back_without_api_key_test() {
+  let assert Ok(res) =
+    ai_client.extract_listing_specs(cfg(), "hotel", "Kaş Butik Otel\nOda kahvaltı, denize sıfır")
+  string.contains(res, "Kaş Butik Otel") |> should.be_true
+  string.contains(res, "hotel") |> should.be_true
+}
+
+pub fn inquiry_reply_falls_back_without_api_key_test() {
+  let assert Ok(reply) =
+    ai_client.generate_inquiry_reply(
+      cfg(),
+      "Ahmet Yılmaz",
+      "Giriş saati esnetilebilir mi?",
+      "Villa Güneş",
+      "holiday_home",
+      "Giriş: 16:00, Çıkış: 10:00",
+    )
+  string.contains(reply, "Ahmet Yılmaz") |> should.be_true
+  string.contains(reply, "Villa Güneş") |> should.be_true
+}
+
+pub fn destination_guide_falls_back_without_api_key_test() {
+  let assert Ok(html) =
+    ai_client.generate_destination_guide(cfg(), "Kaş", "holiday_home", "tr")
+  string.contains(html, "Kaş") |> should.be_true
+  string.contains(html, "<h2>") |> should.be_true
+}
+
+pub fn optimize_pricing_falls_back_without_api_key_test() {
+  let assert Ok(json_str) =
+    ai_client.optimize_pricing(cfg(), "holiday_home", "Bodrum", 10000, "TRY", "high", 85)
+  string.contains(json_str, "base_price_suggested") |> should.be_true
+  string.contains(json_str, "weekend_price_suggested") |> should.be_true
+  string.contains(json_str, "Bodrum") |> should.be_true
+}
+
+pub fn review_sentiment_falls_back_without_api_key_test() {
+  let assert Ok(json_str) =
+    ai_client.analyze_review_sentiment(cfg(), 5, "Harika bir tatildi!", "Villa Doğa")
+  string.contains(json_str, "positive") |> should.be_true
+  string.contains(json_str, "suggested_reply_standard") |> should.be_true
+  string.contains(json_str, "Villa Doğa") |> should.be_true
+}
+
+pub fn bundle_cross_sell_falls_back_without_api_key_test() {
+  let assert Ok(json_str) =
+    ai_client.generate_bundle_cross_sell(cfg(), "Fethiye", "holiday_home", "Balayı", 2)
+  string.contains(json_str, "bundle_title") |> should.be_true
+  string.contains(json_str, "items") |> should.be_true
+  string.contains(json_str, "transfer") |> should.be_true
+}
+
+pub fn support_copilot_falls_back_without_api_key_test() {
+  let assert Ok(json_str) =
+    ai_client.generate_support_copilot_reply(
+      cfg(),
+      "Zeynep Hanım",
+      "Giriş saatini öğrenebilir miyim?",
+      "Kaş Manzara Otel",
+      "hotel",
+      "Kaş",
+      "whatsapp",
+    )
+  string.contains(json_str, "reply_text") |> should.be_true
+  string.contains(json_str, "Zeynep Hanım") |> should.be_true
+  string.contains(json_str, "Kaş Manzara Otel") |> should.be_true
+}
+
+

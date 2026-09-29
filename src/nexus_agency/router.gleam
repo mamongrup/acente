@@ -38,6 +38,7 @@ import gleam/result
 import gleam/string
 import gleam/time/timestamp
 import gleam/uri
+import nexus_agency/ai_client
 import nexus_agency/auth
 import nexus_agency/csrf
 import nexus_agency/i18n
@@ -151,6 +152,10 @@ fn handle_application_request(
       too_many_requests()
     }
     False ->
+      // Self-service listing wizard (public storefront)
+      case ilan_ver_request(req) {
+        True -> handle_ilan_ver(req, db)
+        False ->
       case rates_api_request(req) {
         True -> handle_rates_api(db)
         False ->
@@ -285,6 +290,7 @@ fn handle_application_request(
               }
           }
       }
+      }
   }
 }
 
@@ -293,6 +299,10 @@ fn public_rate_limited(req: wisp.Request) -> Bool {
   case req.method, http_request.path_segments(req) {
     http.Post, ["iletisim"] ->
       rate_limited("public:inquiry:" <> client, 5, 600_000.0)
+
+    // Self-service listing submission: 3 per hour per IP
+    http.Post, ["api", "public", "listing-submit"] ->
+      rate_limited("public:listing_submit:" <> client, 3, 3_600_000.0)
 
     http.Post, ["api", "public", "checkout", "start"] ->
       rate_limited("public:checkout_order:" <> client, 8, 600_000.0)
@@ -352,6 +362,14 @@ fn ai_health_request(req: wisp.Request) -> Bool {
     http.Get, ["admin", "ai", "campaign-runs"] -> True
     http.Get, ["admin", "ai", "quality-cases"] -> True
     http.Post, ["admin", "ai", "quality-cases", "output"] -> True
+    http.Post, ["admin", "ai", "social-generate"] -> True
+    http.Post, ["admin", "ai", "extract-listing-fields"] -> True
+    http.Post, ["admin", "ai", "inquiry-reply"] -> True
+    http.Post, ["admin", "ai", "generate-blog"] -> True
+    http.Post, ["admin", "ai", "optimize-pricing"] -> True
+    http.Post, ["admin", "ai", "review-sentiment"] -> True
+    http.Post, ["admin", "ai", "bundle-cross-sell"] -> True
+    http.Post, ["admin", "ai", "support-copilot"] -> True
     _, _ -> False
   }
 }
@@ -368,11 +386,637 @@ fn ai_health_sql(req: wisp.Request) -> String {
 }
 
 fn handle_ai_health_request(req: wisp.Request, db: pog.Connection) -> Response {
-  case req.method {
-    http.Post -> handle_ai_quality_output(req, db)
-    _ -> handle_ai_health_read(req, db)
+  case req.method, http_request.path_segments(req) {
+    http.Post, ["admin", "ai", "social-generate"] ->
+      handle_ai_social_generate(req, db)
+    http.Post, ["admin", "ai", "extract-listing-fields"] ->
+      handle_ai_extract_listing(req, db)
+    http.Post, ["admin", "ai", "inquiry-reply"] ->
+      handle_ai_inquiry_reply(req, db)
+    http.Post, ["admin", "ai", "generate-blog"] ->
+      handle_ai_generate_blog(req, db)
+    http.Post, ["admin", "ai", "optimize-pricing"] ->
+      handle_ai_optimize_pricing(req, db)
+    http.Post, ["admin", "ai", "review-sentiment"] ->
+      handle_ai_review_sentiment(req, db)
+    http.Post, ["admin", "ai", "bundle-cross-sell"] ->
+      handle_ai_bundle_cross_sell(req, db)
+    http.Post, ["admin", "ai", "support-copilot"] ->
+      handle_ai_support_copilot(req, db)
+    http.Post, _ -> handle_ai_quality_output(req, db)
+    _, _ -> handle_ai_health_read(req, db)
   }
 }
+
+fn get_tenant_ai_config(db: pog.Connection, tenant_id: String) -> ai_client.AIConfig {
+  let ai_cfg_query =
+    "select coalesce(row_to_json(x)::text,'') from (select coalesce(provider,'google') as provider,coalesce(api_key_encrypted,'') as api_key,coalesce(model,'gemini-2.5-flash') as model from agency.ai_key_pool where tenant_id=$1::uuid and active and api_key_encrypted<>'' and (cooldown_until is null or cooldown_until<=now()) and (daily_limit=0 or daily_used<daily_limit) order by case when provider='google' then 0 else 1 end,priority,id limit 1) x"
+    |> pog.query()
+    |> pog.parameter(pog.text(tenant_id))
+    |> pog.returning(decode.field(0, decode.string, fn(r) { decode.success(r) }))
+    |> pog.execute(db)
+
+  let pool_decoder = {
+    use provider <- decode.field("provider", decode.string)
+    use api_key <- decode.field("api_key", decode.string)
+    use model <- decode.field("model", decode.string)
+    decode.success(ai_client.AIConfig(provider: provider, api_key: api_key, model: model))
+  }
+
+  case ai_cfg_query {
+    Ok(rows) -> case rows.rows {
+      [raw, ..] -> case json.parse(raw, pool_decoder) {
+        Ok(c) -> c
+        Error(_) -> ai_client.AIConfig(provider: "google", api_key: "", model: "gemini-2.5-flash")
+      }
+      [] -> ai_client.AIConfig(provider: "google", api_key: "", model: "gemini-2.5-flash")
+    }
+    Error(_) -> ai_client.AIConfig(provider: "google", api_key: "", model: "gemini-2.5-flash")
+  }
+}
+
+fn handle_ai_social_generate(req: wisp.Request, db: pog.Connection) -> Response {
+  case csrf.session_token_from(req) {
+    Error(Nil) -> unauthorized_json()
+    Ok(token) ->
+      csrf.require_csrf_form(req, token, fn(clean_req) {
+        case auth.session(db, token), wisp.read_body_bits(clean_req) {
+          Ok(session), Ok(bits) ->
+            case bits |> bit_array.to_string |> result.try(uri.parse_query) {
+              Error(_) -> wisp.response(400)
+              Ok(pairs) ->
+                case permissions.is_admin_or_owner(session.membership) {
+                  False -> wisp.response(403)
+                  True -> {
+                    let listing_id = form_value(pairs, "listing_id")
+                    let network = case form_value(pairs, "network") {
+                      "" -> "instagram"
+                      n -> n
+                    }
+                    let lang = case form_value(pairs, "language_code") {
+                      "" -> "tr"
+                      l -> l
+                    }
+                    let tone = case form_value(pairs, "tone") {
+                      "" -> "luxury"
+                      t -> t
+                    }
+                    let custom_prompt = form_value(pairs, "prompt")
+
+                    let listing_json = case string.trim(listing_id) {
+                      "" -> ""
+                      id -> {
+                        let q =
+                          "select coalesce(row_to_json(x)::text,'') from (select title,category,coalesce(description,'') as description,coalesce(images->0->>'url','') as media_url from agency.listings where tenant_id=$1::uuid and (id::text=$2 or code ilike $2 or title ilike '%'||$2||'%') order by case when id::text=$2 then 0 when code ilike $2 then 1 else 2 end,id limit 1) x"
+                          |> pog.query()
+                          |> pog.parameter(pog.text(session.tenant_id))
+                          |> pog.parameter(pog.text(id))
+                          |> pog.returning(decode.field(0, decode.string, fn(r) { decode.success(r) }))
+                          |> pog.execute(db)
+                        case q {
+                          Ok(rows) -> case rows.rows {
+                            [raw, ..] -> raw
+                            [] -> ""
+                          }
+                          Error(_) -> ""
+                        }
+                      }
+                    }
+
+                    let listing_decoder = {
+                      use title <- decode.field("title", decode.string)
+                      use category <- decode.field("category", decode.string)
+                      use description <- decode.field("description", decode.string)
+                      use media_url <- decode.field("media_url", decode.string)
+                      decode.success(#(title, category, description, media_url))
+                    }
+
+                    let #(title, category, desc, media_url) = case json.parse(listing_json, listing_decoder) {
+                      Ok(tup) -> tup
+                      Error(_) -> {
+                        let t = case form_value(pairs, "title") {
+                          "" -> "Özel Tatil Fırsatı"
+                          val -> val
+                        }
+                        #(t, "holiday_home", custom_prompt, "")
+                      }
+                    }
+
+                    let cfg = get_tenant_ai_config(db, session.tenant_id)
+
+                    case ai_client.generate_social_post(cfg, network, category, title, desc, lang, tone) {
+                      Ok(content) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(True)),
+                            #("content", json.string(content)),
+                            #("media_url", json.string(media_url)),
+                            #("title", json.string(title)),
+                            #("category", json.string(category)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 200)
+                      }
+                      Error(err) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(False)),
+                            #("error", json.string(err)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 500)
+                      }
+                    }
+                  }
+                }
+            }
+          _, _ -> unauthorized_json()
+        }
+      })
+  }
+}
+
+fn handle_ai_extract_listing(req: wisp.Request, db: pog.Connection) -> Response {
+  case csrf.session_token_from(req) {
+    Error(Nil) -> unauthorized_json()
+    Ok(token) ->
+      csrf.require_csrf_form(req, token, fn(clean_req) {
+        case auth.session(db, token), wisp.read_body_bits(clean_req) {
+          Ok(session), Ok(bits) ->
+            case bits |> bit_array.to_string |> result.try(uri.parse_query) {
+              Error(_) -> wisp.response(400)
+              Ok(pairs) ->
+                case permissions.is_admin_or_owner(session.membership) {
+                  False -> wisp.response(403)
+                  True -> {
+                    let category = form_value(pairs, "category")
+                    let raw_text = form_value(pairs, "raw_text")
+                    let cfg = get_tenant_ai_config(db, session.tenant_id)
+                    case ai_client.extract_listing_specs(cfg, category, raw_text) {
+                      Ok(specs_json) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(True)),
+                            #("specs", json.string(specs_json)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 200)
+                      }
+                      Error(err) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(False)),
+                            #("error", json.string(err)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 500)
+                      }
+                    }
+                  }
+                }
+            }
+          _, _ -> unauthorized_json()
+        }
+      })
+  }
+}
+
+fn handle_ai_inquiry_reply(req: wisp.Request, db: pog.Connection) -> Response {
+  case csrf.session_token_from(req) {
+    Error(Nil) -> unauthorized_json()
+    Ok(token) ->
+      csrf.require_csrf_form(req, token, fn(clean_req) {
+        case auth.session(db, token), wisp.read_body_bits(clean_req) {
+          Ok(session), Ok(bits) ->
+            case bits |> bit_array.to_string |> result.try(uri.parse_query) {
+              Error(_) -> wisp.response(400)
+              Ok(pairs) ->
+                case permissions.is_admin_or_owner(session.membership) {
+                  False -> wisp.response(403)
+                  True -> {
+                    let customer_name = form_value(pairs, "customer_name")
+                    let message = form_value(pairs, "message")
+                    let listing_id = form_value(pairs, "listing_id")
+                    let default_title = form_value(pairs, "listing_title")
+                    let default_cat = form_value(pairs, "category")
+                    let rules = form_value(pairs, "rules")
+
+                    let listing_info = case string.trim(listing_id) {
+                      "" -> #(default_title, default_cat)
+                      id -> {
+                        let q =
+                          "select coalesce(row_to_json(x)::text,'') from (select title,category from agency.listings where tenant_id=$1::uuid and (id::text=$2 or code ilike $2) limit 1) x"
+                          |> pog.query()
+                          |> pog.parameter(pog.text(session.tenant_id))
+                          |> pog.parameter(pog.text(id))
+                          |> pog.returning(decode.field(0, decode.string, fn(r) { decode.success(r) }))
+                          |> pog.execute(db)
+                        case q {
+                          Ok(rows) -> case rows.rows {
+                            [raw, ..] -> {
+                              let dec = {
+                                use t <- decode.field("title", decode.string)
+                                use c <- decode.field("category", decode.string)
+                                decode.success(#(t, c))
+                              }
+                              case json.parse(raw, dec) {
+                                Ok(tup) -> tup
+                                Error(_) -> #(default_title, default_cat)
+                              }
+                            }
+                            [] -> #(default_title, default_cat)
+                          }
+                          Error(_) -> #(default_title, default_cat)
+                        }
+                      }
+                    }
+
+                    let #(title, cat) = listing_info
+                    let title_final = case title {
+                      "" -> "Tatil Hizmetimiz"
+                      t -> t
+                    }
+                    let cat_final = case cat {
+                      "" -> "holiday_home"
+                      c -> c
+                    }
+                    let cfg = get_tenant_ai_config(db, session.tenant_id)
+                    case
+                      ai_client.generate_inquiry_reply(
+                        cfg,
+                        customer_name,
+                        message,
+                        title_final,
+                        cat_final,
+                        rules,
+                      )
+                    {
+                      Ok(reply) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(True)),
+                            #("reply", json.string(reply)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 200)
+                      }
+                      Error(err) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(False)),
+                            #("error", json.string(err)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 500)
+                      }
+                    }
+                  }
+                }
+            }
+          _, _ -> unauthorized_json()
+        }
+      })
+  }
+}
+
+fn handle_ai_generate_blog(req: wisp.Request, db: pog.Connection) -> Response {
+  case csrf.session_token_from(req) {
+    Error(Nil) -> unauthorized_json()
+    Ok(token) ->
+      csrf.require_csrf_form(req, token, fn(clean_req) {
+        case auth.session(db, token), wisp.read_body_bits(clean_req) {
+          Ok(session), Ok(bits) ->
+            case bits |> bit_array.to_string |> result.try(uri.parse_query) {
+              Error(_) -> wisp.response(400)
+              Ok(pairs) ->
+                case permissions.is_admin_or_owner(session.membership) {
+                  False -> wisp.response(403)
+                  True -> {
+                    let destination = form_value(pairs, "destination")
+                    let category = form_value(pairs, "category")
+                    let lang = case form_value(pairs, "language_code") {
+                      "" -> "tr"
+                      l -> l
+                    }
+                    let dest_final = case string.trim(destination) {
+                      "" -> "Türkiye"
+                      d -> d
+                    }
+                    let cat_final = case string.trim(category) {
+                      "" -> "holiday_home"
+                      c -> c
+                    }
+                    let cfg = get_tenant_ai_config(db, session.tenant_id)
+                    case
+                      ai_client.generate_destination_guide(
+                        cfg,
+                        dest_final,
+                        cat_final,
+                        lang,
+                      )
+                    {
+                      Ok(content) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(True)),
+                            #("content", json.string(content)),
+                            #("destination", json.string(dest_final)),
+                            #("category", json.string(cat_final)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 200)
+                      }
+                      Error(err) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(False)),
+                            #("error", json.string(err)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 500)
+                      }
+                    }
+                  }
+                }
+            }
+          _, _ -> unauthorized_json()
+        }
+      })
+  }
+}
+
+fn parse_int_or(str: String, default: Int) -> Int {
+  case int.parse(str) {
+    Ok(i) -> i
+    Error(_) -> default
+  }
+}
+
+fn handle_ai_optimize_pricing(req: wisp.Request, db: pog.Connection) -> Response {
+  case csrf.session_token_from(req) {
+    Error(Nil) -> unauthorized_json()
+    Ok(token) ->
+      csrf.require_csrf_form(req, token, fn(clean_req) {
+        case auth.session(db, token), wisp.read_body_bits(clean_req) {
+          Ok(session), Ok(bits) ->
+            case bits |> bit_array.to_string |> result.try(uri.parse_query) {
+              Error(_) -> wisp.response(400)
+              Ok(pairs) ->
+                case permissions.is_admin_or_owner(session.membership) {
+                  False -> wisp.response(403)
+                  True -> {
+                    let listing_id = form_value(pairs, "listing_id")
+                    let raw_category = form_value(pairs, "category")
+                    let raw_locality = form_value(pairs, "locality")
+                    let raw_price = parse_int_or(form_value(pairs, "price"), 5000)
+                    let currency = case form_value(pairs, "currency") {
+                      "" -> "TRY"
+                      c -> c
+                    }
+                    let season = case form_value(pairs, "season") {
+                      "" -> "medium"
+                      s -> s
+                    }
+                    let occ = parse_int_or(form_value(pairs, "occupancy_rate"), 60)
+
+                    let #(category, locality, price) = case string.trim(listing_id) {
+                      "" -> #(raw_category, raw_locality, raw_price)
+                      id -> {
+                        let q =
+                          "select coalesce(row_to_json(x)::text,'') from (select category,locality,(price_minor/100)::int as price from agency.listings where tenant_id=$1::uuid and (id::text=$2 or code ilike $2) limit 1) x"
+                          |> pog.query()
+                          |> pog.parameter(pog.text(session.tenant_id))
+                          |> pog.parameter(pog.text(id))
+                          |> pog.returning(decode.field(0, decode.string, fn(r) { decode.success(r) }))
+                          |> pog.execute(db)
+                        case q {
+                          Ok(rows) -> case rows.rows {
+                            [raw, ..] -> {
+                              let dec = {
+                                use c <- decode.field("category", decode.string)
+                                use l <- decode.field("locality", decode.string)
+                                use p <- decode.field("price", decode.int)
+                                decode.success(#(c, l, p))
+                              }
+                              case json.parse(raw, dec) {
+                                Ok(tup) -> tup
+                                Error(_) -> #(raw_category, raw_locality, raw_price)
+                              }
+                            }
+                            [] -> #(raw_category, raw_locality, raw_price)
+                          }
+                          Error(_) -> #(raw_category, raw_locality, raw_price)
+                        }
+                      }
+                    }
+
+                    let cat_final = case string.trim(category) {
+                      "" -> "holiday_home"
+                      c -> c
+                    }
+                    let loc_final = case string.trim(locality) {
+                      "" -> "Akdeniz"
+                      l -> l
+                    }
+
+                    let cfg = get_tenant_ai_config(db, session.tenant_id)
+                    case ai_client.optimize_pricing(cfg, cat_final, loc_final, price, currency, season, occ) {
+                      Ok(res_json) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(True)),
+                            #("result", json.string(res_json)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 200)
+                      }
+                      Error(err) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(False)),
+                            #("error", json.string(err)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 500)
+                      }
+                    }
+                  }
+                }
+            }
+          _, _ -> unauthorized_json()
+        }
+      })
+  }
+}
+
+fn handle_ai_review_sentiment(req: wisp.Request, db: pog.Connection) -> Response {
+  case csrf.session_token_from(req) {
+    Error(Nil) -> unauthorized_json()
+    Ok(token) ->
+      csrf.require_csrf_form(req, token, fn(clean_req) {
+        case auth.session(db, token), wisp.read_body_bits(clean_req) {
+          Ok(session), Ok(bits) ->
+            case bits |> bit_array.to_string |> result.try(uri.parse_query) {
+              Error(_) -> wisp.response(400)
+              Ok(pairs) ->
+                case permissions.is_admin_or_owner(session.membership) {
+                  False -> wisp.response(403)
+                  True -> {
+                    let rating = parse_int_or(form_value(pairs, "rating"), 5)
+                    let review_text = form_value(pairs, "review_text")
+                    let listing_title = case form_value(pairs, "listing_title") {
+                      "" -> "Tesisimiz"
+                      t -> t
+                    }
+                    let cfg = get_tenant_ai_config(db, session.tenant_id)
+                    case ai_client.analyze_review_sentiment(cfg, rating, review_text, listing_title) {
+                      Ok(res_json) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(True)),
+                            #("result", json.string(res_json)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 200)
+                      }
+                      Error(err) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(False)),
+                            #("error", json.string(err)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 500)
+                      }
+                    }
+                  }
+                }
+            }
+          _, _ -> unauthorized_json()
+        }
+      })
+  }
+}
+
+fn handle_ai_bundle_cross_sell(req: wisp.Request, db: pog.Connection) -> Response {
+  case csrf.session_token_from(req) {
+    Error(Nil) -> unauthorized_json()
+    Ok(token) ->
+      csrf.require_csrf_form(req, token, fn(clean_req) {
+        case auth.session(db, token), wisp.read_body_bits(clean_req) {
+          Ok(session), Ok(bits) ->
+            case bits |> bit_array.to_string |> result.try(uri.parse_query) {
+              Error(_) -> wisp.response(400)
+              Ok(pairs) ->
+                case permissions.is_admin_or_owner(session.membership) {
+                  False -> wisp.response(403)
+                  True -> {
+                    let locality = case form_value(pairs, "locality") {
+                      "" -> "Bodrum"
+                      l -> l
+                    }
+                    let category = case form_value(pairs, "category") {
+                      "" -> "holiday_home"
+                      c -> c
+                    }
+                    let travel_style = case form_value(pairs, "travel_style") {
+                      "" -> "Lüks & Konfor"
+                      s -> s
+                    }
+                    let guests = parse_int_or(form_value(pairs, "guest_count"), 2)
+
+                    let cfg = get_tenant_ai_config(db, session.tenant_id)
+                    case ai_client.generate_bundle_cross_sell(cfg, locality, category, travel_style, guests) {
+                      Ok(res_json) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(True)),
+                            #("result", json.string(res_json)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 200)
+                      }
+                      Error(err) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(False)),
+                            #("error", json.string(err)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 500)
+                      }
+                    }
+                  }
+                }
+            }
+          _, _ -> unauthorized_json()
+        }
+      })
+  }
+}
+
+fn handle_ai_support_copilot(req: wisp.Request, db: pog.Connection) -> Response {
+  case csrf.session_token_from(req) {
+    Error(Nil) -> unauthorized_json()
+    Ok(token) ->
+      csrf.require_csrf_form(req, token, fn(clean_req) {
+        case auth.session(db, token), wisp.read_body_bits(clean_req) {
+          Ok(session), Ok(bits) ->
+            case bits |> bit_array.to_string |> result.try(uri.parse_query) {
+              Error(_) -> wisp.response(400)
+              Ok(pairs) ->
+                case permissions.is_admin_or_owner(session.membership) {
+                  False -> wisp.response(403)
+                  True -> {
+                    let customer_name = form_value(pairs, "customer_name")
+                    let question = form_value(pairs, "question")
+                    let listing_title = case form_value(pairs, "listing_title") {
+                      "" -> "Tesisimiz"
+                      t -> t
+                    }
+                    let category = case form_value(pairs, "category") {
+                      "" -> "holiday_home"
+                      c -> c
+                    }
+                    let locality = case form_value(pairs, "locality") {
+                      "" -> "Kaş"
+                      l -> l
+                    }
+                    let channel = case form_value(pairs, "channel") {
+                      "" -> "whatsapp"
+                      ch -> ch
+                    }
+
+                    let cfg = get_tenant_ai_config(db, session.tenant_id)
+                    case ai_client.generate_support_copilot_reply(cfg, customer_name, question, listing_title, category, locality, channel) {
+                      Ok(res_json) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(True)),
+                            #("result", json.string(res_json)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 200)
+                      }
+                      Error(err) -> {
+                        let resp =
+                          json.object([
+                            #("ok", json.bool(False)),
+                            #("error", json.string(err)),
+                          ])
+                          |> json.to_string
+                        wisp.json_response(resp, 500)
+                      }
+                    }
+                  }
+                }
+            }
+          _, _ -> unauthorized_json()
+        }
+      })
+  }
+}
+
 
 fn handle_ai_quality_output(req: wisp.Request, db: pog.Connection) -> Response {
   case csrf.session_token_from(req) {
@@ -651,6 +1295,8 @@ fn handle_social_compose(req: wisp.Request, db: pog.Connection) -> Response {
                   True, True -> {
                     let content = form_value(pairs, "content")
                     let media = form_value(pairs, "media_url")
+                    let listing_id = form_value(pairs, "listing_id")
+                    let ai_gen = form_value(pairs, "ai_generated") == "true"
                     let automatic =
                       form_value(pairs, "automation_mode") == "automatic"
                     let approval =
@@ -661,7 +1307,7 @@ fn handle_social_compose(req: wisp.Request, db: pog.Connection) -> Response {
                         wisp.response(422)
                         |> wisp.string_body("Gönderi metni boş olamaz")
                       False ->
-                        "with policy as (insert into agency.social_automation_policies(tenant_id,network,language_code,daily_limit,auto_generate,approval_required,updated_at) values($1::uuid,$2,$3,$4,$5::boolean,$6::boolean,now()) on conflict(tenant_id,network,language_code,market_code) do update set daily_limit=excluded.daily_limit,auto_generate=excluded.auto_generate,approval_required=excluded.approval_required,updated_at=now() returning id) insert into agency.social_posts(tenant_id,entity_type,entity_id,network,language_code,content,scheduled_at,metadata,approved_at) select $1::uuid,'manual',$1::uuid,$2,$3,$7,nullif($8,'')::timestamptz,jsonb_build_object('media_url',$9,'approval_required',$6::boolean),case when $6::boolean then null else now() end from policy"
+                        "with policy as (insert into agency.social_automation_policies(tenant_id,network,language_code,daily_limit,auto_generate,approval_required,updated_at) values($1::uuid,$2,$3,$4,$5::boolean,$6::boolean,now()) on conflict(tenant_id,network,language_code,market_code) do update set daily_limit=excluded.daily_limit,auto_generate=excluded.auto_generate,approval_required=excluded.approval_required,updated_at=now() returning id) insert into agency.social_posts(tenant_id,entity_type,entity_id,network,language_code,content,scheduled_at,metadata,approved_at,ai_generated) select $1::uuid,case when nullif($10,'') is not null then 'listing' else 'manual' end,coalesce(nullif($10,'')::uuid,$1::uuid),$2,$3,$7,nullif($8,'')::timestamptz,jsonb_build_object('media_url',$9,'approval_required',$6::boolean,'listing_id',nullif($10,''),'ai_generated',$11::boolean),case when $6::boolean then null else now() end,$11::boolean from policy"
                         |> pog.query()
                         |> pog.parameter(pog.text(session.tenant_id))
                         |> pog.parameter(pog.text(network))
@@ -676,8 +1322,10 @@ fn handle_social_compose(req: wisp.Request, db: pog.Connection) -> Response {
                           pog.text(form_value(pairs, "scheduled_at")),
                         )
                         |> pog.parameter(pog.text(media))
+                        |> pog.parameter(pog.text(listing_id))
+                        |> pog.parameter(pog.bool(ai_gen))
                         |> pog.execute(db)
-                        |> result.map(fn(_) { wisp.redirect("/admin") })
+                        |> result.map(fn(_) { wisp.redirect("/admin/ai#social-review") })
                         |> result.unwrap(
                           wisp.response(500)
                           |> wisp.string_body(
@@ -1504,6 +2152,11 @@ fn supplier_onboarding_admin_request(req: wisp.Request) -> Bool {
     http.Post, ["admin", "supplier-onboarding", "decision"] -> True
     http.Post, ["admin", "supplier-onboarding", "document-decision"] -> True
     http.Post, ["admin", "supplier-onboarding", "identity"] -> True
+    // Listing submissions (self-service /ilan-ver)
+    http.Get, ["admin", "listing-submissions"] -> True
+    http.Get, ["admin", "listing-submissions", "data"] -> True
+    http.Post, ["admin", "listing-submissions", "approve"] -> True
+    http.Post, ["admin", "listing-submissions", "reject"] -> True
     _, _ -> False
   }
 }
@@ -1555,6 +2208,15 @@ fn handle_supplier_onboarding_admin_request(
       supplier_onboarding_document_decision(req, db)
     http.Post, ["admin", "supplier-onboarding", "identity"] ->
       supplier_onboarding_identity(req, db)
+    // Listing submissions (self-service /ilan-ver)
+    http.Get, ["admin", "listing-submissions"] ->
+      handle_listing_submissions_page(req, db)
+    http.Get, ["admin", "listing-submissions", "data"] ->
+      handle_listing_submissions_data(req, db)
+    http.Post, ["admin", "listing-submissions", "approve"] ->
+      handle_listing_submission_approve(req, db)
+    http.Post, ["admin", "listing-submissions", "reject"] ->
+      handle_listing_submission_reject(req, db)
     _, _ -> wisp.response(404) |> wisp.string_body("Bulunamadı")
   }
 }
@@ -2368,6 +3030,8 @@ fn category_filter_request(req: wisp.Request) -> Bool {
     http.Get, ["api", "public", "listings"] -> True
     http.Get, ["api", "public", "campaigns"] -> True
     http.Get, ["api", "public", "category-filters"] -> True
+    http.Get, ["api", "public", "concierge"] -> True
+    http.Post, ["api", "public", "concierge"] -> True
     http.Get, ["admin", "categories", "filter-data"] -> True
     http.Post, ["admin", "categories", "filter-groups"] -> True
     http.Post, ["admin", "categories", "filter-groups", "deactivate"] -> True
@@ -2386,6 +3050,8 @@ fn handle_category_filter_request(
     http.Get, ["api", "public", "campaigns"] -> public_campaigns_json(req, db)
     http.Get, ["api", "public", "category-filters"] ->
       public_category_filters_json(req, db)
+    http.Get, ["api", "public", "concierge"] -> public_concierge_json(req, db)
+    http.Post, ["api", "public", "concierge"] -> public_concierge_json(req, db)
     http.Get, ["admin", "categories", "filter-data"] ->
       case csrf.session_token_from(req) {
         Error(Nil) -> unauthorized_json()
@@ -2404,6 +3070,120 @@ fn handle_category_filter_request(
     http.Post, ["admin", "categories", "filter-items", "deactivate"] ->
       deactivate_category_filter_item(req, db)
     _, _ -> wisp.response(404) |> wisp.string_body("Bulunamadı")
+  }
+}
+
+fn public_concierge_json(req: wisp.Request, db: pog.Connection) -> Response {
+  let query = wisp.get_query(req)
+  let tenant_selector = query_value(query, "tenant")
+  let user_q = case query_value(query, "q") {
+    "" -> query_value(query, "query")
+    val -> val
+  }
+  let final_q = case user_q {
+    "" ->
+      case wisp.read_body_bits(req) {
+        Ok(bits) ->
+          case bits |> bit_array.to_string |> result.try(uri.parse_query) {
+            Ok(pairs) ->
+              case form_value(pairs, "q") {
+                "" -> form_value(pairs, "query")
+                val -> val
+              }
+            Error(_) -> ""
+          }
+        Error(_) -> ""
+      }
+    val -> val
+  }
+
+  case string.trim(final_q) {
+    "" -> {
+      let resp =
+        json.object([
+          #("ok", json.bool(False)),
+          #("error", json.string("Arama sorgusu boş olamaz")),
+        ])
+        |> json.to_string
+      wisp.json_response(resp, 400)
+    }
+    q -> {
+      let tenant_sql =
+        "with resolved_tenant as (select coalesce((select id::text from agency.tenants where (($1 <> '' and (lower(slug)=lower($1) or id::text=$1))) limit 1),(select t.id::text from agency.tenants t where lower(t.slug)='nexus-demo' and exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') limit 1),(select t.id::text from agency.tenants t where exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') order by t.created_at limit 1),(select id::text from agency.tenants order by created_at limit 1),'') as id) select id from resolved_tenant limit 1"
+
+      let tenant_id =
+        tenant_sql
+        |> pog.query()
+        |> pog.parameter(pog.text(tenant_selector))
+        |> pog.returning(decode.field(0, decode.string, decode.success))
+        |> pog.execute(db)
+        |> result.map(fn(r) {
+          case r.rows {
+            [t, ..] -> t
+            [] -> ""
+          }
+        })
+        |> result.unwrap("")
+
+      let cfg = case tenant_id {
+        "" -> ai_client.AIConfig(provider: "google", api_key: "", model: "gemini-2.5-flash")
+        tid -> get_tenant_ai_config(db, tid)
+      }
+
+      let parsed_res = ai_client.parse_concierge_query(cfg, q)
+      let parsed_json = case parsed_res {
+        Ok(json_str) -> json_str
+        Error(_) -> ai_client.fallback_concierge_json(q)
+      }
+
+      let parsed_decoder = {
+        use category <- decode.field("category", decode.string)
+        use locality <- decode.field("locality", decode.string)
+        use summary <- decode.field("summary", decode.string)
+        decode.success(#(category, locality, summary))
+      }
+
+      let #(parsed_cat, parsed_loc, parsed_summary) =
+        case json.parse(parsed_json, parsed_decoder) {
+          Ok(tup) -> tup
+          Error(_) -> #("holiday_home", "", q)
+        }
+
+      let listings_sql =
+        "with resolved_tenant as (select coalesce((select id::text from agency.tenants where (($1 <> '' and (lower(slug)=lower($1) or id::text=$1))) limit 1),(select t.id::text from agency.tenants t where lower(t.slug)='nexus-demo' and exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') limit 1),(select t.id::text from agency.tenants t where exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') order by t.created_at limit 1),(select id::text from agency.tenants order by created_at limit 1),'') as id) select coalesce(json_agg(json_build_object('id', l.id::text, 'title', l.title, 'category', l.category, 'categoryLabel', case l.category when 'hotel' then 'Otel' when 'holiday_home' then 'Tatil Evi' when 'yacht' then 'Yat' when 'tour' then 'Tur' when 'activity' then 'Aktivite' when 'flight' then 'Uçuş' when 'bus' then 'Otobüs' when 'car' then 'Araç' else l.category end, 'locality', coalesce(l.locality,''), 'description', coalesce(l.description,''), 'currency', l.currency, 'priceMinor', l.price_minor::text, 'images', coalesce(l.images,'[]'::jsonb), 'propertyType', coalesce(l.metadata->'contract_fields'->>'property_type',l.metadata->'contract_fields'->>'yacht_type',l.metadata->'contract_fields'->>'tour_subcategory',l.metadata->'contract_fields'->>'type',l.metadata->>'property_type',l.metadata->>'yacht_type',''), 'guestCount', coalesce(l.metadata->'contract_fields'->>'guest_capacity',l.metadata->>'guests','')) order by case when ($3 <> '' and l.locality ilike '%' || $3 || '%') and l.category=$4 then 0 when l.category=$4 then 1 when ($3 <> '' and l.locality ilike '%' || $3 || '%') then 2 else 3 end, l.updated_at desc), '[]'::json)::text from agency.listings l join resolved_tenant rt on l.tenant_id=rt.id::uuid where l.status='published' and (($3='' or l.locality ilike '%' || $3 || '%') or ($4='' or l.category=$4)) limit 12"
+
+      let listings_json =
+        listings_sql
+        |> pog.query()
+        |> pog.parameter(pog.text(tenant_selector))
+        |> pog.parameter(pog.text(q))
+        |> pog.parameter(pog.text(parsed_loc))
+        |> pog.parameter(pog.text(parsed_cat))
+        |> pog.returning(decode.field(0, decode.string, decode.success))
+        |> pog.execute(db)
+        |> result.map(fn(rows) {
+          case rows.rows {
+            [raw, ..] -> raw
+            [] -> "[]"
+          }
+        })
+        |> result.unwrap("[]")
+
+      let resp =
+        "{\"ok\":true,\"query\":\""
+        <> string.replace(q, "\"", "'")
+        <> "\",\"parsed\":{\"category\":\""
+        <> parsed_cat
+        <> "\",\"locality\":\""
+        <> parsed_loc
+        <> "\",\"summary\":\""
+        <> string.replace(parsed_summary, "\"", "'")
+        <> "\"},\"listings\":"
+        <> listings_json
+        <> "}"
+
+      wisp.json_response(resp, 200)
+    }
   }
 }
 
@@ -3960,3 +4740,346 @@ pub fn shutdown_gracefully(_db: pog.Connection) -> Nil {
 // ve http importları erlang hedefinde kullanılmasa da cephenin okunabilirliği
 // için dokümantasyon amaçlı tutulmuştur.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// /ilan-ver  –  Self-Service Supplier Listing Wizard (Public Storefront)
+// ---------------------------------------------------------------------------
+
+fn ilan_ver_request(req: wisp.Request) -> Bool {
+  case req.method, http_request.path_segments(req) {
+    http.Get, ["ilan-ver"] -> True
+    http.Get, ["ilan-ver", ..] -> True
+    http.Post, ["api", "public", "listing-submit"] -> True
+    http.Get, ["api", "public", "listing-categories"] -> True
+    _, _ -> False
+  }
+}
+
+fn handle_ilan_ver(req: wisp.Request, db: pog.Connection) -> Response {
+  case req.method, http_request.path_segments(req) {
+    http.Get, ["api", "public", "listing-categories"] ->
+      handle_public_listing_categories(db, req)
+    http.Post, ["api", "public", "listing-submit"] ->
+      handle_public_listing_submit(req, db)
+    http.Get, _ ->
+      handle_ilan_ver_page(req, db)
+    _, _ -> wisp.response(405)
+  }
+}
+
+/// Public endpoint: supported 17 canonical categories (for wizard step 1)
+fn handle_public_listing_categories(
+  db: pog.Connection,
+  req: wisp.Request,
+) -> Response {
+  // Tenant slug from host header to scope category list
+  let host = http_request.get_header(req, "host") |> result.unwrap("")
+  let tenant_id = tenant_id_from_host(db, host)
+  let q =
+    "select coalesce(json_agg(row_to_json(x) order by x.position),'[]')::text from (select c.code, c.name_tr as name, c.position, c.icon from agency.catalog_categories c where c.tenant_id=$1::uuid and c.parent_id is null and c.active order by c.position) x"
+    |> pog.query()
+    |> pog.parameter(pog.text(tenant_id))
+    |> pog.returning(decode.field(0, decode.string, fn(r) { decode.success(r) }))
+    |> pog.execute(db)
+  let cats = case q {
+    Ok(rows) -> case rows.rows { [raw, ..] -> raw  [] -> "[]" }
+    Error(_) -> "[]"
+  }
+  wisp.json_response("{\"categories\":" <> cats <> "}", 200)
+}
+
+/// Public endpoint: submit listing wizard form
+fn handle_public_listing_submit(
+  req: wisp.Request,
+  db: pog.Connection,
+) -> Response {
+  case wisp.read_body_bits(req) {
+    Error(_) -> wisp.response(400) |> wisp.string_body("Geçersiz istek")
+    Ok(bits) ->
+      case bit_array.to_string(bits)
+        |> result.try(fn(s) {
+          json.parse(s, submission_decoder())
+          |> result.map_error(fn(_) { Nil })
+        }) {
+        Error(_) ->
+          wisp.json_response("{\"error\":\"Geçersiz form verisi\"}", 400)
+        Ok(sub) -> {
+          let host = http_request.get_header(req, "host") |> result.unwrap("")
+          let ip = http_request.get_header(req, "x-forwarded-for")
+            |> result.unwrap(http_request.get_header(req, "x-real-ip") |> result.unwrap(""))
+          let tenant_id = tenant_id_from_host(db, host)
+          let #(company, contact, email, phone, tax_id, tax_office, category,
+                title, locality, description, currency, price_minor,
+                guest_capacity, domain_target) = sub
+          let q =
+            "insert into agency.supplier_onboarding_submissions (tenant_id,company_name,contact_name,email,phone,tax_id,tax_office,category_code,listing_title,locality,description,currency,price_minor,guest_capacity,domain_target,ip_address) values ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::bigint,$14::int,$15,$16) returning id::text"
+            |> pog.query()
+            |> pog.parameter(pog.text(tenant_id))
+            |> pog.parameter(pog.text(company))
+            |> pog.parameter(pog.text(contact))
+            |> pog.parameter(pog.text(email))
+            |> pog.parameter(pog.text(phone))
+            |> pog.parameter(pog.text(tax_id))
+            |> pog.parameter(pog.text(tax_office))
+            |> pog.parameter(pog.text(category))
+            |> pog.parameter(pog.text(title))
+            |> pog.parameter(pog.text(locality))
+            |> pog.parameter(pog.text(description))
+            |> pog.parameter(pog.text(currency))
+            |> pog.parameter(pog.text(int.to_string(price_minor)))
+            |> pog.parameter(pog.text(int.to_string(guest_capacity)))
+            |> pog.parameter(pog.text(domain_target))
+            |> pog.parameter(pog.text(ip))
+            |> pog.returning(decode.field(0, decode.string, fn(r) { decode.success(r) }))
+            |> pog.execute(db)
+          case q {
+            Ok(rows) ->
+              case rows.rows {
+                [id, ..] ->
+                  wisp.json_response(
+                    "{\"ok\":true,\"submission_id\":\"" <> id <> "\"}",
+                    201,
+                  )
+                [] ->
+                  wisp.json_response("{\"error\":\"Kayıt oluşturulamadı\"}", 500)
+              }
+            Error(_) ->
+              wisp.json_response("{\"error\":\"Sunucu hatası\"}", 500)
+          }
+        }
+      }
+  }
+}
+
+fn submission_decoder() {
+  use company <- decode.field("company_name", decode.string)
+  use contact <- decode.field("contact_name", decode.string)
+  use email <- decode.field("email", decode.string)
+  use phone <- decode.field("phone", decode.string)
+  use tax_id <- decode.field("tax_id", decode.string)
+  use tax_office <- decode.field("tax_office", decode.string)
+  use category <- decode.field("category_code", decode.string)
+  use title <- decode.field("listing_title", decode.string)
+  use locality <- decode.field("locality", decode.string)
+  use description <- decode.field("description", decode.string)
+  use currency <- decode.field("currency", decode.string)
+  use price_minor <- decode.field("price_minor", decode.int)
+  use guest_capacity <- decode.field("guest_capacity", decode.int)
+  use domain_target <- decode.field("domain_target", decode.string)
+  decode.success(#(
+    company, contact, email, phone, tax_id, tax_office, category,
+    title, locality, description, currency, price_minor,
+    guest_capacity, domain_target,
+  ))
+}
+
+/// Public page: /ilan-ver wizard HTML
+fn handle_ilan_ver_page(req: wisp.Request, db: pog.Connection) -> Response {
+  let host = http_request.get_header(req, "host") |> result.unwrap("")
+  let lang = case ssr_cookie(req, "nexus_lang") {
+    "" -> case string.contains(host, "reservationinturkey") { True -> "en" False -> "tr" }
+    l -> l
+  }
+  let domain_target = case string.contains(host, "reservationinturkey") {
+    True -> "reservationinturkey"
+    False -> "rezervasyonyap"
+  }
+  let _ = db
+  wisp.response(200)
+  |> wisp.html_body(panel.ilan_ver_page(lang, domain_target))
+}
+
+/// Resolve tenant_id from incoming Host header (falls back to first active tenant)
+fn tenant_id_from_host(db: pog.Connection, host: String) -> String {
+  let clean_host = string.split(host, ":") |> list.first() |> result.unwrap(host)
+  let q =
+    "select t.id::text from agency.tenants t left join agency.marketplace_domains md on md.tenant_id=t.id and md.domain_host=$1 order by case when md.domain_host=$1 then 0 else 1 end, t.created_at limit 1"
+    |> pog.query()
+    |> pog.parameter(pog.text(clean_host))
+    |> pog.returning(decode.field(0, decode.string, fn(r) { decode.success(r) }))
+    |> pog.execute(db)
+  case q {
+    Ok(rows) -> case rows.rows { [id, ..] -> id  [] -> "" }
+    Error(_) -> ""
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Admin: Listing Submissions (from /ilan-ver self-service wizard)
+// ---------------------------------------------------------------------------
+
+fn handle_listing_submissions_page(
+  req: wisp.Request,
+  db: pog.Connection,
+) -> Response {
+  case csrf.session_token_from(req) {
+    Error(Nil) -> wisp.redirect("/login")
+    Ok(token) ->
+      case auth.session(db, token) {
+        Error(Nil) -> wisp.redirect("/login")
+        Ok(session) ->
+          case permissions.is_admin_or_owner(session.membership) {
+            False -> wisp.response(403)
+            True -> {
+              let lang = case session.language_pref { "" -> "tr" l -> l }
+              wisp.response(200)
+              |> wisp.html_body(panel.section(
+                session,
+                "listing-submissions",
+                "Vitrin üzerinden gelen ilan başvurularını inceleyin, onaylayın veya reddedin.",
+                [
+                  #("/admin/supplier-onboarding", "Tedarikçi başvuruları"),
+                  #("/admin/listings", "Yayınlanan ilanlar"),
+                ],
+                lang,
+                "",
+              ))
+            }
+          }
+      }
+  }
+}
+
+fn handle_listing_submissions_data(
+  req: wisp.Request,
+  db: pog.Connection,
+) -> Response {
+  case csrf.session_token_from(req) {
+    Error(Nil) -> unauthorized_json()
+    Ok(token) ->
+      case auth.session(db, token) {
+        Error(Nil) -> unauthorized_json()
+        Ok(session) ->
+          case permissions.is_admin_or_owner(session.membership) {
+            False -> wisp.response(403)
+            True -> {
+              let params = http_request.get_query(req) |> result.unwrap([])
+              let status_filter = form_value(params, "status")
+              let base_q = case status_filter {
+                "" -> "select coalesce(json_agg(row_to_json(x) order by x.created_at desc),'[]')::text from (select id,company_name,contact_name,email,phone,category_code,listing_title,locality,currency,price_minor,domain_target,status,admin_notes,created_at::text,reviewed_at::text,reviewer_email,listing_code,listing_status from agency.v_listing_submissions where tenant_id=$1::uuid order by created_at desc limit 200) x"
+                _ -> "select coalesce(json_agg(row_to_json(x) order by x.created_at desc),'[]')::text from (select id,company_name,contact_name,email,phone,category_code,listing_title,locality,currency,price_minor,domain_target,status,admin_notes,created_at::text,reviewed_at::text,reviewer_email,listing_code,listing_status from agency.v_listing_submissions where tenant_id=$1::uuid and status=$2 order by created_at desc limit 200) x"
+              }
+              let q = case status_filter {
+                "" ->
+                  base_q
+                  |> pog.query()
+                  |> pog.parameter(pog.text(session.tenant_id))
+                  |> pog.returning(decode.field(0, decode.string, fn(r) { decode.success(r) }))
+                  |> pog.execute(db)
+                _ ->
+                  base_q
+                  |> pog.query()
+                  |> pog.parameter(pog.text(session.tenant_id))
+                  |> pog.parameter(pog.text(status_filter))
+                  |> pog.returning(decode.field(0, decode.string, fn(r) { decode.success(r) }))
+                  |> pog.execute(db)
+              }
+              let rows_json = case q {
+                Ok(rows) -> case rows.rows { [raw, ..] -> raw  [] -> "[]" }
+                Error(_) -> "[]"
+              }
+              wisp.json_response("{\"submissions\":" <> rows_json <> "}", 200)
+            }
+          }
+      }
+  }
+}
+
+fn handle_listing_submission_approve(
+  req: wisp.Request,
+  db: pog.Connection,
+) -> Response {
+  case csrf.session_token_from(req) {
+    Error(Nil) -> unauthorized_json()
+    Ok(token) ->
+      csrf.require_csrf_form(req, token, fn(clean_req) {
+        case auth.session(db, token), wisp.read_body_bits(clean_req) {
+          Ok(session), Ok(bits) ->
+            case bit_array.to_string(bits) |> result.try(uri.parse_query) {
+              Error(_) -> wisp.response(400)
+              Ok(pairs) ->
+                case permissions.is_admin_or_owner(session.membership) {
+                  False -> wisp.response(403)
+                  True -> {
+                    let submission_id = form_value(pairs, "submission_id")
+                    let initial_status = case form_value(pairs, "initial_status") {
+                      "" -> "published"
+                      s -> s
+                    }
+                    let q =
+                      "select agency.approve_supplier_submission($1::uuid,$2::uuid,$3::uuid,$4)"
+                      |> pog.query()
+                      |> pog.parameter(pog.text(session.tenant_id))
+                      |> pog.parameter(pog.text(session.user_id))
+                      |> pog.parameter(pog.text(submission_id))
+                      |> pog.parameter(pog.text(initial_status))
+                      |> pog.returning(decode.field(0, decode.string, fn(r) { decode.success(r) }))
+                      |> pog.execute(db)
+                    case q {
+                      Ok(rows) ->
+                        case rows.rows {
+                          [listing_id, ..] ->
+                            wisp.json_response(
+                              "{\"ok\":true,\"listing_id\":\"" <> listing_id <> "\"}",
+                              200,
+                            )
+                          [] -> wisp.json_response("{\"error\":\"Onay başarısız\"}", 500)
+                        }
+                      Error(e) ->
+                        wisp.json_response(
+                          "{\"error\":\"" <> string.inspect(e) <> "\"}",
+                          500,
+                        )
+                    }
+                  }
+                }
+            }
+          _, _ -> wisp.response(400)
+        }
+      })
+  }
+}
+
+fn handle_listing_submission_reject(
+  req: wisp.Request,
+  db: pog.Connection,
+) -> Response {
+  case csrf.session_token_from(req) {
+    Error(Nil) -> unauthorized_json()
+    Ok(token) ->
+      csrf.require_csrf_form(req, token, fn(clean_req) {
+        case auth.session(db, token), wisp.read_body_bits(clean_req) {
+          Ok(session), Ok(bits) ->
+            case bit_array.to_string(bits) |> result.try(uri.parse_query) {
+              Error(_) -> wisp.response(400)
+              Ok(pairs) ->
+                case permissions.is_admin_or_owner(session.membership) {
+                  False -> wisp.response(403)
+                  True -> {
+                    let submission_id = form_value(pairs, "submission_id")
+                    let reason = form_value(pairs, "reason")
+                    let q =
+                      "select agency.reject_supplier_submission($1::uuid,$2::uuid,$3::uuid,$4)"
+                      |> pog.query()
+                      |> pog.parameter(pog.text(session.tenant_id))
+                      |> pog.parameter(pog.text(session.user_id))
+                      |> pog.parameter(pog.text(submission_id))
+                      |> pog.parameter(pog.text(reason))
+                      |> pog.returning(decode.field(0, decode.string, fn(r) { decode.success(r) }))
+                      |> pog.execute(db)
+                    case q {
+                      Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
+                      Error(e) ->
+                        wisp.json_response(
+                          "{\"error\":\"" <> string.inspect(e) <> "\"}",
+                          500,
+                        )
+                    }
+                  }
+                }
+            }
+          _, _ -> wisp.response(400)
+        }
+      })
+  }
+}

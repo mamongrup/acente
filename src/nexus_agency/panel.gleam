@@ -361,6 +361,7 @@ fn sidebar_element(lang: String, active_cat: String, membership: String) {
   let network_links = [
     #("/admin/sub-agencies", i18n.t(lang, "sub_agencies")),
     #("/admin/supplier-onboarding", "Tedarikçi başvuruları"),
+    #("/admin/listing-submissions", "İlan başvuruları"),
     #("/admin/supplier-campaigns?audience=supplier", i18n.t(lang, "campaigns")),
     #("/admin/regions", i18n.t(lang, "regions")),
     #("/admin/ai", i18n.t(lang, "ai")),
@@ -972,6 +973,7 @@ pub fn section(
             "integrations" -> integrations_form()
             "sync" -> sync_form()
             "supplier-onboarding" -> supplier_onboarding_form()
+            "listing-submissions" -> listing_submissions_form()
             "cms" -> cms_form()
             "ai" -> ai_form()
             "campaigns" | "supplier-campaigns" -> campaigns_form()
@@ -5309,6 +5311,18 @@ fn catalog_form(active_cat: String) {
             ],
           ),
           dom.element(
+            "a",
+            [
+              a.href("/admin/ai#social-compose-form"),
+              a.class("btn-quick-util"),
+              a.attribute("title", "Yapay Zeka ve Sosyal Medya Paylaşım Stüdyosu"),
+            ],
+            [
+              dom.element("span", [], [text("📱")]),
+              text("Sosyal Medya & AI"),
+            ],
+          ),
+          dom.element(
             "button",
             [
               a.attribute("type", "button"),
@@ -9250,99 +9264,170 @@ fn ai_form() {
         ],
       ),
     ]),
-    dom.element("section", [a.class("social-compose-card")], [
-      dom.element("h3", [], [text("Sosyal Medya Taslak Kuyruğu")]),
-      dom.element("p", [a.class("muted")], [
-        text(
-          "Instagram, Facebook, Threads ve Pinterest için içerikleri dil ve hesap yönlendirmesiyle kuyruğa alın.",
-        ),
+    dom.element("section", [a.class("social-compose-card social-studio-container")], [
+      dom.element("div", [a.class("social-studio-header")], [
+        dom.element("h3", [], [text("✨ Sosyal Medya & Yapay Zeka Stüdyosu")]),
+        dom.element("p", [a.class("muted")], [
+          text(
+            "Instagram, Facebook, Threads ve Pinterest için Gemini yapay zekasıyla viral gönderiler, etiketler ve görseller üretin; tek tıkla planlayın.",
+          ),
+        ]),
       ]),
-      dom.element(
-        "form",
-        [
-          a.method("post"),
-          a.action("/admin/social"),
-          a.class("social-compose-form"),
-        ],
-        [
-          dom.element("select", [a.name("network")], [
-            dom.element("option", [a.value("instagram")], [text("Instagram")]),
-            dom.element("option", [a.value("facebook")], [text("Facebook")]),
-            dom.element("option", [a.value("threads")], [text("Threads")]),
-            dom.element("option", [a.value("pinterest")], [text("Pinterest")]),
-          ]),
-          dom.element("select", [a.name("language_code")], [
-            dom.element("option", [a.value("tr")], [
-              text("Türkçe · rezervasyonyap"),
+      dom.element("div", [a.class("social-studio-grid")], [
+        dom.element(
+          "form",
+          [
+            a.method("post"),
+            a.action("/admin/social"),
+            a.class("social-compose-form"),
+            a.id("social-compose-form"),
+          ],
+          [
+            dom.element("input", [a.type_("hidden"), a.name("ai_generated"), a.id("input-ai-generated"), a.value("false")], []),
+            dom.element("div", [a.class("ai-generator-box glass-subcard")], [
+              dom.element("div", [a.class("ai-box-title")], [
+                dom.element("span", [a.class("sparkle-icon")], [text("🤖")]),
+                dom.element("strong", [], [text("Yapay Zeka İçerik Asistanı (Gemini)")]),
+              ]),
+              dom.element("div", [a.class("ai-box-row")], [
+                dom.element(
+                  "input",
+                  [
+                    a.name("listing_id"),
+                    a.id("input-social-listing-id"),
+                    a.attribute("placeholder", "İlan ID (UUID) veya İlan Başlığı girin"),
+                  ],
+                  [],
+                ),
+                dom.element("select", [a.name("tone"), a.id("select-social-tone")], [
+                  dom.element("option", [a.value("luxury")], [text("💎 Lüks & Prestijli")]),
+                  dom.element("option", [a.value("catchy")], [text("⚡ Çekici & Fırsat Odaklı")]),
+                  dom.element("option", [a.value("romantic")], [text("🌹 Romantik & Balayı")]),
+                  dom.element("option", [a.value("adventurous")], [text("🧗 Maceracı & Dinamik")]),
+                ]),
+              ]),
+              dom.element("button", [
+                a.type_("button"),
+                a.class("btn-ai-pill full-width"),
+                a.id("btn-generate-social-ai"),
+              ], [
+                text("✨ Yapay Zeka ile Gönderi Metni & Görsel Getir"),
+              ]),
             ]),
-            dom.element("option", [a.value("en")], [
-              text("English · reservationinturkey"),
+            dom.element("div", [a.class("form-row-duo")], [
+              dom.element("select", [a.name("network"), a.id("select-social-network")], [
+                dom.element("option", [a.value("instagram")], [text("📸 Instagram")]),
+                dom.element("option", [a.value("facebook")], [text("📘 Facebook")]),
+                dom.element("option", [a.value("threads")], [text("🧵 Threads")]),
+                dom.element("option", [a.value("pinterest")], [text("📌 Pinterest")]),
+              ]),
+              dom.element("select", [a.name("language_code"), a.id("select-social-lang")], [
+                dom.element("option", [a.value("tr")], [
+                  text("🇹🇷 Türkçe · rezervasyonyap"),
+                ]),
+                dom.element("option", [a.value("en")], [
+                  text("🇬🇧 English · reservationinturkey"),
+                ]),
+                dom.element("option", [a.value("de")], [text("🇩🇪 Deutsch")]),
+                dom.element("option", [a.value("ru")], [text("🇷🇺 Русский")]),
+                dom.element("option", [a.value("fr")], [text("🇫🇷 Français")]),
+                dom.element("option", [a.value("zh")], [text("🇨🇳 简体中文")]),
+              ]),
             ]),
-            dom.element("option", [a.value("de")], [text("Deutsch")]),
-            dom.element("option", [a.value("ru")], [text("Русский")]),
-            dom.element("option", [a.value("fr")], [text("Français")]),
-            dom.element("option", [a.value("zh")], [text("简体中文")]),
-          ]),
-          dom.element(
-            "input",
-            [
-              a.name("scheduled_at"),
-              a.type_("datetime-local"),
-              a.attribute("placeholder", "Planlama zamanı"),
-            ],
-            [],
-          ),
-          dom.element(
-            "textarea",
-            [
-              a.name("content"),
-              a.required(True),
-              a.attribute("rows", "4"),
-              a.attribute("placeholder", "Gönderi metni…"),
-            ],
-            [],
-          ),
-          dom.element(
-            "input",
-            [
-              a.name("media_url"),
-              a.type_("url"),
-              a.attribute(
-                "placeholder",
-                "Medya URL'si (Instagram/Pinterest için gerekli)",
-              ),
-            ],
-            [],
-          ),
-          dom.element("label", [a.class("check-row")], [
             dom.element(
               "input",
-              [a.type_("checkbox"), a.name("approval_required"), a.value("true")],
+              [
+                a.name("scheduled_at"),
+                a.type_("datetime-local"),
+                a.attribute("placeholder", "Planlama zamanı"),
+              ],
               [],
             ),
-            text("Yayınlamadan önce manuel onay iste"),
+            dom.element(
+              "textarea",
+              [
+                a.name("content"),
+                a.id("textarea-social-content"),
+                a.required(True),
+                a.attribute("rows", "5"),
+                a.attribute("placeholder", "Gönderi metni veya AI ile üretilen içerik…"),
+              ],
+              [],
+            ),
+            dom.element(
+              "input",
+              [
+                a.name("media_url"),
+                a.id("input-social-media-url"),
+                a.type_("url"),
+                a.attribute(
+                  "placeholder",
+                  "Medya / Görsel URL'si (Instagram/Pinterest için zorunlu)",
+                ),
+              ],
+              [],
+            ),
+            dom.element("div", [a.class("form-row-duo")], [
+              dom.element("select", [a.name("automation_mode")], [
+                dom.element("option", [a.value("manual")], [text("Manuel onaylı paylaşım")]),
+                dom.element("option", [a.value("automatic")], [text("Otomatik zamanlı paylaşım")]),
+              ]),
+              dom.element(
+                "input",
+                [
+                  a.name("daily_limit"),
+                  a.type_("number"),
+                  a.value("5"),
+                  a.attribute("min", "0"),
+                  a.attribute("max", "1000"),
+                  a.attribute("placeholder", "Günlük limit"),
+                ],
+                [],
+              ),
+            ]),
+            dom.element("label", [a.class("check-row")], [
+              dom.element(
+                "input",
+                [a.type_("checkbox"), a.name("approval_required"), a.value("true")],
+                [],
+              ),
+              text("Yayınlamadan önce yönetici onayı iste"),
+            ]),
+            dom.element("button", [a.type_("submit"), a.class("primary full-width")], [
+              text("🚀 Taslağı Sosyal Medya Kuyruğuna Al"),
+            ]),
+          ],
+        ),
+        dom.element("div", [a.class("social-preview-wrapper glass-subcard")], [
+          dom.element("div", [a.class("preview-header")], [
+            dom.element("span", [a.id("preview-network-badge"), a.class("badge-network")], [text("Instagram Önizlemesi")]),
+            dom.element("div", [a.class("preview-header-actions")], [
+              dom.element("button", [a.type_("button"), a.id("btn-copy-social-text"), a.class("btn-preview-copy")], [text("📋 Kopyala")]),
+              dom.element("span", [a.class("preview-live-tag")], [text("Canlı")]),
+            ]),
           ]),
-          dom.element("select", [a.name("automation_mode")], [
-            dom.element("option", [a.value("manual")], [text("Manuel paylaşım")]),
-            dom.element("option", [a.value("automatic")], [text("Otomatik paylaşım")]),
+          dom.element("div", [a.class("social-mockup-card"), a.id("social-mockup-card")], [
+            dom.element("div", [a.class("mockup-author")], [
+              dom.element("div", [a.class("mockup-avatar")], [text("🏝️")]),
+              dom.element("div", [a.class("mockup-author-info")], [
+                dom.element("strong", [a.id("mockup-author-name")], [text("rezervasyonyap")]),
+                dom.element("small", [a.class("muted")], [text("Sponsorlu · Türkiye")]),
+              ]),
+            ]),
+            dom.element("div", [a.class("mockup-image-box"), a.id("mockup-image-box")], [
+              dom.element("img", [a.id("mockup-img"), a.attribute("src", "/static/placeholder.jpg"), a.attribute("alt", "Önizleme Görseli")], []),
+            ]),
+            dom.element("div", [a.class("mockup-body")], [
+              dom.element("div", [a.class("mockup-actions")], [
+                text("❤️ 💬 ↗️"),
+              ]),
+              dom.element("p", [a.class("mockup-text"), a.id("mockup-text-display")], [
+                text("✨ Tatil hayallerinizi gerçeğe dönüştürün! Yapay zeka ile oluşturulan benzersiz rotalar, villalar ve oteller sizleri bekliyor. #tatil #turizm"),
+              ]),
+            ]),
           ]),
-          dom.element(
-            "input",
-            [
-              a.name("daily_limit"),
-              a.type_("number"),
-              a.value("5"),
-              a.attribute("min", "0"),
-              a.attribute("max", "1000"),
-              a.attribute("placeholder", "Günlük limit"),
-            ],
-            [],
-          ),
-          dom.element("button", [a.type_("submit"), a.class("primary")], [
-            text("Taslağı kuyruğa al"),
-          ]),
-        ],
-      ),
+        ]),
+      ]),
     ]),
     dom.element("section", [a.class("social-compose-card"), a.id("social-review")], [
       dom.element("h3", [], [text("Sosyal gönderi denetimi")]),
@@ -9413,7 +9498,384 @@ fn ai_form() {
       ),
     ]),
     ai_key_pool_card(),
+    ai_listing_fastfill_card(),
+    ai_blog_engine_card(),
+    ai_pricing_optimizer_card(),
+    ai_review_sentiment_card(),
+    ai_bundle_cross_sell_card(),
+    ai_support_copilot_card(),
     module_control_card(),
+  ])
+}
+
+fn ai_listing_fastfill_card() {
+  dom.element("section", [a.class("social-compose-card"), a.id("ai-listing-fastfill")], [
+    dom.element("div", [a.class("section-heading")], [
+      dom.element("div", [], [
+        dom.element("h3", [], [text("⚡ AI İlan Hızlı Doldur (Notlardan Ayrıştır)")]),
+        dom.element("p", [a.class("muted")], [
+          text("Broşür notlarını veya serbest metin açıklamalarını yapıştırın; yapay zeka otomatik olarak ilan alanlarını (başlık, kategori, fiyat, kapasite vb.) JSON olarak çıkarsın."),
+        ]),
+      ]),
+    ]),
+    dom.element("div", [a.class("ai-generator-box glass-subcard")], [
+      dom.element("div", [a.class("form-row-duo")], [
+        dom.element(
+          "select",
+          [a.id("ai-fastfill-category"), a.class("form-control")],
+          [
+            dom.element("option", [a.value("holiday_home")], [text("🏡 Tatil Evi")]),
+            dom.element("option", [a.value("hotel")], [text("🏨 Otel")]),
+            dom.element("option", [a.value("yacht")], [text("⛵ Yat")]),
+            dom.element("option", [a.value("tour")], [text("🗺️ Tur")]),
+            dom.element("option", [a.value("activity")], [text("🧗 Aktivite")]),
+            dom.element("option", [a.value("car")], [text("🚙 Araç")]),
+            dom.element("option", [a.value("transfer")], [text("🚐 Transfer")]),
+            dom.element("option", [a.value("cruise")], [text("🛳️ Kruvaziyer")]),
+          ],
+        ),
+        dom.element("button", [a.type_("button"), a.id("btn-ai-fastfill"), a.class("btn-ai-pill")], [
+          text("✨ Notlardan Alanları Ayrıştır"),
+        ]),
+      ]),
+      dom.element(
+        "textarea",
+        [
+          a.id("ai-fastfill-raw"),
+          a.class("form-control"),
+          a.attribute("rows", "6"),
+          a.attribute("placeholder", "Örn: Kaş manzaralı villa, 3 yatak odası, havuz, 6 misafir kapasiteli. Fiyat 8.500 TL/gece. Check-in 15:00..."),
+        ],
+        [],
+      ),
+      dom.element("div", [a.id("ai-fastfill-result"), a.class("ai-fastfill-result-box")], []),
+    ]),
+  ])
+}
+
+fn ai_blog_engine_card() {
+  dom.element("section", [a.class("social-compose-card"), a.id("ai-blog-engine")], [
+    dom.element("div", [a.class("section-heading")], [
+      dom.element("div", [], [
+        dom.element("h3", [], [text("📝 AI SEO Blog & Destinasyon Rehberi Üretici")]),
+        dom.element("p", [a.class("muted")], [
+          text("Destinasyon ve kategori girerek arama motorlarında üst sıralarda çıkacak, dahili bağlantılı zengin HTML gezi rehberleri üretin."),
+        ]),
+      ]),
+    ]),
+    dom.element("div", [a.class("ai-generator-box glass-subcard")], [
+      dom.element("div", [a.class("form-row-duo")], [
+        dom.element(
+          "input",
+          [
+            a.id("ai-blog-destination"),
+            a.class("form-control"),
+            a.attribute("placeholder", "Destinasyon (ör: Kaş, Bodrum, Fethiye)"),
+          ],
+          [],
+        ),
+        dom.element(
+          "select",
+          [a.id("ai-blog-category"), a.class("form-control")],
+          [
+            dom.element("option", [a.value("holiday_home")], [text("🏡 Tatil Evi")]),
+            dom.element("option", [a.value("hotel")], [text("🏨 Otel")]),
+            dom.element("option", [a.value("yacht")], [text("⛵ Yat")]),
+            dom.element("option", [a.value("tour")], [text("🗺️ Tur")]),
+            dom.element("option", [a.value("activity")], [text("🧗 Aktivite")]),
+          ],
+        ),
+      ]),
+      dom.element("div", [a.class("form-row-duo")], [
+        dom.element(
+          "select",
+          [a.id("ai-blog-lang"), a.class("form-control")],
+          [
+            dom.element("option", [a.value("tr")], [text("🇹🇷 Türkçe")]),
+            dom.element("option", [a.value("en")], [text("🇬🇧 English")]),
+            dom.element("option", [a.value("de")], [text("🇩🇪 Deutsch")]),
+            dom.element("option", [a.value("ru")], [text("🇷🇺 Русский")]),
+          ],
+        ),
+        dom.element("button", [a.type_("button"), a.id("btn-ai-blog"), a.class("btn-ai-pill")], [
+          text("✨ Gezi Rehberi & Blog Üret"),
+        ]),
+      ]),
+      dom.element("div", [a.id("ai-blog-result"), a.class("ai-blog-result-box")], []),
+    ]),
+  ])
+}
+
+fn ai_pricing_optimizer_card() {
+  dom.element("section", [a.class("social-compose-card"), a.id("ai-pricing-optimizer")], [
+    dom.element("div", [a.class("section-heading")], [
+      dom.element("div", [], [
+        dom.element("h3", [], [text("📈 AI Akıllı Fiyatlandırma & Dinamik Gelir Stratejisi")]),
+        dom.element("p", [a.class("muted")], [
+          text("Sezonluk talep, doluluk oranı ve hafta sonu katsayılarını analiz ederek kâr marjını maksimize eden dinamik fiyatlandırma hesaplayın."),
+        ]),
+      ]),
+    ]),
+    dom.element("div", [a.class("ai-generator-box glass-subcard")], [
+      dom.element("div", [a.class("form-row-duo")], [
+        dom.element(
+          "input",
+          [
+            a.id("ai-pricing-locality"),
+            a.class("form-control"),
+            a.attribute("placeholder", "Destinasyon / Bölge (ör: Bodrum, Kaş, Fethiye)"),
+          ],
+          [],
+        ),
+        dom.element(
+          "select",
+          [a.id("ai-pricing-category"), a.class("form-control")],
+          [
+            dom.element("option", [a.value("holiday_home")], [text("🏡 Tatil Evi / Villa")]),
+            dom.element("option", [a.value("hotel")], [text("🏨 Otel")]),
+            dom.element("option", [a.value("yacht")], [text("⛵ Yat")]),
+            dom.element("option", [a.value("tour")], [text("🗺️ Tur")]),
+            dom.element("option", [a.value("car")], [text("🚙 Araç")]),
+            dom.element("option", [a.value("transfer")], [text("🚐 Transfer")]),
+          ],
+        ),
+      ]),
+      dom.element("div", [a.class("form-row-duo")], [
+        dom.element(
+          "input",
+          [
+            a.id("ai-pricing-price"),
+            a.type_("number"),
+            a.class("form-control"),
+            a.attribute("placeholder", "Mevcut Taban Fiyat (ör: 5000)"),
+          ],
+          [],
+        ),
+        dom.element(
+          "select",
+          [a.id("ai-pricing-currency"), a.class("form-control")],
+          [
+            dom.element("option", [a.value("TRY")], [text("₺ TRY")]),
+            dom.element("option", [a.value("EUR")], [text("€ EUR")]),
+            dom.element("option", [a.value("USD")], [text("$ USD")]),
+            dom.element("option", [a.value("GBP")], [text("£ GBP")]),
+          ],
+        ),
+      ]),
+      dom.element("div", [a.class("form-row-duo")], [
+        dom.element(
+          "select",
+          [a.id("ai-pricing-season"), a.class("form-control")],
+          [
+            dom.element("option", [a.value("high")], [text("☀️ Yüksek Sezon (Yoğun Talep)")]),
+            dom.element("option", [a.value("medium")], [text("🍂 Orta Sezon (Bahar / Dengeli)")]),
+            dom.element("option", [a.value("low")], [text("❄️ Düşük Sezon (Fırsat Dönemi)")]),
+          ],
+        ),
+        dom.element(
+          "select",
+          [a.id("ai-pricing-occupancy"), a.class("form-control")],
+          [
+            dom.element("option", [a.value("85")], [text("Doluluk: %85 (Yüksek Doluluk)")]),
+            dom.element("option", [a.value("60")], [text("Doluluk: %60 (Dengeli)")]),
+            dom.element("option", [a.value("25")], [text("Doluluk: %25 (Düşük - Kampanya Gerekli)")]),
+          ],
+        ),
+      ]),
+      dom.element("div", [a.class("form-actions-right")], [
+        dom.element("button", [a.type_("button"), a.id("btn-ai-pricing"), a.class("btn-ai-pill")], [
+          text("📊 Dinamik Fiyat Stratejisini Hesapla"),
+        ]),
+      ]),
+      dom.element("div", [a.id("ai-pricing-result"), a.class("ai-pricing-result-box")], []),
+    ]),
+  ])
+}
+
+fn ai_review_sentiment_card() {
+  dom.element("section", [a.class("social-compose-card"), a.id("ai-review-sentiment")], [
+    dom.element("div", [a.class("section-heading")], [
+      dom.element("div", [], [
+        dom.element("h3", [], [text("⭐ AI Misafir Yorumu & İtibar Asistanı (Auto-Responder)")]),
+        dom.element("p", [a.class("muted")], [
+          text("Gelen misafir değerlendirmesini duygu analizinden geçirin, güçlü ve eksik noktaları ayrıştırarak 2 profesyonel yanıt taslağı alın."),
+        ]),
+      ]),
+    ]),
+    dom.element("div", [a.class("ai-generator-box glass-subcard")], [
+      dom.element("div", [a.class("form-row-duo")], [
+        dom.element(
+          "input",
+          [
+            a.id("ai-review-listing"),
+            a.class("form-control"),
+            a.attribute("placeholder", "İlan / Tesis Adı (ör: Villa Panoramik Kaş)"),
+          ],
+          [],
+        ),
+        dom.element(
+          "select",
+          [a.id("ai-review-rating"), a.class("form-control")],
+          [
+            dom.element("option", [a.value("5")], [text("⭐⭐⭐⭐⭐ 5 Puan (Mükemmel)")]),
+            dom.element("option", [a.value("4")], [text("⭐⭐⭐⭐ 4 Puan (Çok İyi)")]),
+            dom.element("option", [a.value("3")], [text("⭐⭐⭐ 3 Puan (Orta / Nötr)")]),
+            dom.element("option", [a.value("2")], [text("⭐⭐ 2 Puan (Geliştirilmeli)")]),
+            dom.element("option", [a.value("1")], [text("⭐ 1 Puan (Şikayet / Kriz)")]),
+          ],
+        ),
+      ]),
+      dom.element(
+        "textarea",
+        [
+          a.id("ai-review-text"),
+          a.class("form-control"),
+          a.attribute("rows", "4"),
+          a.attribute("placeholder", "Misafirin bıraktığı yorumu buraya yapıştırın..."),
+        ],
+        [],
+      ),
+      dom.element("div", [a.class("form-actions-right")], [
+        dom.element("button", [a.type_("button"), a.id("btn-ai-review"), a.class("btn-ai-pill")], [
+          text("🔍 Duygu Durumunu Analiz Et & Yanıt Tasla"),
+        ]),
+      ]),
+      dom.element("div", [a.id("ai-review-result"), a.class("ai-review-result-box")], []),
+    ]),
+  ])
+}
+
+fn ai_bundle_cross_sell_card() {
+  dom.element("section", [a.class("social-compose-card"), a.id("ai-bundle-cross-sell")], [
+    dom.element("div", [a.class("section-heading")], [
+      dom.element("div", [], [
+        dom.element("h3", [], [text("🎁 AI Çapraz Satış & Rota Paketleyici (Cross-Sell Engine)")]),
+        dom.element("p", [a.class("muted")], [
+          text("Konaklama rezervasyonuna ek olarak transfer, tekne turu ve yerel macera deneyimlerini akıllı çapraz satış paketi olarak müşteriye sunun."),
+        ]),
+      ]),
+    ]),
+    dom.element("div", [a.class("ai-generator-box glass-subcard")], [
+      dom.element("div", [a.class("form-row-duo")], [
+        dom.element(
+          "input",
+          [
+            a.id("ai-bundle-locality"),
+            a.class("form-control"),
+            a.attribute("placeholder", "Destinasyon (ör: Fethiye, Bodrum, Kaş)"),
+          ],
+          [],
+        ),
+        dom.element(
+          "select",
+          [a.id("ai-bundle-category"), a.class("form-control")],
+          [
+            dom.element("option", [a.value("holiday_home")], [text("🏡 Tatil Evi / Villa Konaklaması")]),
+            dom.element("option", [a.value("hotel")], [text("🏨 Otel Konaklaması")]),
+            dom.element("option", [a.value("yacht")], [text("⛵ Mavi Tur / Yat")]),
+          ],
+        ),
+      ]),
+      dom.element("div", [a.class("form-row-duo")], [
+        dom.element(
+          "select",
+          [a.id("ai-bundle-style"), a.class("form-control")],
+          [
+            dom.element("option", [a.value("Romantik Balayı")], [text("💑 Romantik Balayı")]),
+            dom.element("option", [a.value("Aile Tatili")], [text("👨‍👩‍👧‍👦 Aile Tatili & Çocuk Dostu")]),
+            dom.element("option", [a.value("Lüks & Konfor")], [text("💎 VIP Lüks & Konfor")]),
+            dom.element("option", [a.value("Macera & Doğa")], [text("🧗 Macera, Doğa & Spor")]),
+          ],
+        ),
+        dom.element(
+          "input",
+          [
+            a.id("ai-bundle-guests"),
+            a.type_("number"),
+            a.class("form-control"),
+            a.attribute("value", "2"),
+            a.attribute("placeholder", "Misafir Sayısı"),
+          ],
+          [],
+        ),
+      ]),
+      dom.element("div", [a.class("form-actions-right")], [
+        dom.element("button", [a.type_("button"), a.id("btn-ai-bundle"), a.class("btn-ai-pill")], [
+          text("✨ Akıllı Çapraz Satış Paketi Oluştur"),
+        ]),
+      ]),
+      dom.element("div", [a.id("ai-bundle-result"), a.class("ai-bundle-result-box")], []),
+    ]),
+  ])
+}
+
+fn ai_support_copilot_card() {
+  dom.element("section", [a.class("social-compose-card"), a.id("ai-support-copilot")], [
+    dom.element("div", [a.class("section-heading")], [
+      dom.element("div", [], [
+        dom.element("h3", [], [text("💬 AI Acente İletişim & WhatsApp / Destek Co-Pilot")]),
+        dom.element("p", [a.class("muted")], [
+          text("Misafirlerin rezervasyon, evcil hayvan, giriş saatleri ve özel taleplerine tek tıkla kurum kültürüne uygun WhatsApp yanıt taslağı hazırlayın."),
+        ]),
+      ]),
+    ]),
+    dom.element("div", [a.class("ai-generator-box glass-subcard")], [
+      dom.element("div", [a.class("form-row-duo")], [
+        dom.element(
+          "input",
+          [
+            a.id("ai-support-name"),
+            a.class("form-control"),
+            a.attribute("placeholder", "Misafir Adı (ör: Ahmet Bey)"),
+          ],
+          [],
+        ),
+        dom.element(
+          "select",
+          [a.id("ai-support-channel"), a.class("form-control")],
+          [
+            dom.element("option", [a.value("whatsapp")], [text("📱 WhatsApp")]),
+            dom.element("option", [a.value("email")], [text("✉️ E-Posta")]),
+          ],
+        ),
+      ]),
+      dom.element("div", [a.class("form-row-duo")], [
+        dom.element(
+          "input",
+          [
+            a.id("ai-support-listing"),
+            a.class("form-control"),
+            a.attribute("placeholder", "Tesis / İlan (ör: Kaş Sunset Villa)"),
+          ],
+          [],
+        ),
+        dom.element(
+          "input",
+          [
+            a.id("ai-support-locality"),
+            a.class("form-control"),
+            a.attribute("placeholder", "Bölge (ör: Kaş)"),
+          ],
+          [],
+        ),
+      ]),
+      dom.element(
+        "textarea",
+        [
+          a.id("ai-support-question"),
+          a.class("form-control"),
+          a.attribute("rows", "4"),
+          a.attribute("placeholder", "Misafirin sorusunu buraya yapıştırın (ör: 'Erken giriş yapabilir miyiz? Evcil hayvan kabul ediyor musunuz?')"),
+        ],
+        [],
+      ),
+      dom.element("div", [a.class("form-actions-right")], [
+        dom.element("button", [a.type_("button"), a.id("btn-ai-support"), a.class("btn-ai-pill")], [
+          text("🚀 WhatsApp Yanıt Taslağı Oluştur"),
+        ]),
+      ]),
+      dom.element("div", [a.id("ai-support-result"), a.class("ai-support-result-box")], []),
+    ]),
   ])
 }
 
@@ -12751,10 +13213,16 @@ fn section_scripts(section_key: String) -> List(String) {
     "languages" -> ["/static/language-admin.js"]
     "categories" -> ["/static/category-admin.js?v=20260924-tour-tree"]
     "integrations" -> ["/static/integration-admin.js"]
-    "ai" -> ["/static/ai-admin.js", "/static/ai-key-pool.js?v=20260916", "/static/module-controls.js"]
+    "ai" -> [
+      "/static/ai-admin.js?v=20260929-ai",
+      "/static/ai-key-pool.js?v=20260916",
+      "/static/module-controls.js",
+      "/static/social-studio.js?v=20260929",
+    ]
     "sync" -> ["/static/sync-admin.js?v=20260928-2"]
     "control-center" -> ["/static/control-center.js?v=20260928-1"]
     "supplier-onboarding" -> ["/static/supplier-onboarding-admin.js?v=20260928-review3"]
+    "listing-submissions" -> ["/static/listing-submissions-admin.js?v=20260929-1"]
     "cms" -> [
       "/static/cms-admin.js?v=20260926-hero-all1",
       "/static/rich-editor.js?v=20260914-seo",
@@ -13123,4 +13591,115 @@ fn core_stylesheet_links() -> List(dom.Element(Nil)) {
     "/static/css/12-compact-responsive.css",
   ]
   |> list.map(stylesheet_link)
+}
+
+fn listing_submissions_form() {
+  dom.element(
+    "section",
+    [a.class("quick"), a.id("listing-submissions-workspace")],
+    [
+      dom.element("div", [a.class("section-heading")], [
+        dom.element("div", [], [
+          dom.element("span", [a.class("eyebrow")], [
+            text("PAZARYERİ VE PORTAL İLANLARI"),
+          ]),
+          dom.element("h2", [], [text("İlan Başvuruları")]),
+          dom.element("p", [a.class("muted")], [
+            text(
+              "Vitrin üzerinden (rezervasyonyap.com.tr / reservationinturkey.com) gelen tedarikçi ilan başvurularını denetleyin, onaylayın veya reddedin.",
+            ),
+          ]),
+        ]),
+        dom.element(
+          "button",
+          [
+            a.type_("button"),
+            a.class("primary"),
+            a.id("listing-submissions-refresh"),
+          ],
+          [text("Yenile")],
+        ),
+      ]),
+      dom.element(
+        "div",
+        [a.class("metric-grid"), a.id("listing-submissions-status-cards")],
+        [
+          metric("Bekleyen", "0", "İnceleme bekleyen ilanlar"),
+          metric("Onaylanan", "0", "Kataloğa aktarılan ilanlar"),
+          metric("Reddedilen", "0", "Gerekçeyle reddedilenler"),
+          metric("Toplam Başvuru", "0", "Tüm vitrin kayıtları"),
+        ],
+      ),
+      dom.element("div", [a.class("table-card")], [
+        dom.element("div", [a.class("table-toolbar")], [
+          dom.element("h3", [], [text("Gelen İlan Kuyruğu")]),
+          dom.element("div", [a.class("filter-controls")], [
+            dom.element("select", [a.id("listing-submission-status-filter")], [
+              dom.element("option", [a.value("")], [text("Tüm Durumlar")]),
+              dom.element("option", [a.value("pending")], [text("Beklemede (pending)")]),
+              dom.element("option", [a.value("approved")], [text("Onaylanan (approved)")]),
+              dom.element("option", [a.value("rejected")], [text("Reddedilen (rejected)")]),
+            ]),
+          ]),
+        ]),
+        dom.element("table", [a.class("data-table")], [
+          dom.element("thead", [], [
+            dom.element("tr", [], [
+              dom.element("th", [], [text("Firma / İletişim")]),
+              dom.element("th", [], [text("Kategori")]),
+              dom.element("th", [], [text("İlan Başlığı & Konum")]),
+              dom.element("th", [], [text("Hedef Portal")]),
+              dom.element("th", [], [text("Fiyat & Kapasite")]),
+              dom.element("th", [], [text("Tarih")]),
+              dom.element("th", [], [text("Durum")]),
+              dom.element("th", [], [text("Aksiyon")]),
+            ]),
+          ]),
+          dom.element("tbody", [a.id("listing-submissions-body")], [
+            dom.element("tr", [], [
+              dom.element("td", [a.attribute("colspan", "8")], [
+                text("İlan başvuruları yükleniyor…"),
+              ]),
+            ]),
+          ]),
+        ]),
+      ]),
+    ],
+  )
+}
+
+pub fn ilan_ver_page(lang: String, domain_target: String) -> String {
+  let title = case lang {
+    "en" -> "List Your Property & Experiences · Partner Onboarding"
+    _ -> "İlanınızı Ekleyin · Turizm Pazaryeri İlan Başvurusu"
+  }
+  let body =
+    dom.element("main", [a.class("ilan-ver-container")], [
+      dom.element(
+        "div",
+        [
+          a.id("ilan-ver-root"),
+          a.attribute("data-lang", lang),
+          a.attribute("data-domain-target", domain_target),
+        ],
+        [
+          dom.element("div", [a.class("ilan-ver-loading")], [
+            dom.element("div", [a.class("spinner")], []),
+            dom.element("p", [], [
+              text(case lang {
+                "en" -> "Loading Partner Onboarding Wizard…"
+                _ -> "İlan Verme Sihirbazı Yükleniyor…"
+              }),
+            ]),
+          ]),
+        ],
+      ),
+    ])
+  layout(
+    title,
+    body,
+    lang,
+    ["/static/ilan-ver.js?v=20260929-1"],
+    ["/static/css/ilan-ver.css?v=20260929-1"],
+  )
 }

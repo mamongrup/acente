@@ -78,31 +78,14 @@ pub fn chisfis_footer(_q: String) -> dom.Element(msg) {
     "",
     "footer",
     [a.class("nx-site-footer")],
-    "<div class=\"container nx-footer-inner\">"
-      <> "<div class=\"nx-footer-top\"><div class=\"nx-footer-intro\"><a class=\"nx-footer-brand\" href=\"/\" aria-label=\"NEXUS Agency\"><img class=\"nx-footer-brand-mark\" src=\"/static/nexus-mobile-mark.svg\" width=\"36\" height=\"36\" alt=\"\"><span class=\"nx-footer-brand-name\">NEXUS <em>Agency</em></span></a>"
-      <> "<p data-i18n=\"Seyahati planlayanları, acenteleri ve tedarikçileri bir araya getiriyoruz.\">Seyahati planlayanları, acenteleri ve tedarikçileri bir araya getiriyoruz.</p></div>"
-      <> "<div class=\"nx-footer-actions\"><a class=\"nx-footer-action-primary\" href=\"/urunler\" data-i18n=\"Seyahati keşfet\">Seyahati keşfet</a><a class=\"nx-footer-action-secondary\" href=\"/iletisim\" data-i18n=\"Bize ulaşın\">Bize ulaşın</a></div></div>"
-      <> "<div class=\"nx-footer-grid\">"
-      <> "<section><h2 data-i18n=\"Keşfedin\">Keşfedin</h2><ul>"
-      <> "<li><a href=\"/urunler\" data-i18n=\"Tüm ilanları keşfet\">Tüm ilanları keşfet</a></li>"
-      <> "<li><a href=\"/otel\" data-i18n=\"Oteller\">Oteller</a></li>"
-      <> "<li><a href=\"/tatil-evi\" data-i18n=\"Tatil evleri\">Tatil evleri</a></li>"
-      <> "<li><a href=\"/yat\" data-i18n=\"Yatlar\">Yatlar</a></li>"
-      <> "<li><a href=\"/tur\" data-i18n=\"Turlar\">Turlar</a></li></ul></section>"
-      <> "<section><h2 data-i18n=\"Hesabınız\">Hesabınız</h2><ul>"
-      <> "<li><a href=\"/login\" data-i18n=\"Giriş yapın\">Giriş yapın</a></li>"
-      <> "<li><a href=\"/hesap\" data-i18n=\"Hesabım ve rezervasyonlarım\">Hesabım ve rezervasyonlarım</a></li>"
-      <> "<li><a href=\"/musteriler-icin\" data-i18n=\"Müşteri rehberi\">Müşteri rehberi</a></li></ul></section>"
-      <> "<section><h2 data-i18n=\"İş ortakları\">İş ortakları</h2><ul>"
-      <> "<li><a href=\"/login\" data-i18n=\"Tedarikçi paneline giriş\">Tedarikçi paneline giriş</a></li>"
-      <> "<li><a href=\"/tedarikciler-icin\" data-i18n=\"Tedarikçiler için\">Tedarikçiler için</a></li>"
-      <> "<li><a href=\"/login\" data-i18n=\"Acente paneline giriş\">Acente paneline giriş</a></li>"
-      <> "<li><a href=\"/acenteler-icin\" data-i18n=\"Acenteler için\">Acenteler için</a></li></ul></section>"
-      <> "<section><h2 data-i18n=\"Yardım\">Yardım</h2><ul>"
-      <> "<li><a href=\"/nasil-calisir\" data-i18n=\"Nasıl çalışır?\">Nasıl çalışır?</a></li>"
-      <> "<li><a href=\"/iletisim\" data-i18n=\"İletişim\">İletişim</a></li>"
-      <> "<li><a href=\"/iletisim\" data-i18n=\"Destek alın\">Destek alın</a></li></ul></section></div>"
-      <> "<div class=\"nx-footer-bottom\"><span>© 2026 NEXUS Agency · <span data-i18n=\"Tüm hakları saklıdır.\">Tüm hakları saklıdır.</span></span><nav aria-label=\"Alt bağlantılar\"><a href=\"/nasil-calisir\" data-i18n=\"Nasıl çalışır?\">Nasıl çalışır?</a><a href=\"/iletisim\" data-i18n=\"İletişim\">İletişim</a></nav></div>"
-      <> "</div>",
+    "<div class=\"container nx-footer-inner\"><div class=\"nx-footer-reference-grid\">"
+      <> "<div class=\"nx-footer-company\"><a class=\"nx-footer-brand\" href=\"/\" aria-label=\"NEXUS Agency\"><img class=\"nx-footer-brand-mark\" src=\"/static/nexus-mobile-mark.svg\" width=\"42\" height=\"42\" alt=\"\"><span class=\"nx-footer-brand-name\">NEXUS <em>Agency</em></span></a>"
+      <> "<p data-i18n=\"Seyahati planlayanları, acenteleri ve tedarikçileri bir araya getiriyoruz.\">Seyahati planlayanları, acenteleri ve tedarikçileri bir araya getiriyoruz.</p>"
+      <> "<nav class=\"nx-footer-social\" aria-label=\"Sosyal medya\"><a href=\"/iletisim\" aria-label=\"Facebook\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M14 8h3V4h-3c-3.3 0-5 2-5 5v3H6v4h3v4h4v-4h3l1-4h-4V9c0-.7.3-1 1-1Z\"/></svg></a><a href=\"/iletisim\" aria-label=\"Instagram\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"5\"/><circle cx=\"12\" cy=\"12\" r=\"4\"/><circle cx=\"17.5\" cy=\"6.5\" r=\"1\"/></svg></a><a href=\"/iletisim\" aria-label=\"X\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m5 4 14 16M19 4 5 20\"/></svg></a><a href=\"/iletisim\" aria-label=\"YouTube\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"6\" width=\"18\" height=\"12\" rx=\"3\"/><path d=\"m10 9 5 3-5 3V9Z\"/></svg></a></nav></div>"
+      <> "<section><h2 data-i18n=\"Keşfedin\">Keşfedin</h2><ul><li><a href=\"/otel\" data-i18n=\"Konaklamalar\">Konaklamalar</a></li><li><a href=\"/tur\" data-i18n=\"Deneyimler\">Deneyimler</a></li><li><a href=\"/arac\" data-i18n=\"Araç kiralama\">Araç kiralama</a></li><li><a href=\"/ucus\" data-i18n=\"Uçuşlar\">Uçuşlar</a></li></ul></section>"
+      <> "<section><h2 data-i18n=\"Yardım\">Yardım</h2><ul><li><a href=\"/nasil-calisir\" data-i18n=\"Yardım merkezi\">Yardım merkezi</a></li><li><a href=\"/urunler?view=map\" data-i18n=\"Haritada arayın\">Haritada arayın</a></li><li><a href=\"/musteriler-icin\" data-i18n=\"Müşteri rehberi\">Müşteri rehberi</a></li><li><a href=\"/iletisim\" data-i18n=\"İletişim\">İletişim</a></li></ul></section>"
+      <> "<section><h2 data-i18n=\"Kurumsal\">Kurumsal</h2><ul><li><a href=\"/acenteler-icin\" data-i18n=\"Hakkımızda\">Hakkımızda</a></li><li><a href=\"/nasil-calisir\" data-i18n=\"Blog\">Blog</a></li><li><a href=\"/iletisim\" data-i18n=\"İletişim\">İletişim</a></li><li><a href=\"/iletisim\" data-i18n=\"Planlar ve fiyatlar\">Planlar ve fiyatlar</a></li></ul></section>"
+      <> "<section><h2 data-i18n=\"İş ortakları\">İş ortakları</h2><ul><li><a href=\"/tedarikciler-icin\" data-i18n=\"İlanınızı ekleyin\">İlanınızı ekleyin</a></li><li><a href=\"/tedarikciler-icin\" data-i18n=\"Tedarikçi paneli\">Tedarikçi paneli</a></li><li><a href=\"/acenteler-icin\" data-i18n=\"Acente paneli\">Acente paneli</a></li><li><a href=\"/hesap\" data-i18n=\"Hesabınız\">Hesabınız</a></li></ul></section></div>"
+      <> "<div class=\"nx-footer-bottom\"><span>© 2026 NEXUS Agency · <span data-i18n=\"Tüm hakları saklıdır.\">Tüm hakları saklıdır.</span></span></div><script src=\"/static/concierge-widget.js?v=20260929\" defer></script></div>",
   )
 }

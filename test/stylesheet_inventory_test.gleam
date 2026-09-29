@@ -228,7 +228,7 @@ const css_budget = [
   #("05-media-catalog.css", 138),
   #("06-wizard.css", 307),
   #("07-utilities.css", 10),
-  #("08-editor-rooms-seo.css", 187),
+  #("08-editor-rooms-seo.css", 215),
   #("09-catalog-mode.css", 209),
   #("10-translations.css", 30),
   #("11-regions.css", 71),

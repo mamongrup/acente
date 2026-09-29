@@ -66,8 +66,11 @@ if ($Production) {
 }
 
 Invoke-Step "Gleam build" {
+  $gleamCmd = Get-Command gleam -ErrorAction SilentlyContinue
+  $gleamExe = if ($gleamCmd) { $gleamCmd.Source } else { 'C:\laragon\bin\gleam\gleam.exe' }
+  if (-not (Test-Path -LiteralPath $gleamExe)) { throw "gleam executable not found: $gleamExe" }
   Push-Location $root
-  try { & gleam build } finally { Pop-Location }
+  try { & $gleamExe build } finally { Pop-Location }
 }
 
 Invoke-Step "Local category and supplier contract" {

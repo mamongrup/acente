@@ -248,3 +248,432 @@
       list.textContent = error.message;
     });
 })();
+
+// ── AI Listing Fast-Fill ────────────────────────────────────────────────────
+(function () {
+  var btn = document.getElementById('btn-ai-fastfill');
+  if (!btn) return;
+
+  function getCsrf() {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    if (m && m.content) return m.content;
+    return (document.cookie.match(/(?:^|;\s*)(?:nexus_csrf|agency_csrf)=([^;]*)/) || ['', ''])[1];
+  }
+
+  btn.addEventListener('click', function () {
+    var raw = document.getElementById('ai-fastfill-raw').value.trim();
+    var cat = document.getElementById('ai-fastfill-category').value;
+    var res = document.getElementById('ai-fastfill-result');
+    if (!raw) {
+      res.innerHTML = '<p style="color:var(--status-warn)">Lütfen ilan metni/notlarını girin.</p>';
+      return;
+    }
+    btn.disabled = true;
+    res.innerHTML = '<p style="color:var(--text-muted)">⏳ Yapay zeka alanları çıkarıyor…</p>';
+    var params = new URLSearchParams();
+    params.append('csrf', getCsrf());
+    params.append('csrf_token', getCsrf());
+    params.append('category', cat);
+    params.append('raw_text', raw);
+    fetch('/admin/ai/extract-listing-fields', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+      credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.ok && d.specs) {
+        try {
+          var obj = JSON.parse(d.specs);
+          res.innerHTML = '<pre style="font-size:11px;overflow:auto;background:rgba(0,0,0,0.35);padding:12px;border-radius:8px;color:var(--text-pure)">' +
+            JSON.stringify(obj, null, 2) + '</pre>' +
+            '<p style="font-size:12px;color:var(--status-ok)">✅ Alanlar başarıyla çıkarıldı. Kopyalayarak ilan formuna yapıştırabilirsiniz.</p>';
+        } catch (e) {
+          res.innerHTML = '<pre style="font-size:11px;">' + d.specs + '</pre>';
+        }
+      } else {
+        res.innerHTML = '<p style="color:var(--status-error)">Hata: ' + (d.error || 'Çıkarma başarısız') + '</p>';
+      }
+    })
+    .catch(function (e) {
+      res.innerHTML = '<p style="color:var(--status-error)">' + e.message + '</p>';
+    })
+    .finally(function () { btn.disabled = false; });
+  });
+})();
+
+// ── AI Blog Engine ──────────────────────────────────────────────────────────
+(function () {
+  var btn = document.getElementById('btn-ai-blog');
+  if (!btn) return;
+
+  function getCsrf() {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    if (m && m.content) return m.content;
+    return (document.cookie.match(/(?:^|;\s*)(?:nexus_csrf|agency_csrf)=([^;]*)/) || ['', ''])[1];
+  }
+
+  btn.addEventListener('click', function () {
+    var dest = document.getElementById('ai-blog-destination').value.trim();
+    var cat  = document.getElementById('ai-blog-category').value;
+    var lang = document.getElementById('ai-blog-lang').value;
+    var res  = document.getElementById('ai-blog-result');
+    if (!dest) {
+      res.innerHTML = '<p style="color:var(--status-warn)">Lütfen bir destinasyon girin.</p>';
+      return;
+    }
+    btn.disabled = true;
+    res.innerHTML = '<p style="color:var(--text-muted)">⏳ Yapay zeka gezi rehberi hazırlıyor…</p>';
+    var params = new URLSearchParams();
+    params.append('csrf', getCsrf());
+    params.append('csrf_token', getCsrf());
+    params.append('destination', dest);
+    params.append('category', cat);
+    params.append('language_code', lang);
+    fetch('/admin/ai/generate-blog', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+      credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.ok && d.content) {
+        var wrapper = document.createElement('div');
+        wrapper.style.cssText = 'border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:16px;background:rgba(0,0,0,0.2);max-height:440px;overflow-y:auto;';
+        wrapper.innerHTML = d.content;
+        var actions = document.createElement('div');
+        actions.style.cssText = 'margin-top:10px;display:flex;gap:8px;';
+        var copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.className = 'secondary';
+        copyBtn.textContent = '📋 HTML Kopyala';
+        copyBtn.onclick = function () { navigator.clipboard.writeText(wrapper.innerHTML); };
+        var cmsLink = document.createElement('a');
+        cmsLink.href = '/admin/cms';
+        cmsLink.className = 'secondary btn';
+        cmsLink.target = '_blank';
+        cmsLink.style.fontSize = '12px';
+        cmsLink.textContent = "📝 CMS'e Git";
+        actions.appendChild(copyBtn);
+        actions.appendChild(cmsLink);
+        res.textContent = '';
+        res.appendChild(wrapper);
+        res.appendChild(actions);
+      } else {
+        res.innerHTML = '<p style="color:var(--status-error)">Hata: ' + (d.error || 'Blog üretilemedi') + '</p>';
+      }
+    })
+    .catch(function (e) {
+      res.innerHTML = '<p style="color:var(--status-error)">' + e.message + '</p>';
+    })
+    .finally(function () { btn.disabled = false; });
+  });
+})();
+
+// ── 1. AI Dynamic Pricing Optimizer ─────────────────────────────────────────
+(function () {
+  var btn = document.getElementById('btn-ai-pricing');
+  if (!btn) return;
+
+  function getCsrf() {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    if (m && m.content) return m.content;
+    return (document.cookie.match(/(?:^|;\s*)(?:nexus_csrf|agency_csrf)=([^;]*)/) || ['', ''])[1];
+  }
+
+  btn.addEventListener('click', function () {
+    var loc = (document.getElementById('ai-pricing-locality') || {}).value || '';
+    var cat = (document.getElementById('ai-pricing-category') || {}).value || 'holiday_home';
+    var price = (document.getElementById('ai-pricing-price') || {}).value || '5000';
+    var curr = (document.getElementById('ai-pricing-currency') || {}).value || 'TRY';
+    var season = (document.getElementById('ai-pricing-season') || {}).value || 'medium';
+    var occ = (document.getElementById('ai-pricing-occupancy') || {}).value || '60';
+    var res = document.getElementById('ai-pricing-result');
+    if (!res) return;
+
+    btn.disabled = true;
+    res.innerHTML = '<p style="color:var(--text-muted)">⏳ Dinamik fiyat stratejisi hesaplanıyor…</p>';
+
+    var params = new URLSearchParams();
+    params.append('csrf', getCsrf());
+    params.append('csrf_token', getCsrf());
+    params.append('locality', loc.trim());
+    params.append('category', cat);
+    params.append('price', price);
+    params.append('currency', curr);
+    params.append('season', season);
+    params.append('occupancy_rate', occ);
+
+    fetch('/admin/ai/optimize-pricing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+      credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.ok && d.result) {
+        var p = typeof d.result === 'string' ? JSON.parse(d.result) : d.result;
+        var html = '<div style="border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:16px;background:rgba(0,0,0,0.25);margin-top:12px;">';
+        html += '<h4 style="margin:0 0 10px 0;color:var(--neon-cyan, #22d3ee);">📊 Gelir Optimizasyonu & Fiyat Önerileri</h4>';
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px;">';
+        html += '<div style="background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;text-align:center;"><small style="color:var(--text-muted)">Önerilen Taban</small><div style="font-size:18px;font-weight:bold;color:#4ade80;">' + (p.base_price_suggested || price) + ' ' + curr + '</div></div>';
+        html += '<div style="background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;text-align:center;"><small style="color:var(--text-muted)">Hafta Sonu</small><div style="font-size:18px;font-weight:bold;color:#38bdf8;">' + (p.weekend_price_suggested || '-') + ' ' + curr + '</div></div>';
+        html += '<div style="background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;text-align:center;"><small style="color:var(--text-muted)">Yüksek Sezon / Bayram</small><div style="font-size:18px;font-weight:bold;color:#fbbf24;">' + (p.high_season_price || '-') + ' ' + curr + '</div></div>';
+        html += '<div style="background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;text-align:center;"><small style="color:var(--text-muted)">Min. Gece Kuralı</small><div style="font-size:18px;font-weight:bold;color:#c084fc;">' + (p.min_stay_days || 3) + ' Gece</div></div>';
+        html += '</div>';
+        if (p.occupancy_boost_action) {
+          html += '<p style="margin:6px 0;font-size:13px;color:#e2e8f0;"><strong>🎯 Aksiyon:</strong> ' + p.occupancy_boost_action + '</p>';
+        }
+        if (p.strategy_summary) {
+          html += '<p style="margin:6px 0;font-size:13px;color:var(--text-muted);">' + p.strategy_summary + '</p>';
+        }
+        html += '</div>';
+        res.innerHTML = html;
+      } else {
+        res.innerHTML = '<p style="color:var(--status-error)">Hata: ' + (d.error || 'Fiyat analizi yapılamadı') + '</p>';
+      }
+    })
+    .catch(function (e) {
+      res.innerHTML = '<p style="color:var(--status-error)">' + e.message + '</p>';
+    })
+    .finally(function () { btn.disabled = false; });
+  });
+})();
+
+// ── 2. AI Review Sentiment & Auto-Responder ─────────────────────────────────
+(function () {
+  var btn = document.getElementById('btn-ai-review');
+  if (!btn) return;
+
+  function getCsrf() {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    if (m && m.content) return m.content;
+    return (document.cookie.match(/(?:^|;\s*)(?:nexus_csrf|agency_csrf)=([^;]*)/) || ['', ''])[1];
+  }
+
+  btn.addEventListener('click', function () {
+    var title = (document.getElementById('ai-review-listing') || {}).value || '';
+    var rating = (document.getElementById('ai-review-rating') || {}).value || '5';
+    var text = (document.getElementById('ai-review-text') || {}).value || '';
+    var res = document.getElementById('ai-review-result');
+    if (!res) return;
+
+    if (!text.trim()) {
+      res.innerHTML = '<p style="color:var(--status-warn)">Lütfen analiz edilecek misafir yorumunu girin.</p>';
+      return;
+    }
+
+    btn.disabled = true;
+    res.innerHTML = '<p style="color:var(--text-muted)">⏳ Misafir yorumu analiz ediliyor ve yanıt hazırlanıyor…</p>';
+
+    var params = new URLSearchParams();
+    params.append('csrf', getCsrf());
+    params.append('csrf_token', getCsrf());
+    params.append('listing_title', title.trim());
+    params.append('rating', rating);
+    params.append('review_text', text.trim());
+
+    fetch('/admin/ai/review-sentiment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+      credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.ok && d.result) {
+        var p = typeof d.result === 'string' ? JSON.parse(d.result) : d.result;
+        var sentColor = p.sentiment === 'positive' ? '#4ade80' : (p.sentiment === 'neutral' ? '#fbbf24' : '#f87171');
+        var sentLabel = p.sentiment === 'positive' ? 'Pozitif Memnuniyet' : (p.sentiment === 'neutral' ? 'Dengeli / Nötr' : 'Geliştirilmeli / Şikayet');
+
+        var html = '<div style="border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:16px;background:rgba(0,0,0,0.25);margin-top:12px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+        html += '<span style="display:inline-block;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:bold;background:rgba(255,255,255,0.08);color:' + sentColor + ';">' + sentLabel + ' (Skor: ' + (p.score || 80) + '/100)</span>';
+        html += '</div>';
+
+        html += '<div style="margin-bottom:10px;padding:12px;background:rgba(255,255,255,0.04);border-radius:8px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><strong style="font-size:13px;color:#38bdf8;">Standart Kurumsal Yanıt</strong><button type="button" class="secondary" style="font-size:11px;padding:2px 8px;" id="btn-copy-review-std">📋 Kopyala</button></div>';
+        html += '<p id="ai-review-std-text" style="margin:0;font-size:13px;color:#e2e8f0;line-height:1.5;">' + (p.suggested_reply_standard || '') + '</p>';
+        html += '</div>';
+
+        html += '<div style="padding:12px;background:rgba(255,255,255,0.04);border-radius:8px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><strong style="font-size:13px;color:#a78bfa;">Aksiyon & Telafi / Tekrar Davet Yanıtı</strong><button type="button" class="secondary" style="font-size:11px;padding:2px 8px;" id="btn-copy-review-act">📋 Kopyala</button></div>';
+        html += '<p id="ai-review-act-text" style="margin:0;font-size:13px;color:#e2e8f0;line-height:1.5;">' + (p.suggested_reply_action_oriented || '') + '</p>';
+        html += '</div>';
+
+        html += '</div>';
+        res.innerHTML = html;
+
+        var b1 = document.getElementById('btn-copy-review-std');
+        if (b1) b1.onclick = function () { navigator.clipboard.writeText((document.getElementById('ai-review-std-text') || {}).innerText || ''); b1.textContent = '✅ Kopyalandı'; };
+        var b2 = document.getElementById('btn-copy-review-act');
+        if (b2) b2.onclick = function () { navigator.clipboard.writeText((document.getElementById('ai-review-act-text') || {}).innerText || ''); b2.textContent = '✅ Kopyalandı'; };
+      } else {
+        res.innerHTML = '<p style="color:var(--status-error)">Hata: ' + (d.error || 'Yorum analizi yapılamadı') + '</p>';
+      }
+    })
+    .catch(function (e) {
+      res.innerHTML = '<p style="color:var(--status-error)">' + e.message + '</p>';
+    })
+    .finally(function () { btn.disabled = false; });
+  });
+})();
+
+// ── 3. AI Cross-Sell & Itinerary Bundle Assistant ───────────────────────────
+(function () {
+  var btn = document.getElementById('btn-ai-bundle');
+  if (!btn) return;
+
+  function getCsrf() {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    if (m && m.content) return m.content;
+    return (document.cookie.match(/(?:^|;\s*)(?:nexus_csrf|agency_csrf)=([^;]*)/) || ['', ''])[1];
+  }
+
+  btn.addEventListener('click', function () {
+    var loc = (document.getElementById('ai-bundle-locality') || {}).value || '';
+    var cat = (document.getElementById('ai-bundle-category') || {}).value || 'holiday_home';
+    var style = (document.getElementById('ai-bundle-style') || {}).value || 'Lüks & Konfor';
+    var guests = (document.getElementById('ai-bundle-guests') || {}).value || '2';
+    var res = document.getElementById('ai-bundle-result');
+    if (!res) return;
+
+    btn.disabled = true;
+    res.innerHTML = '<p style="color:var(--text-muted)">⏳ Akıllı çapraz satış paketi oluşturuluyor…</p>';
+
+    var params = new URLSearchParams();
+    params.append('csrf', getCsrf());
+    params.append('csrf_token', getCsrf());
+    params.append('locality', loc.trim());
+    params.append('category', cat);
+    params.append('travel_style', style);
+    params.append('guest_count', guests);
+
+    fetch('/admin/ai/bundle-cross-sell', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+      credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.ok && d.result) {
+        var p = typeof d.result === 'string' ? JSON.parse(d.result) : d.result;
+        var html = '<div style="border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:16px;background:rgba(0,0,0,0.25);margin-top:12px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+        html += '<h4 style="margin:0;color:var(--neon-cyan, #22d3ee);">' + (p.bundle_title || 'Özel Seyahat Paketi') + '</h4>';
+        html += '<span style="background:rgba(74,222,128,0.15);color:#4ade80;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:bold;">%' + (p.bundle_discount_percent || 10) + ' İndirimli Paket</span>';
+        html += '</div>';
+
+        if (p.pitch_copy) {
+          html += '<p style="font-size:13px;color:#cbd5e1;margin-bottom:12px;font-style:italic;">"' + p.pitch_copy + '"</p>';
+        }
+
+        if (Array.isArray(p.items)) {
+          html += '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">';
+          p.items.forEach(function (item) {
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.04);padding:8px 12px;border-radius:6px;">';
+            html += '<div><strong>' + (item.title || '') + '</strong><br><small style="color:var(--text-muted)">' + (item.reason || '') + '</small></div>';
+            if (item.estimated_price) {
+              html += '<span style="font-weight:bold;color:#38bdf8;">' + item.estimated_price + ' TL</span>';
+            }
+            html += '</div>';
+          });
+          html += '</div>';
+        }
+
+        html += '<div style="display:flex;gap:8px;"><button type="button" class="secondary" id="btn-copy-bundle-pitch">📋 Paket Teklif Metnini Kopyala</button></div>';
+        html += '</div>';
+        res.innerHTML = html;
+
+        var cp = document.getElementById('btn-copy-bundle-pitch');
+        if (cp) cp.onclick = function () { navigator.clipboard.writeText(p.pitch_copy || ''); cp.textContent = '✅ Kopyalandı'; };
+      } else {
+        res.innerHTML = '<p style="color:var(--status-error)">Hata: ' + (d.error || 'Paket oluşturulamadı') + '</p>';
+      }
+    })
+    .catch(function (e) {
+      res.innerHTML = '<p style="color:var(--status-error)">' + e.message + '</p>';
+    })
+    .finally(function () { btn.disabled = false; });
+  });
+})();
+
+// ── 4. AI Support & WhatsApp Co-Pilot ───────────────────────────────────────
+(function () {
+  var btn = document.getElementById('btn-ai-support');
+  if (!btn) return;
+
+  function getCsrf() {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    if (m && m.content) return m.content;
+    return (document.cookie.match(/(?:^|;\s*)(?:nexus_csrf|agency_csrf)=([^;]*)/) || ['', ''])[1];
+  }
+
+  btn.addEventListener('click', function () {
+    var name = (document.getElementById('ai-support-name') || {}).value || '';
+    var channel = (document.getElementById('ai-support-channel') || {}).value || 'whatsapp';
+    var listing = (document.getElementById('ai-support-listing') || {}).value || '';
+    var loc = (document.getElementById('ai-support-locality') || {}).value || '';
+    var q = (document.getElementById('ai-support-question') || {}).value || '';
+    var res = document.getElementById('ai-support-result');
+    if (!res) return;
+
+    if (!q.trim()) {
+      res.innerHTML = '<p style="color:var(--status-warn)">Lütfen misafirin sorusunu girin.</p>';
+      return;
+    }
+
+    btn.disabled = true;
+    res.innerHTML = '<p style="color:var(--text-muted)">⏳ Destek yanıt taslağı hazırlanıyor…</p>';
+
+    var params = new URLSearchParams();
+    params.append('csrf', getCsrf());
+    params.append('csrf_token', getCsrf());
+    params.append('customer_name', name.trim());
+    params.append('channel', channel);
+    params.append('listing_title', listing.trim());
+    params.append('locality', loc.trim());
+    params.append('question', q.trim());
+
+    fetch('/admin/ai/support-copilot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+      credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.ok && d.result) {
+        var p = typeof d.result === 'string' ? JSON.parse(d.result) : d.result;
+        var replyText = p.reply_text || '';
+        var html = '<div style="border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:16px;background:rgba(0,0,0,0.25);margin-top:12px;">';
+        html += '<h4 style="margin:0 0 10px 0;color:var(--neon-cyan, #22d3ee);">💬 Hazırlanan Yanıt Taslağı (' + (channel === 'whatsapp' ? 'WhatsApp' : 'E-Posta') + ')</h4>';
+        html += '<div id="ai-support-reply-content" style="white-space:pre-wrap;background:rgba(255,255,255,0.05);padding:14px;border-radius:8px;font-size:13px;line-height:1.6;color:#e2e8f0;margin-bottom:12px;">' + replyText + '</div>';
+
+        html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+        html += '<button type="button" class="secondary" id="btn-copy-support-reply">📋 Yanıtı Kopyala</button>';
+        if (channel === 'whatsapp') {
+          var encodedText = encodeURIComponent(replyText);
+          html += '<a href="https://web.whatsapp.com/send?text=' + encodedText + '" target="_blank" class="secondary btn" style="text-decoration:none;font-size:13px;">📲 WhatsApp Web\'de Aç</a>';
+        }
+        html += '</div>';
+        html += '</div>';
+        res.innerHTML = html;
+
+        var cp = document.getElementById('btn-copy-support-reply');
+        if (cp) cp.onclick = function () { navigator.clipboard.writeText(replyText); cp.textContent = '✅ Kopyalandı'; };
+      } else {
+        res.innerHTML = '<p style="color:var(--status-error)">Hata: ' + (d.error || 'Yanıt üretilemedi') + '</p>';
+      }
+    })
+    .catch(function (e) {
+      res.innerHTML = '<p style="color:var(--status-error)">' + e.message + '</p>';
+    })
+    .finally(function () { btn.disabled = false; });
+  });
+})();
+
