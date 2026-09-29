@@ -127,7 +127,7 @@ require_panel_session(Db, Token, Section, Body) ->
                 (((Section =:= ~"catalog") orelse (Section =:= ~"listings")) orelse (Section =:= ~"media")) orelse (Section =:= ~"supplier-campaigns");
 
             ~"sub_agency" ->
-                (((Section =:= ~"reservations") orelse (Section =:= ~"customers")) orelse (Section =:= ~"offers")) orelse (Section =:= ~"inquiries");
+                (((Section =:= ~"reservations") orelse (Section =:= ~"customers")) orelse (Section =:= ~"offers")) orelse (Section =:= ~"assigned-inquiries");
 
             _ ->
                 false
@@ -163,7 +163,7 @@ public_guests_script() ->
 -file("src\\nexus_agency\\router.gleam", 5743).
 -spec public_header_popovers_script() -> lustre@vdom@vnode:element(any()).
 public_header_popovers_script() ->
-    lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/header-popovers.js?v=20260921-links2"), lustre@attribute:attribute(~"defer", ~"defer")], []).
+    lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/header-popovers.js?v=20260929-builder-paint1"), lustre@attribute:attribute(~"defer", ~"defer")], []).
 
 -file("src\\nexus_agency\\router.gleam", 5721).
 -spec public_theme_script() -> lustre@vdom@vnode:element(any()).
@@ -173,7 +173,7 @@ public_theme_script() ->
 -file("src\\nexus_agency\\router.gleam", 5710).
 -spec public_chat_script() -> lustre@vdom@vnode:element(any()).
 public_chat_script() ->
-    lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-chat.js"), lustre@attribute:attribute(~"defer", ~"defer")], []).
+    lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-chat.js?v=20260927-recommend2"), lustre@attribute:attribute(~"defer", ~"defer")], []).
 
 -file("src\\nexus_agency\\router.gleam", 5575).
 -spec public_mobile_bottom_bar() -> lustre@vdom@vnode:element(any()).
@@ -185,19 +185,14 @@ public_mobile_bottom_bar() ->
 -file("src\\nexus_agency\\router.gleam", 4263).
 -spec public_tenant_query(binary()) -> binary().
 public_tenant_query(Tenant_id) ->
-    case Tenant_id of
-        ~"" ->
-            ~"";
-
-        Value ->
-            <<"?tenant="/utf8, Value/binary>>
-    end.
+    _ = Tenant_id,
+    ~"".
 
 -file("src\\nexus_agency\\router.gleam", 5553).
 -spec public_footer(binary()) -> lustre@vdom@vnode:element(any()).
 public_footer(Tenant_id) ->
     Q = public_tenant_query(Tenant_id),
-    lustre@element:element(~"div", [], [nexus_agency@chisfis_layout:chisfis_footer(Q), lustre@element:element(~"div", [lustre@attribute:class(~"mobile-favorites")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-favorites.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), nexus_agency@chisfis_layout:chisfis_mobile_bottom_nav()]).
+    lustre@element:element(~"div", [], [nexus_agency@chisfis_layout:chisfis_footer(Q), nexus_agency@chisfis_layout:chisfis_mobile_bottom_nav()]).
 
 -file("src\\nexus_agency\\router.gleam", 4250).
 -spec safe_public_href(binary()) -> binary().
@@ -271,6 +266,24 @@ public_cms_block(Row) ->
         ~"newsletter" ->
             ~"Yeni fırsatlardan haberdar olun";
 
+        ~"filter_bar" ->
+            ~"Filtre seçenekleri";
+
+        ~"listing_grid" ->
+            ~"İlanlar";
+
+        ~"image_gallery" ->
+            ~"Görsel galeri";
+
+        ~"faq" ->
+            ~"Sık sorulan sorular";
+
+        ~"cta" ->
+            ~"Harekete geçin";
+
+        ~"testimonials" ->
+            ~"Misafir yorumları";
+
         _ ->
             ~"Seyahat ilhamı"
     end,
@@ -289,7 +302,7 @@ public_cms_block(Row) ->
         false ->
             lustre@element:element(~"span", [], [])
     end,
-    lustre@element:element(~"article", [lustre@attribute:class(<<"builder-module builder-"/utf8, Block_type/binary>>)], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"NEXUS İÇERİK")]), lustre@element:element(~"h2", [], [lustre@element:text(Title)]), Body_node, Action]).
+    lustre@element:element(~"article", [lustre@attribute:class(<<"builder-module builder-"/utf8, Block_type/binary>>), lustre@attribute:attribute(~"data-builder-config", Raw_content)], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"NEXUS İÇERİK")]), lustre@element:element(~"h2", [], [lustre@element:text(Title)]), Body_node, Action]).
 
 -file("src\\nexus_agency\\router.gleam", 3864).
 -spec page_block_decoder() -> gleam@dynamic@decode:decoder({binary(), integer(), binary()}).
@@ -315,7 +328,42 @@ public_cms_blocks(Db, Slug, Tenant_id) ->
         erlang:element(3, Rows)
     end),
     _pipe@7 = gleam@result:unwrap(_pipe@6, []),
-    gleam@list:map(_pipe@7, fun public_cms_block/1).
+    gleam@list:map(_pipe@7, fun(Row) ->
+        case Row of
+            {~"source_section", _, Raw_content} -> public_source_section_block(Raw_content);
+            {~"listing_collection", _, Raw_content} -> public_listing_collection_block(Raw_content);
+            {~"region_places", _, Raw_content} -> public_region_places_block(Db, Raw_content, Tenant_id);
+            _ -> public_cms_block(Row)
+        end
+    end).
+
+public_source_section_block(Raw_content) ->
+    lustre@element:element(~"div", [lustre@attribute:class(~"builder-source-section"), lustre@attribute:attribute(~"data-section-config", Raw_content)], []).
+
+public_listing_collection_block(Raw_content) ->
+    {Title, _, _, _} = cms_block_copy(Raw_content, ~"İlanları keşfedin"),
+    lustre@element:element(~"section", [lustre@attribute:class(~"builder-listing-collection"), lustre@attribute:attribute(~"data-listing-config", Raw_content)], [
+        lustre@element:element(~"h2", [], [lustre@element:text(Title)]),
+        lustre@element:element(~"div", [lustre@attribute:class(~"builder-listing-collection-content")], [])
+    ]).
+
+public_region_places_block(Db, Raw_content, Tenant_id) ->
+    Result = begin
+        Query = ~"select coalesce(json_agg(json_build_object('slug',p.slug,'title',coalesce(p.seo->>'title',p.slug),'description',coalesce(p.seo->>'description',''),'regionSlug',coalesce(p.seo->>'region_slug',''),'coverImage',coalesce(p.seo->>'cover_image','')) order by p.published_at desc),'[]'::json)::text from agency.pages p where p.tenant_id=$1::uuid and p.template='blog' and p.status='published' and p.seo->>'blog_category'='gezilesi-yerler'",
+        Q1 = pog:'query'(Query),
+        Q2 = pog:parameter(Q1, pog_ffi:coerce(Tenant_id)),
+        Q3 = pog:returning(Q2, gleam@dynamic@decode:at([0], {decoder, fun gleam@dynamic@decode:decode_string/1})),
+        pog:execute(Q3, Db)
+    end,
+    Posts = case Result of
+        {ok, Rows} ->
+            case gleam@list:first(erlang:element(3, Rows)) of
+                {ok, Value} -> Value;
+                _ -> ~"[]"
+            end;
+        _ -> ~"[]"
+    end,
+    lustre@element:element(~"section", [lustre@attribute:class(~"builder-region-places"), lustre@attribute:attribute(~"data-region-config", Raw_content), lustre@attribute:attribute(~"data-posts", Posts)], []).
 
 -file("src\\nexus_agency\\router.gleam", 4422).
 -spec public_home_header(binary(), binary()) -> lustre@vdom@vnode:element(any()).
@@ -341,7 +389,10 @@ public_catalog_script() ->
 -file("src\\nexus_agency\\router.gleam", 5598).
 -spec chisfis_head() -> list(lustre@vdom@vnode:element(any())).
 chisfis_head() ->
-    [lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"preload"), lustre@attribute:attribute(~"as", ~"font"), lustre@attribute:attribute(~"type", ~"font/woff2"), lustre@attribute:attribute(~"crossorigin", ~"crossorigin"), lustre@attribute:href(~"/static/chisfis/fonts/pxiByp8kv8JHgFVrLCz7Z11lFc-K.woff2")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/fonts.css")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"https://use.hugeicons.com/font/icons.css")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/base.css")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/theme.css"), lustre@attribute:attribute(~"media", ~"print"), lustre@attribute:attribute(~"onload", ~"this.media='all'")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/custom.css?v=20260920-langtoast2"), lustre@attribute:attribute(~"media", ~"print"), lustre@attribute:attribute(~"onload", ~"this.media='all'")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/sahra.css"), lustre@attribute:attribute(~"media", ~"only x"), lustre@attribute:attribute(~"onload", ~"if(document.documentElement.classList.contains('sahra'))this.media='all'")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis-bridge.css?v=20260921-shared1")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/theme-boot.js")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/reveal-boot.js?v=20260920-rv1")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/chisfis/js/main.js?v=20260921-modalclose1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/login-theme.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), public_catalog_script()].
+    [lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"icon"), lustre@attribute:attribute(~"type", ~"image/svg+xml"), lustre@attribute:href(~"/static/chisfis/favicon.svg?v=20260927-brand1")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/tenant-url-boot.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/category-urls.js"), lustre@attribute:attribute(~"defer", ~"defer")], [])] ++ chisfis_head_assets() ++ [lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/home-i18n.js?v=20260926-discount1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/storefront-gallery-controls.js?v=20260926-gallery5"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/mobile-search-form.js?v=20260927-tours1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/modern-date-range.js?v=20260927-flex1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/search-quote-results.js?v=20260927-flex1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/mobile-support-chooser.js?v=20260927-support1"), lustre@attribute:attribute(~"defer", ~"defer")], [])].
+
+chisfis_head_assets() ->
+    [lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"preload"), lustre@attribute:attribute(~"as", ~"font"), lustre@attribute:attribute(~"type", ~"font/woff2"), lustre@attribute:attribute(~"crossorigin", ~"crossorigin"), lustre@attribute:href(~"/static/chisfis/fonts/pxiByp8kv8JHgFVrLGT9Z1xlFQ.woff2")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/fonts.css")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"https://use.hugeicons.com/font/icons.css")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/base.css")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/theme.css")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/custom.css?v=20260927-localelist1")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/sahra.css"), lustre@attribute:attribute(~"media", ~"only x"), lustre@attribute:attribute(~"onload", ~"if(document.documentElement.classList.contains('sahra'))this.media='all'")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis-bridge.css?v=20260929-builder-paint1")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/theme-boot.js")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/reveal-boot.js?v=20260920-rv1")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/chisfis/js/main.js?v=20260929-builder-paint1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/login-theme.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/hugeicons-normalizer.js?v=20260929-builder-paint1"), lustre@attribute:attribute(~"defer", ~"defer")], []), public_catalog_script(), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/category-i18n.js?v=20260929-builder-paint1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/region-places.js?v=20260929-builder-paint1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/builder-listing-collection.js?v=20260926-gallery3"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/builder-modules.js?v=20260926-all3"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/page-layout.js?v=20260929-builder-paint1"), lustre@attribute:attribute(~"defer", ~"defer")], [])].
 
 -file("src\\nexus_agency\\router.gleam", 4767).
 -spec csrf_token_for(gleam@http@request:request(wisp@internal:connection())) -> binary().
@@ -390,14 +441,38 @@ public_tenant_selector_without_query(Req) ->
         {ok, Value} ->
             case gleam@string:trim(Value) of
                 ~"" ->
-                    public_tenant_selector_from_host(Req);
+                    public_tenant_selector_from_cookie_or_host(Req);
 
                 Trimmed ->
                     Trimmed
             end;
 
         {error, _} ->
-            public_tenant_selector_from_host(Req)
+            public_tenant_selector_from_cookie_or_host(Req)
+    end.
+
+%% The public UUID is hidden from links after the first page. A host-derived
+%% tenant remains authoritative on real agency domains; the cookie only keeps
+%% localhost multi-tenant previews on the same agency during navigation.
+public_tenant_selector_from_cookie_or_host(Req) ->
+    Host = public_tenant_selector_from_host(Req),
+    case Host of
+        <<"127.0.0.1">> -> public_tenant_cookie(Req);
+        <<"localhost">> -> public_tenant_cookie(Req);
+        _ -> Host
+    end.
+
+public_tenant_cookie(Req) ->
+    case gleam@list:key_find(erlang:element(3, Req), ~"cookie") of
+        {ok, Header} ->
+            Parts = binary:split(Header, <<";">>, [global]),
+            case [Value || Part <- Parts,
+                [<<"nexus_public_tenant">>, Value] <-
+                    [binary:split(erlang:list_to_binary(string:trim(erlang:binary_to_list(Part))), <<"=">>)]] of
+                [Value | _] -> Value;
+                _ -> <<>>
+            end;
+        _ -> <<>>
     end.
 
 -file("src\\nexus_agency\\router.gleam", 4702).
@@ -780,6 +855,7 @@ public_inquiry(Req, Db) ->
         Phone_valid = phone_format_valid(Phone) andalso (Phone /= ~""),
         Contact_valid = Email_valid orelse Phone_valid,
         Fields_valid = ((string:length(Name) =< 160) andalso (string:length(Phone) =< 60)) andalso (string:length(Message) =< 5000),
+        Listing_valid = Listing_id =:= ~"" orelse re:run(Listing_id, ~"^[0-9a-fA-F-]{36}$", [{capture, none}]) =:= match,
         Invalid_dates = ((Check_in /= ~"") andalso (Check_out /= ~"")) andalso ((not iso_date_valid(Check_in) orelse not iso_date_valid(Check_out)) orelse (iso_date_key(Check_out) =< iso_date_key(Check_in))),
         case not Csrf_valid of
             true ->
@@ -787,18 +863,37 @@ public_inquiry(Req, Db) ->
                 wisp:string_body(_pipe@2, ~"Güvenlik doğrulaması başarısız.");
 
             false ->
-                case (((((Name =:= ~"") orelse not Contact_valid) orelse not Fields_valid) orelse (Website /= ~"")) orelse (Guests < 1)) orelse Invalid_dates of
+                case (((((((Name =:= ~"") orelse not Contact_valid) orelse not Fields_valid) orelse not Listing_valid) orelse (Requested_tenant =:= ~"")) orelse (Website /= ~"")) orelse (Guests < 1)) orelse Invalid_dates of
                     true ->
                         _pipe@3 = wisp:response(400),
                         wisp:string_body(_pipe@3, ~"Ad ve e-posta veya telefon alanlarını kontrol edin");
 
                     false ->
                         Result = begin
-                            _pipe@4 = pog:'query'(~"insert into agency.public_inquiries(tenant_id, listing_id, full_name, email, phone, message, check_in, check_out, guest_count, idempotency_key)
+                            _pipe@4 = pog:'query'(~"with inserted as (
+               insert into agency.public_inquiries(tenant_id, listing_id, full_name, email, phone, message, check_in, check_out, guest_count, idempotency_key)
                select $10::uuid,
-                      case when $1 ~ '^[0-9a-fA-F-]{36}$' and exists(select 1 from agency.listings l where l.id=$1::uuid and l.tenant_id=$10::uuid) then nullif($1,'')::uuid end,
+                      nullif($1,'')::uuid,
                       $2, lower(trim($3)), $4, $5, nullif($6,'')::date, nullif($7,'')::date, $8, nullif($9,'')
-               on conflict (idempotency_key) where idempotency_key is not null do nothing"),
+               on conflict (idempotency_key) where idempotency_key is not null do nothing
+               returning id,tenant_id,listing_id,full_name,email,phone
+             ), notice as (
+               insert into agency.notifications(tenant_id,channel,template,payload)
+               select i.tenant_id,'email','new_public_inquiry',
+                 jsonb_build_object('to',recipient.address,'email',recipient.address,
+                   'customer_email',i.email,'phone',i.phone,'name',i.full_name,
+                   'listing_id',i.listing_id::text) from inserted i
+               cross join lateral (
+                 select coalesce(
+                   (select nullif(btrim(s.value #>> '{}'),'') from agency.settings s
+                    where s.tenant_id=i.tenant_id and s.key='contact_email'),
+                   (select u.email from agency.users u where u.tenant_id=i.tenant_id
+                    and u.membership_type='admin' and u.active order by u.id limit 1),
+                   '') as address
+               ) recipient
+               where recipient.address<>''
+               returning id
+             ) select id::text from inserted"),
                             _pipe@5 = pog:parameter(_pipe@4, pog_ffi:coerce(Listing_id)),
                             _pipe@6 = pog:parameter(_pipe@5, pog_ffi:coerce(Name)),
                             _pipe@7 = pog:parameter(_pipe@6, pog_ffi:coerce(Email)),
@@ -809,22 +904,11 @@ public_inquiry(Req, Db) ->
                             _pipe@12 = pog:parameter(_pipe@11, pog_ffi:coerce(Guests)),
                             _pipe@13 = pog:parameter(_pipe@12, pog_ffi:coerce(Idempotency_key)),
                             _pipe@14 = pog:parameter(_pipe@13, pog_ffi:coerce(Requested_tenant)),
-                            pog:execute(_pipe@14, Db)
+                            _pipe@14a = pog:returning(_pipe@14, single_string_decoder()),
+                            pog:execute(_pipe@14a, Db)
                         end,
                         case Result of
-                            {ok, _} ->
-                                _pipe@15 = pog:'query'(~"insert into agency.notifications(tenant_id, channel, template, payload)
-                  select $5::uuid,
-                         'email', 'new_public_inquiry', jsonb_build_object('email',$2,'phone',$4,'name',$3,'listing_id',nullif($1,''))"),
-                                _pipe@16 = pog:parameter(_pipe@15, pog_ffi:coerce(Listing_id)),
-                                _pipe@17 = pog:parameter(_pipe@16, pog_ffi:coerce(Email)),
-                                _pipe@18 = pog:parameter(_pipe@17, pog_ffi:coerce(Name)),
-                                _pipe@19 = pog:parameter(_pipe@18, pog_ffi:coerce(Phone)),
-                                _pipe@20 = pog:parameter(_pipe@19, pog_ffi:coerce(Requested_tenant)),
-                                _pipe@21 = pog:execute(_pipe@20, Db),
-                                fun(_) ->
-                                    nil
-                                end(_pipe@21),
+                            {ok, _Inquiry_rows} ->
                                 Wants_json = case gleam@list:key_find(erlang:element(3, Req), ~"accept") of
                                     {ok, Value@2} ->
                                         gleam_stdlib:contains_string(Value@2, ~"application/json");
@@ -846,12 +930,16 @@ public_inquiry(Req, Db) ->
                                 gleam_stdlib:println(<<"Public inquiry insert failed: "/utf8, (query_error_message(Error))/binary>>),
                                 case Error of
                                     {postgresql_error, _, _, Message@1} ->
-                                        case gleam_stdlib:contains_string(Message@1, ~"rate limit") of
-                                            true ->
+                                        case {gleam_stdlib:contains_string(Message@1, ~"rate limit"), gleam_stdlib:contains_string(Message@1, ~"inquiry_listing_scope")} of
+                                            {true, _} ->
                                                 _pipe@24 = wisp:response(429),
                                                 wisp:string_body(_pipe@24, ~"Çok fazla teklif gönderildi. Lütfen daha sonra tekrar deneyin.");
 
-                                            false ->
+                                            {false, true} ->
+                                                _pipe@25 = wisp:response(400),
+                                                wisp:string_body(_pipe@25, ~"İlan bu acenteye ait değil.");
+
+                                            {false, false} ->
                                                 _pipe@25 = wisp:response(503),
                                                 wisp:string_body(_pipe@25, ~"Talep şu anda kaydedilemedi")
                                         end;
@@ -879,6 +967,12 @@ public_contact_page(Req, Origin) ->
 
         {error, _} ->
             ~""
+    end,
+    Prefilled_check_in = gleam@result:unwrap(gleam@list:key_find(wisp:get_query(Req), ~"check_in"), ~""),
+    Prefilled_check_out = gleam@result:unwrap(gleam@list:key_find(wisp:get_query(Req), ~"check_out"), ~""),
+    Prefilled_guests = case gleam_stdlib:parse_int(gleam@result:unwrap(gleam@list:key_find(wisp:get_query(Req), ~"guests"), ~"2")) of
+        {ok, N} when N >= 1, N =< 50 -> erlang:integer_to_binary(N);
+        _ -> ~"2"
     end,
     Sent = case begin
         _pipe@1 = wisp:get_query(Req),
@@ -932,7 +1026,7 @@ public_contact_page(Req, Origin) ->
                     lustre@element:element(~"p", [lustre@attribute:class(~"muted")], [lustre@element:text(~"Tarih ve müsaitlik bilgisi için bize ulaşın.")])
             end
     end,
-    Content = lustre@element:element(~"html", [lustre@attribute:attribute(~"lang", ~"tr")], [lustre@element:element(~"head", [], [lustre@element:element(~"meta", [lustre@attribute:attribute(~"charset", ~"utf-8")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"viewport"), lustre@attribute:attribute(~"content", ~"width=device-width, initial-scale=1")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"csrf-token"), lustre@attribute:attribute(~"content", Csrf_token)], []), lustre@element:element(~"title", [], [lustre@element:text(~"Teklif İste | NEXUS Agency")]) | chisfis_head()]), lustre@element:element(~"body", [lustre@attribute:class(~"chisfis-page"), lustre@attribute:attribute(~"data-tenant", Tenant_selector)], [public_storefront_header(Origin, Tenant_selector), lustre@element:element(~"main", [lustre@attribute:class(~"contact-page")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"TEKLİF TALEBİ")]), lustre@element:element(~"h1", [], [lustre@element:text(~"Seyahatinizi birlikte planlayalım")]), Notice, lustre@element:element(~"form", [lustre@attribute:attribute(~"method", ~"post"), lustre@attribute:attribute(~"action", ~"/iletisim"), lustre@attribute:class(~"inquiry-form")], [lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"listing_id"), lustre@attribute:value(Listing_id)], []), lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"tenant"), lustre@attribute:value(Tenant_selector)], []), lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"idempotency_key"), lustre@attribute:value(wisp:random_string(32))], []), lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"csrf_token"), lustre@attribute:value(Csrf_token)], []), lustre@element:element(~"input", [lustre@attribute:type_(~"text"), lustre@attribute:name(~"website"), lustre@attribute:attribute(~"tabindex", ~"-1"), lustre@attribute:attribute(~"autocomplete", ~"off"), lustre@attribute:attribute(~"aria-hidden", ~"true"), lustre@attribute:class(~"hp-field")], []), lustre@element:element(~"label", [], [lustre@element:text(~"Ad soyad"), lustre@element:element(~"input", [lustre@attribute:name(~"name"), lustre@attribute:required(true)], [])]), lustre@element:element(~"label", [], [lustre@element:text(~"E-posta"), lustre@element:element(~"input", [lustre@attribute:name(~"email"), lustre@attribute:type_(~"email"), lustre@attribute:required(true)], [])]), lustre@element:element(~"label", [], [lustre@element:text(~"Telefon"), lustre@element:element(~"input", [lustre@attribute:name(~"phone"), lustre@attribute:type_(~"tel")], [])]), lustre@element:element(~"div", [lustre@attribute:class(~"form-grid-2")], [lustre@element:element(~"label", [], [lustre@element:text(~"Giriş tarihi"), lustre@element:element(~"input", [lustre@attribute:name(~"check_in"), lustre@attribute:type_(~"date")], [])]), lustre@element:element(~"label", [], [lustre@element:text(~"Çıkış tarihi"), lustre@element:element(~"input", [lustre@attribute:name(~"check_out"), lustre@attribute:type_(~"date")], [])])]), lustre@element:element(~"label", [], [lustre@element:text(~"Misafir sayısı"), lustre@element:element(~"input", [lustre@attribute:name(~"guest_count"), lustre@attribute:type_(~"number"), lustre@attribute:attribute(~"min", ~"1"), lustre@attribute:attribute(~"value", ~"1")], [])]), lustre@element:element(~"label", [], [lustre@element:text(~"Notunuz"), lustre@element:element(~"textarea", [lustre@attribute:name(~"message"), lustre@attribute:attribute(~"rows", ~"5")], [])]), lustre@element:element(~"button", [lustre@attribute:type_(~"submit"), lustre@attribute:class(~"primary")], [lustre@element:text(~"Teklif iste")])]), public_footer(Tenant_selector), public_chat_script(), public_theme_script(), public_header_popovers_script()])])]),
+    Content = lustre@element:element(~"html", [lustre@attribute:attribute(~"lang", ~"tr")], [lustre@element:element(~"head", [], [lustre@element:element(~"meta", [lustre@attribute:attribute(~"charset", ~"utf-8")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"viewport"), lustre@attribute:attribute(~"content", ~"width=device-width, initial-scale=1")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"csrf-token"), lustre@attribute:attribute(~"content", Csrf_token)], []), lustre@element:element(~"title", [], [lustre@element:text(~"Teklif İste | NEXUS Agency")]) | chisfis_head()]), lustre@element:element(~"body", [lustre@attribute:class(~"chisfis-page"), lustre@attribute:attribute(~"data-tenant", Tenant_selector)], [public_storefront_header(Origin, Tenant_selector), lustre@element:element(~"main", [lustre@attribute:class(~"contact-page")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"TEKLİF TALEBİ")]), lustre@element:element(~"h1", [], [lustre@element:text(~"Seyahatinizi birlikte planlayalım")]), Notice, lustre@element:element(~"form", [lustre@attribute:attribute(~"method", ~"post"), lustre@attribute:attribute(~"action", ~"/iletisim"), lustre@attribute:class(~"inquiry-form")], [lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"listing_id"), lustre@attribute:value(Listing_id)], []), lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"tenant"), lustre@attribute:value(Tenant_selector)], []), lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"idempotency_key"), lustre@attribute:value(wisp:random_string(32))], []), lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"csrf_token"), lustre@attribute:value(Csrf_token)], []), lustre@element:element(~"input", [lustre@attribute:type_(~"text"), lustre@attribute:name(~"website"), lustre@attribute:attribute(~"tabindex", ~"-1"), lustre@attribute:attribute(~"autocomplete", ~"off"), lustre@attribute:attribute(~"aria-hidden", ~"true"), lustre@attribute:class(~"hp-field")], []), lustre@element:element(~"label", [], [lustre@element:text(~"Ad soyad"), lustre@element:element(~"input", [lustre@attribute:name(~"name"), lustre@attribute:required(true)], [])]), lustre@element:element(~"label", [], [lustre@element:text(~"E-posta"), lustre@element:element(~"input", [lustre@attribute:name(~"email"), lustre@attribute:type_(~"email"), lustre@attribute:required(true)], [])]), lustre@element:element(~"label", [], [lustre@element:text(~"Telefon"), lustre@element:element(~"input", [lustre@attribute:name(~"phone"), lustre@attribute:type_(~"tel")], [])]), lustre@element:element(~"div", [lustre@attribute:class(~"form-grid-2")], [lustre@element:element(~"label", [], [lustre@element:text(~"Giriş tarihi"), lustre@element:element(~"input", [lustre@attribute:name(~"check_in"), lustre@attribute:type_(~"date"), lustre@attribute:value(Prefilled_check_in)], [])]), lustre@element:element(~"label", [], [lustre@element:text(~"Çıkış tarihi"), lustre@element:element(~"input", [lustre@attribute:name(~"check_out"), lustre@attribute:type_(~"date"), lustre@attribute:value(Prefilled_check_out)], [])])]), lustre@element:element(~"label", [], [lustre@element:text(~"Misafir sayısı"), lustre@element:element(~"input", [lustre@attribute:name(~"guest_count"), lustre@attribute:type_(~"number"), lustre@attribute:attribute(~"min", ~"1"), lustre@attribute:attribute(~"value", Prefilled_guests)], [])]), lustre@element:element(~"label", [], [lustre@element:text(~"Notunuz"), lustre@element:element(~"textarea", [lustre@attribute:name(~"message"), lustre@attribute:attribute(~"rows", ~"5")], [])]), lustre@element:element(~"button", [lustre@attribute:type_(~"submit"), lustre@attribute:class(~"primary")], [lustre@element:text(~"Teklif iste")])]), public_footer(Tenant_selector), public_chat_script(), public_theme_script(), public_header_popovers_script()])])]),
     _pipe@4 = wisp:ok(),
     _pipe@5 = wisp:set_cookie(_pipe@4, Req, ~"agency_csrf", Csrf_token, plain_text, 3600),
     wisp:html_body(_pipe@5, lustre@element:to_string(Content)).
@@ -976,6 +1070,66 @@ public_chat_fallback(Message, Context) ->
     end)/binary>>.
 
 -file("src\\nexus_agency\\router.gleam", 3418).
+-spec setting_secret(pog:connection(), binary(), binary(), binary(), binary()) -> binary().
+setting_secret(Db, Tenant_id, Key, Plain, Sealed) ->
+    case gleam@string:trim(Sealed) of
+        ~"" ->
+            case gleam@string:trim(Plain) of
+                ~"" ->
+                    ~"";
+
+                Trimmed ->
+                    _ = setting_migrate_plain_secret(Db, Tenant_id, Key, Trimmed),
+                    Trimmed
+            end;
+
+        Value ->
+            case 'nexus_agency@secrets':open_for_tenant(Tenant_id, <<~"settings."/binary, Key/binary>>, Value) of
+                {ok, Opened} -> Opened;
+                {error, _} -> ~""
+            end
+    end.
+
+-spec setting_migrate_plain_secret(pog:connection(), binary(), binary(), binary()) -> nil.
+setting_migrate_plain_secret(Db, Tenant_id, Key, Value) ->
+    case 'nexus_agency@secrets':seal_for_tenant(Tenant_id, <<~"settings."/binary, Key/binary>>, Value) of
+        {ok, Sealed} ->
+            Sealed_key = <<Key/binary, "_sealed"/utf8>>,
+            _ = begin
+                _pipe = ~"WITH saved AS (
+                      INSERT INTO agency.settings(tenant_id,key,value,updated_at)
+                      VALUES($1::uuid,$2,to_jsonb($3::text),now())
+                      ON CONFLICT(tenant_id,key) DO UPDATE SET value=excluded.value,updated_at=now()
+                      RETURNING 1
+                    )
+                    DELETE FROM agency.settings WHERE tenant_id=$1::uuid AND key=$4",
+                _pipe@1 = pog:'query'(_pipe),
+                _pipe@2 = pog:parameter(_pipe@1, pog_ffi:coerce(Tenant_id)),
+                _pipe@3 = pog:parameter(_pipe@2, pog_ffi:coerce(Sealed_key)),
+                _pipe@4 = pog:parameter(_pipe@3, pog_ffi:coerce(Sealed)),
+                _pipe@5 = pog:parameter(_pipe@4, pog_ffi:coerce(Key)),
+                pog:execute(_pipe@5, Db)
+            end,
+            nil;
+
+        {error, _} ->
+            nil
+    end.
+
+-spec integration_secret(binary(), binary(), binary()) -> binary().
+integration_secret(Tenant_id, Key, Value) ->
+    case gleam@string:trim(Value) of
+        ~"" ->
+            ~"";
+
+        Trimmed ->
+            case 'nexus_agency@secrets':seal_for_tenant(Tenant_id, <<~"integration."/binary, Key/binary>>, Trimmed) of
+                {ok, Sealed} -> Sealed;
+                {error, _} -> ~""
+            end
+    end.
+
+-file("src\\nexus_agency\\router.gleam", 3418).
 -spec get_tenant_ai_config(pog:connection(), binary()) -> nexus_agency@ai_client:a_i_config().
 get_tenant_ai_config(Db, Tenant_id) ->
     Row = begin
@@ -986,7 +1140,7 @@ get_tenant_ai_config(Db, Tenant_id) ->
         end)
     end,
     Settings = case begin
-        _pipe = ~"select key, trim(both '\"' from value::text) from agency.settings where tenant_id=$1::uuid and key in ('ai_provider', 'ai_api_key', 'ai_model')",
+        _pipe = ~"select key, trim(both '\"' from value::text) from agency.settings where tenant_id=$1::uuid and key in ('ai_provider', 'ai_api_key', 'ai_api_key_sealed', 'ai_model')",
         _pipe@1 = pog:'query'(_pipe),
         _pipe@2 = pog:parameter(_pipe@1, pog_ffi:coerce(Tenant_id)),
         _pipe@3 = pog:returning(_pipe@2, Row),
@@ -1005,13 +1159,21 @@ get_tenant_ai_config(Db, Tenant_id) ->
         {error, _} ->
             ~"google"
     end,
-    Api_key = case gleam@list:key_find(Settings, ~"ai_api_key") of
+    Api_key_plain = case gleam@list:key_find(Settings, ~"ai_api_key") of
         {ok, K} ->
             K;
 
         {error, _} ->
             ~""
     end,
+    Api_key_sealed = case gleam@list:key_find(Settings, ~"ai_api_key_sealed") of
+        {ok, K@1} ->
+            K@1;
+
+        {error, _} ->
+            ~""
+    end,
+    Api_key = setting_secret(Db, Tenant_id, ~"ai_api_key", Api_key_plain, Api_key_sealed),
     Model = case gleam@list:key_find(Settings, ~"ai_model") of
         {ok, M} ->
             M;
@@ -1051,6 +1213,69 @@ reset_ai_pool_usage(Db, Tenant_id) ->
     fun(_) ->
         nil
     end(_pipe@3).
+
+-spec ai_pool_key_value(pog:connection(), binary(), binary(), binary()) -> binary().
+ai_pool_key_value(Db, Tenant_id, Id, Raw) ->
+    case gleam@string:trim(Raw) of
+        ~"" ->
+            ~"";
+
+        Value ->
+            case gleam@string:starts_with(Value, ~"v1:") of
+                true ->
+                    case 'nexus_agency@secrets':open_for_tenant(Tenant_id, ~"ai_pool.api_key", Value) of
+                        {ok, Opened} -> Opened;
+                        {error, _} -> ~""
+                    end;
+
+                false ->
+                    _ = ai_pool_migrate_plain_key(Db, Tenant_id, Id, Value),
+                    Value
+            end
+    end.
+
+-spec ai_pool_migrate_plain_key(pog:connection(), binary(), binary(), binary()) -> nil.
+ai_pool_migrate_plain_key(Db, Tenant_id, Id, Value) ->
+    case Id =:= ~"" of
+        true ->
+            nil;
+
+        false ->
+            case 'nexus_agency@secrets':seal_for_tenant(Tenant_id, ~"ai_pool.api_key", Value) of
+                {ok, Sealed} ->
+                    _ = begin
+                        _pipe = ~"update agency.ai_key_pool set api_key_encrypted=$3,updated_at=now() where tenant_id=$1::uuid and id=$2::uuid and api_key_encrypted=$4",
+                        _pipe@1 = pog:'query'(_pipe),
+                        _pipe@2 = pog:parameter(_pipe@1, pog_ffi:coerce(Tenant_id)),
+                        _pipe@3 = pog:parameter(_pipe@2, pog_ffi:coerce(Id)),
+                        _pipe@4 = pog:parameter(_pipe@3, pog_ffi:coerce(Sealed)),
+                        _pipe@5 = pog:parameter(_pipe@4, pog_ffi:coerce(Value)),
+                        pog:execute(_pipe@5, Db)
+                    end,
+                    nil;
+
+                {error, _} ->
+                    nil
+            end
+    end.
+
+-spec ai_pool_open_rows(pog:connection(), binary(), list(ai_pool_key())) -> list(ai_pool_key()).
+ai_pool_open_rows(Db, Tenant_id, Rows) ->
+    gleam@list:filter_map(Rows, fun(Row) ->
+        Id = erlang:element(2, Row),
+        Cfg = erlang:element(3, Row),
+        Provider = erlang:element(2, Cfg),
+        Raw = erlang:element(3, Cfg),
+        Model = erlang:element(4, Cfg),
+        Opened = ai_pool_key_value(Db, Tenant_id, Id, Raw),
+        case Opened =:= ~"" of
+            true ->
+                {error, nil};
+
+            false ->
+                {ok, {ai_pool_key, Id, {a_i_config, Provider, Opened, Model}}}
+        end
+    end).
 
 -file("src\\nexus_agency\\router.gleam", 3539).
 -spec get_tenant_ai_pool(pog:connection(), binary()) -> list(ai_pool_key()).
@@ -1103,7 +1328,7 @@ get_tenant_ai_pool(Db, Tenant_id) ->
                     end;
 
                 Rows ->
-                    Rows
+                    ai_pool_open_rows(Db, Tenant_id, Rows)
             end;
 
         {error, _} ->
@@ -1282,7 +1507,8 @@ chat_conversation_exists(Db, Tenant_id, Conversation_id) ->
             _pipe@5 = gleam@list:first(erlang:element(3, Result)),
             gleam@result:unwrap(_pipe@5, false);
 
-        {error, _} ->
+        {error, Error} ->
+            io:format("payment_transition error: ~p~n", [Error]),
             false
     end.
 
@@ -1413,6 +1639,7 @@ public_chat(Req, Db) ->
                                         public_chat_fallback(Message, Context)
                                 end,
                                 save_chat_message(Db, Conversation_id, ~"NEXUS AI", Reply, ~"outbound"),
+                                record_customer_chat_recommendations(Req, Db, Tenant_id, Conversation_id, Listing_key, Message, Email),
                                 Response_body = begin
                                     _pipe@16 = gleam@json:object([{~"ok", gleam@json:bool(true)}, {~"reply", gleam@json:string(Reply)}, {~"conversationId", gleam@json:string(Conversation_id)}, {~"ai", gleam@json:bool(gleam@result:is_ok(Reply_result))}, {~"needsContact", gleam@json:bool((Email =:= ~"") andalso (Phone =:= ~""))}]),
                                     gleam@json:to_string(_pipe@16)
@@ -1452,19 +1679,109 @@ payment_transition(Db, Session, Action, Guid, Receipt, Raw) ->
     end.
 
 -file("src\\nexus_agency\\router.gleam", 7119).
--spec parampos_config_decoder() -> gleam@dynamic@decode:decoder({binary(), binary(), binary(), binary(), binary()}).
+-spec parampos_config_decoder() -> gleam@dynamic@decode:decoder({binary(), binary(), binary(), binary(), binary(), binary(), binary(), binary()}).
 parampos_config_decoder() ->
-    gleam@dynamic@decode:field(~"client_code", {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Client_code) ->
-        gleam@dynamic@decode:field(~"username", {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Username) ->
-            gleam@dynamic@decode:field(~"password", {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Password) ->
-                gleam@dynamic@decode:field(~"guid", {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Guid) ->
-                    gleam@dynamic@decode:optional_field(~"endpoint", ~"", {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Endpoint) ->
-                        gleam@dynamic@decode:success({Client_code, Username, Password, Guid, Endpoint})
+    gleam@dynamic@decode:optional_field(~"client_code", ~"", {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Client_code) ->
+        gleam@dynamic@decode:optional_field(~"username", ~"", {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Username) ->
+            gleam@dynamic@decode:optional_field(~"password", ~"", {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Password) ->
+                gleam@dynamic@decode:optional_field(~"guid", ~"", {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Guid) ->
+                    gleam@dynamic@decode:optional_field(~"username_sealed", ~"", {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Username_sealed) ->
+                        gleam@dynamic@decode:optional_field(~"password_sealed", ~"", {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Password_sealed) ->
+                            gleam@dynamic@decode:optional_field(~"guid_sealed", ~"", {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Guid_sealed) ->
+                                gleam@dynamic@decode:optional_field(~"endpoint", ~"", {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Endpoint) ->
+                                    gleam@dynamic@decode:success({Client_code, Username, Password, Guid, Username_sealed, Password_sealed, Guid_sealed, Endpoint})
+                                end)
+                            end)
+                        end)
                     end)
                 end)
             end)
         end)
     end).
+
+parampos_secret(Tenant_id, Plain, Sealed, Field) ->
+    case gleam@string:trim(Sealed) of
+        ~"" ->
+            Plain;
+        _ ->
+            case 'nexus_agency@secrets':open_for_tenant(Tenant_id, Field, Sealed) of
+                {ok, Value} -> Value;
+                {error, _} -> ~""
+            end
+    end.
+
+parampos_seal_optional(Tenant_id, Field, Value) ->
+    case gleam@string:trim(Value) of
+        ~"" ->
+            ~"";
+        Trimmed ->
+            case 'nexus_agency@secrets':seal_for_tenant(Tenant_id, Field, Trimmed) of
+                {ok, Sealed} -> Sealed;
+                {error, _} -> ~""
+            end
+    end.
+
+parampos_migrate_plain_secrets(Db, Tenant_id, Username, Password, Guid) ->
+    Username_sealed = parampos_seal_optional(Tenant_id, ~"parampos.username", Username),
+    Password_sealed = parampos_seal_optional(Tenant_id, ~"parampos.password", Password),
+    Guid_sealed = parampos_seal_optional(Tenant_id, ~"parampos.guid", Guid),
+    case {Username_sealed, Password_sealed, Guid_sealed} of
+        {~"", ~"", ~""} ->
+            nil;
+        _ ->
+            _ = begin
+                _pipe = ~"update agency.integrations
+                    set credentials=(coalesce(credentials,'{}'::jsonb) - 'username' - 'password' - 'guid')
+                          || coalesce((select jsonb_object_agg(k,v)
+                                         from jsonb_each_text(jsonb_build_object(
+                                           'username_sealed',$2,
+                                           'password_sealed',$3,
+                                           'guid_sealed',$4
+                                         )) where v <> ''),'{}'::jsonb),
+                        updated_at=now()
+                  where tenant_id=$1::uuid
+                    and provider='parampos'
+                    and kind='payment'
+                    and (
+                      coalesce(credentials->>'username','')<>''
+                      or coalesce(credentials->>'password','')<>''
+                      or coalesce(credentials->>'guid','')<>''
+                    )",
+                _pipe@1 = pog:'query'(_pipe),
+                _pipe@2 = pog:parameter(_pipe@1, pog_ffi:coerce(Tenant_id)),
+                _pipe@3 = pog:parameter(_pipe@2, pog_ffi:coerce(Username_sealed)),
+                _pipe@4 = pog:parameter(_pipe@3, pog_ffi:coerce(Password_sealed)),
+                _pipe@5 = pog:parameter(_pipe@4, pog_ffi:coerce(Guid_sealed)),
+                pog:execute(_pipe@5, Db)
+            end,
+            nil
+    end.
+
+parampos_endpoint_host(Endpoint, Base) ->
+    (Endpoint =:= Base) orelse gleam@string:starts_with(Endpoint, <<Base/binary, "/">>).
+
+valid_parampos_endpoint(Endpoint) ->
+    case gleam@string:trim(Endpoint) of
+        ~"" ->
+            true;
+        Value ->
+            App_env = case envoy:get(~"APP_ENV") of
+                {ok, Env} -> Env;
+                {error, _} -> ~"development"
+            end,
+            Local_fixture = (App_env =/= ~"production")
+                andalso (
+                    gleam@string:starts_with(Value, ~"http://127.0.0.1:")
+                    orelse gleam@string:starts_with(Value, ~"http://localhost:")
+                ),
+            Local_fixture orelse (
+                'nexus_agency@secrets':valid_https(Value)
+                andalso (
+                    parampos_endpoint_host(Value, ~"https://testposws.param.com.tr")
+                    orelse parampos_endpoint_host(Value, ~"https://posws.param.com.tr")
+                )
+            )
+    end.
 
 -file("src\\nexus_agency\\router.gleam", 7128).
 -spec parampos_config(pog:connection(), binary()) -> {ok, nexus_agency@parampos:config()} | {error, binary()}.
@@ -1494,20 +1811,34 @@ parampos_config(Db, Tenant_id) ->
                         {error, _} ->
                             {error, ~"parampos_bad_config"};
 
-                        {ok, {Client_code, Username, Password, Guid, Endpoint}} ->
-                            Service_url = case gleam@string:trim(Endpoint) of
-                                ~"" ->
-                                    ~"https://testposws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx";
-
-                                Value ->
-                                    Value
+                        {ok, {Client_code, Username_plain, Password_plain, Guid_plain, Username_sealed, Password_sealed, Guid_sealed, Endpoint}} ->
+                            Username = parampos_secret(Tenant_id, Username_plain, Username_sealed, ~"parampos.username"),
+                            Password = parampos_secret(Tenant_id, Password_plain, Password_sealed, ~"parampos.password"),
+                            Guid = parampos_secret(Tenant_id, Guid_plain, Guid_sealed, ~"parampos.guid"),
+                            case {Username_sealed, Password_sealed, Guid_sealed} of
+                                {~"", ~"", ~""} ->
+                                    parampos_migrate_plain_secrets(Db, Tenant_id, Username_plain, Password_plain, Guid_plain);
+                                _ ->
+                                    nil
                             end,
-                            case (((Client_code /= ~"") andalso (Username /= ~"")) andalso (Password /= ~"")) andalso (Guid /= ~"") of
-                                true ->
-                                    {ok, {config, Client_code, Username, Password, Guid, Service_url}};
-
+                            case valid_parampos_endpoint(Endpoint) of
                                 false ->
-                                    {error, ~"parampos_not_configured"}
+                                    {error, ~"parampos_bad_endpoint"};
+                                true ->
+                                    Service_url = case gleam@string:trim(Endpoint) of
+                                        ~"" ->
+                                            ~"https://testposws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx";
+
+                                        Value ->
+                                            Value
+                                    end,
+                                    case (((Client_code /= ~"") andalso (Username /= ~"")) andalso (Password /= ~"")) andalso (Guid /= ~"") of
+                                        true ->
+                                            {ok, {config, Client_code, Username, Password, Guid, Service_url}};
+
+                                        false ->
+                                            {error, ~"parampos_not_configured"}
+                                    end
                             end
                     end
             end
@@ -1944,7 +2275,7 @@ currency_symbol(Currency) ->
     end.
 
 -file("src\\nexus_agency\\router.gleam", 7083).
--spec public_checkout_listing_decoder() -> gleam@dynamic@decode:decoder({binary(), binary(), binary(), binary(), binary(), binary()}).
+-spec public_checkout_listing_decoder() -> gleam@dynamic@decode:decoder({binary(), binary(), binary(), binary(), binary(), binary(), binary()}).
 public_checkout_listing_decoder() ->
     gleam@dynamic@decode:field(0, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Id) ->
         gleam@dynamic@decode:field(1, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Title) ->
@@ -1952,7 +2283,9 @@ public_checkout_listing_decoder() ->
                 gleam@dynamic@decode:field(3, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Category) ->
                     gleam@dynamic@decode:field(4, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Currency) ->
                         gleam@dynamic@decode:field(5, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Price_minor) ->
-                            gleam@dynamic@decode:success({Id, Title, Locality, Category, Currency, Price_minor})
+                            gleam@dynamic@decode:field(6, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Source) ->
+                                gleam@dynamic@decode:success({Id, Title, Locality, Category, Currency, Price_minor, Source})
+                            end)
                         end)
                     end)
                 end)
@@ -2010,13 +2343,15 @@ public_checkout_page(Req, Db, Origin) ->
         {error, _} ->
             ~"2"
     end,
+    Safe_check_in = case iso_date_valid(Prefilled_check_in) of true -> Prefilled_check_in; false -> ~"" end,
+    Safe_check_out = case iso_date_valid(Prefilled_check_out) of true -> Prefilled_check_out; false -> ~"" end,
     Csrf_token = csrf_token_for(Req),
     Tenant_id = begin
         _pipe@4 = public_tenant_id(Db, Req),
         gleam@result:unwrap(_pipe@4, ~"")
     end,
     Result = begin
-        _pipe@5 = ~"select id::text,title,locality,category,currency,price_minor::text from agency.listings where id=$1::uuid and tenant_id=$2::uuid and status='published' limit 1",
+        _pipe@5 = ~"select id::text,title,locality,category,currency,price_minor::text,source from agency.listings where id=$1::uuid and tenant_id=$2::uuid and status='published' limit 1",
         _pipe@6 = pog:'query'(_pipe@5),
         _pipe@7 = pog:parameter(_pipe@6, pog_ffi:coerce(Listing_id)),
         _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(Tenant_id)),
@@ -2034,13 +2369,17 @@ public_checkout_page(Req, Db, Origin) ->
                     _pipe@11 = wisp:response(404),
                     wisp:string_body(_pipe@11, ~"Ürün bulunamadı veya yayında değil");
 
-                {ok, {Id, Title, Locality, Category, Currency, Price_minor}} ->
-                    case Currency /= ~"TRY" of
-                        true ->
+                {ok, {Id, Title, Locality, Category, Currency, Price_minor, Source}} ->
+                    case {Source =:= ~"nexus" andalso not lists:member(Category, [~"hotel", ~"holiday_home", ~"yacht"]), Currency /= ~"TRY"} of
+                        {false, true} ->
                             _pipe@12 = wisp:response(400),
                             wisp:string_body(_pipe@12, ~"Bu ürün için çevrim içi ödeme şu anda yalnızca TRY ile kullanılabilir.");
 
-                        false ->
+                        {true, _} ->
+                            _pipe@12 = wisp:response(409),
+                            wisp:html_body(_pipe@12, <<"<!doctype html><html lang=\"tr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Rezervasyon talebi | NEXUS</title><style>body{font-family:system-ui,sans-serif;background:#f8fafc;color:#111827;margin:0;min-height:100vh;display:grid;place-items:center}main{max-width:560px;margin:24px;padding:36px;border:1px solid #e5e7eb;border-radius:24px;background:white;box-shadow:0 18px 50px #11182712}h1{font-size:1.7rem;line-height:1.2}p{color:#64748b;line-height:1.6}a{display:inline-block;margin-top:14px;padding:12px 18px;border-radius:999px;background:#111827;color:white;text-decoration:none}</style></head><body><main><h1>Rezervasyon talebi g&#246;nderin</h1><p>Bu ba&#287;l&#305; ilan i&#231;in &#231;evrim i&#231;i &#246;deme hen&#252;z a&#231;&#305;k de&#287;il. Teklif formundan bilgi ve rezervasyon talebi olu&#351;turabilirsiniz.</p><a href=\"/iletisim?listing=", Id/binary, "&amp;tenant=", Tenant_id/binary, "&amp;check_in=", Safe_check_in/binary, "&amp;check_out=", Safe_check_out/binary, "&amp;guests=", Prefilled_guests/binary, "\">Teklif iste</a></main></body></html>">>);
+
+                        {false, false} ->
                             Content = lustre@element:element(~"html", [lustre@attribute:attribute(~"lang", ~"tr")], [lustre@element:element(~"head", [], [lustre@element:element(~"meta", [lustre@attribute:attribute(~"charset", ~"utf-8")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"viewport"), lustre@attribute:attribute(~"content", ~"width=device-width, initial-scale=1")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"csrf-token"), lustre@attribute:attribute(~"content", Csrf_token)], []), lustre@element:element(~"meta", [lustre@attribute:name(~"robots"), lustre@attribute:attribute(~"content", ~"noindex,nofollow")], []), lustre@element:element(~"title", [], [lustre@element:text(<<"Rezervasyon | "/utf8, Title/binary>>)]) | chisfis_head()]), lustre@element:element(~"body", [lustre@attribute:class(~"chisfis-page"), lustre@attribute:attribute(~"data-tenant", Tenant_id)], [public_storefront_header(Origin, Tenant_id), lustre@element:element(~"main", [lustre@attribute:class(~"booking-page checkout-page")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"GÜVENLİ REZERVASYON")]), lustre@element:element(~"h1", [], [lustre@element:text(~"Rezervasyonunuzu oluşturun")]), lustre@element:element(~"p", [lustre@attribute:class(~"muted")], [lustre@element:text(<<<<Title/binary, " · "/utf8>>/binary, Locality/binary>>)]), lustre@element:element(~"div", [lustre@attribute:class(~"booking-card")], [lustre@element:element(~"div", [lustre@attribute:class(~"booking-card-price")], [lustre@element:element(~"strong", [lustre@attribute:attribute(~"data-price-minor", Price_minor), lustre@attribute:attribute(~"data-price-cur", string:uppercase(gleam@string:trim(Currency)))], [lustre@element:text(<<<<(currency_symbol(Currency))/binary, " "/utf8>>/binary, (amount_minor_display(Price_minor))/binary>>)]), lustre@element:element(~"span", [], [lustre@element:text(<<" / "/utf8, (category_price_unit(Category))/binary>>)])]), lustre@element:element(~"p", [lustre@attribute:class(~"muted")], [lustre@element:text(~"Bilgilerinizi gönderin; ödeme adımına güvenli biçimde yönlendirileceksiniz.")]), lustre@element:element(~"form", [lustre@attribute:method(~"post"), lustre@attribute:action(~"/api/public/checkout/start"), lustre@attribute:class(~"checkout-form"), lustre@attribute:attribute(~"data-checkout-form", ~"true")], [lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"listing_id"), lustre@attribute:value(Id)], []), lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"tenant"), lustre@attribute:value(Tenant_id)], []), lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"csrf_token"), lustre@attribute:value(Csrf_token)], []), lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"idempotency_key"), lustre@attribute:value(<<"checkout-"/utf8, (wisp:random_string(32))/binary>>)], []), lustre@element:element(~"label", [], [lustre@element:text(~"Ad soyad"), lustre@element:element(~"input", [lustre@attribute:name(~"name"), lustre@attribute:autocomplete(~"name"), lustre@attribute:required(true)], [])]), lustre@element:element(~"label", [], [lustre@element:text(~"E-posta"), lustre@element:element(~"input", [lustre@attribute:name(~"email"), lustre@attribute:type_(~"email"), lustre@attribute:autocomplete(~"email")], [])]), lustre@element:element(~"label", [], [lustre@element:text(~"Telefon (e-posta veya telefon zorunlu)"), lustre@element:element(~"input", [lustre@attribute:name(~"phone"), lustre@attribute:type_(~"tel"), lustre@attribute:autocomplete(~"tel")], [])]), lustre@element:element(~"div", [lustre@attribute:class(~"form-grid-2")], [lustre@element:element(~"label", [], [lustre@element:text(~"Giriş tarihi"), lustre@element:element(~"input", [lustre@attribute:name(~"check_in"), lustre@attribute:type_(~"date"), lustre@attribute:value(Prefilled_check_in), lustre@attribute:required(true)], [])]), lustre@element:element(~"label", [], [lustre@element:text(~"Çıkış tarihi"), lustre@element:element(~"input", [lustre@attribute:name(~"check_out"), lustre@attribute:type_(~"date"), lustre@attribute:value(Prefilled_check_out), lustre@attribute:required(true)], [])])]), lustre@element:element(~"label", [], [lustre@element:text(~"Misafir sayısı"), lustre@element:element(~"input", [lustre@attribute:name(~"guest_count"), lustre@attribute:type_(~"number"), lustre@attribute:attribute(~"min", ~"1"), lustre@attribute:attribute(~"max", ~"50"), lustre@attribute:attribute(~"value", Prefilled_guests), lustre@attribute:required(true)], [])]), lustre@element:element(~"p", [lustre@attribute:class(~"checkout-error"), lustre@attribute:attribute(~"aria-live", ~"polite")], []), lustre@element:element(~"button", [lustre@attribute:type_(~"submit"), lustre@attribute:class(~"primary")], [lustre@element:text(~"Ödeme adımına geç →")])])]), lustre@element:element(~"a", [lustre@attribute:href(<<<<<<Origin/binary, "/urunler/"/utf8>>/binary, Id/binary>>/binary, (public_tenant_query(Tenant_id))/binary>>)], [lustre@element:text(~"Ürüne dön")])]), public_footer(Tenant_id), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-checkout.js"), lustre@attribute:attribute(~"defer", ~"defer")], [])])]),
                             _pipe@13 = wisp:ok(),
                             _pipe@14 = wisp:set_cookie(_pipe@13, Req, ~"agency_csrf", Csrf_token, plain_text, 3600),
@@ -2122,6 +2461,11 @@ public_checkout_start(Req, Db) ->
         Check_out = gleam@string:trim(form_value(erlang:element(2, Form), ~"check_out")),
         Guest_count = form_int(erlang:element(2, Form), ~"guest_count"),
         Idempotency_key = gleam@string:trim(form_value(erlang:element(2, Form), ~"idempotency_key")),
+        Offer_code = gleam@string:trim(form_value(erlang:element(2, Form), ~"offer_code")),
+        Customer_user = case public_customer_account_session(Req, Db) of
+            {ok, Customer_session} -> erlang:element(3, Customer_session);
+            _ -> ~""
+        end,
         Csrf_form = form_value(erlang:element(2, Form), ~"csrf_token"),
         Csrf_valid = case wisp:get_cookie(Req, ~"agency_csrf", plain_text) of
             {ok, Value} ->
@@ -2140,7 +2484,7 @@ public_checkout_start(Req, Db) ->
                 wisp:json_body(_pipe, ~"{\"ok\":false,\"error\":\"Güvenlik doğrulaması başarısız.\"}");
 
             false ->
-                case (((((((((Listing_id =:= ~"") orelse (string:length(Listing_id) /= 36)) orelse (Idempotency_key =:= ~"")) orelse (string:length(Idempotency_key) > 120)) orelse (Name =:= ~"")) orelse (string:length(Name) > 160)) orelse not Contact_valid) orelse (Guest_count < 1)) orelse (Guest_count > 50)) orelse not Valid_dates of
+                case (((((((((Listing_id =:= ~"") orelse (string:length(Listing_id) /= 36)) orelse (Idempotency_key =:= ~"")) orelse (string:length(Idempotency_key) > 120)) orelse (Name =:= ~"")) orelse (string:length(Name) > 160)) orelse not Contact_valid) orelse (Guest_count < 1)) orelse (Guest_count > 50)) orelse not Valid_dates orelse (Offer_code /= ~"" andalso (re:run(Offer_code, ~"^[0-9a-f]{36}$", [{capture,none}]) =/= match orelse Customer_user =:= ~"")) of
                     true ->
                         _pipe@1 = wisp:response(400),
                         wisp:json_body(_pipe@1, ~"{\"ok\":false,\"error\":\"Rezervasyon bilgilerini kontrol edin.\"}");
@@ -2189,7 +2533,7 @@ public_checkout_start(Req, Db) ->
                                                     false ->
                                                         Reference = <<"NX-"/utf8, (string:uppercase(wisp:random_string(10)))/binary>>,
                                                         Order_result = begin
-                                                            _pipe@13 = ~"select id::text,number,reservation_id::text,total_minor::text,currency from agency.checkout_order($1::uuid,$2,$3,$4,$5::uuid,$6,$7::text::date,$8::text::date,$9::int,$10)",
+                                                            _pipe@13 = ~"select id::text,number,reservation_id::text,total_minor::text,currency from agency.checkout_order_with_journey_discount($1::uuid,$2,$3,$4,$5::uuid,$6,$7::text::date,$8::text::date,$9::int,$10,nullif($11,'')::uuid,$12)",
                                                             _pipe@14 = pog:'query'(_pipe@13),
                                                             _pipe@15 = pog:parameter(_pipe@14, pog_ffi:coerce(Tenant_id)),
                                                             _pipe@16 = pog:parameter(_pipe@15, pog_ffi:coerce(Name)),
@@ -2201,14 +2545,22 @@ public_checkout_start(Req, Db) ->
                                                             _pipe@22 = pog:parameter(_pipe@21, pog_ffi:coerce(Check_out)),
                                                             _pipe@23 = pog:parameter(_pipe@22, pog_ffi:coerce(Guest_count)),
                                                             _pipe@24 = pog:parameter(_pipe@23, pog_ffi:coerce(Idempotency_key)),
-                                                            _pipe@25 = pog:returning(_pipe@24, checkout_order_decoder()),
+                                                            _pipe@24a = pog:parameter(_pipe@24, pog_ffi:coerce(Customer_user)),
+                                                            _pipe@24b = pog:parameter(_pipe@24a, pog_ffi:coerce(Offer_code)),
+                                                            _pipe@25 = pog:returning(_pipe@24b, checkout_order_decoder()),
                                                             pog:execute(_pipe@25, Db)
                                                         end,
                                                         case Order_result of
                                                             {error, Error} ->
                                                                 gleam_stdlib:println(<<"Checkout order insert failed: "/utf8, (query_error_message(Error))/binary>>),
-                                                                _pipe@26 = wisp:response(503),
-                                                                wisp:json_body(_pipe@26, ~"{\"ok\":false,\"error\":\"Rezervasyon oluşturulamadı.\"}");
+                                                                case gleam_stdlib:contains_string(query_error_message(Error), ~"nexus_booking_unavailable") of
+                                                                    true ->
+                                                                        _pipe@26 = wisp:response(409),
+                                                                        wisp:json_body(_pipe@26, ~"{\"ok\":false,\"error\":\"Bu bağlı ilan için çevrim içi ödeme henüz açık değil. Ürün sayfasından rezervasyon talebi gönderin.\"}");
+                                                                    false ->
+                                                                        _pipe@26 = wisp:response(503),
+                                                                        wisp:json_body(_pipe@26, ~"{\"ok\":false,\"error\":\"Rezervasyon oluşturulamadı.\"}")
+                                                                end;
 
                                                             {ok, Order_rows} ->
                                                                 case gleam@list:first(erlang:element(3, Order_rows)) of
@@ -2225,9 +2577,15 @@ public_checkout_start(Req, Db) ->
                                                                             _pipe@32 = pog:returning(_pipe@31, payment_session_id_decoder()),
                                                                             pog:execute(_pipe@32, Db)
                                                                         end of
-                                                                            {error, _} ->
-                                                                                _pipe@33 = wisp:response(503),
-                                                                                wisp:json_body(_pipe@33, ~"{\"ok\":false,\"error\":\"Ödeme oturumu oluşturulamadı.\"}");
+                                                                            {error, Session_error} ->
+                                                                                case string:contains(query_error_message(Session_error), ~"nexus_fulfillment_pending") of
+                                                                                    true ->
+                                                                                        _pipe@33 = wisp:response(409),
+                                                                                        wisp:json_body(_pipe@33, ~"{\"ok\":false,\"error\":\"Tedarikçi rezervasyonu henüz onaylamadı. Ödeme alınmadan önce onayı bekleyin.\"}");
+                                                                                    false ->
+                                                                                        _pipe@33 = wisp:response(503),
+                                                                                        wisp:json_body(_pipe@33, ~"{\"ok\":false,\"error\":\"Ödeme oturumu oluşturulamadı.\"}")
+                                                                                end;
 
                                                                             {ok, Session_rows} ->
                                                                                 case gleam@list:first(erlang:element(3, Session_rows)) of
@@ -2269,38 +2627,12 @@ published_category_modules(Db, Category_slug, Tenant_id) ->
             _pipe@5 = erlang:element(3, Result),
             gleam@list:map(_pipe@5, fun(Row) ->
                 {Block_type, _, Raw_content} = Row,
-                {Title, Body, Button_text, Button_url} = cms_block_copy(Raw_content, case Block_type of
-                    ~"hero" ->
-                        ~"Bölgenizi keşfedin";
-
-                    ~"featured_listings" ->
-                        ~"Bu kategoride öne çıkanlar";
-
-                    ~"category_grid" ->
-                        ~"Yakın kategorileri keşfedin";
-
-                    ~"trust_strip" ->
-                        ~"Güvenle planlayın";
-
-                    ~"newsletter" ->
-                        ~"Yeni fırsatlardan haberdar olun";
-
-                    _ ->
-                        ~"Seyahat ilhamı"
-                end),
-                lustre@element:element(~"article", [lustre@attribute:class(<<"builder-module builder-"/utf8, Block_type/binary>>)], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"NEXUS İÇERİK")]), lustre@element:element(~"h2", [], [lustre@element:text(Title)]), case Body of
-                    ~"" ->
-                        lustre@element:element(~"span", [], []);
-
-                    Value ->
-                        lustre@element:element(~"p", [lustre@attribute:class(~"muted")], [lustre@element:text(Value)])
-                end, case (Button_url /= ~"") andalso (Button_text /= ~"") of
-                    true ->
-                        lustre@element:element(~"a", [lustre@attribute:class(~"secondary"), lustre@attribute:href(safe_public_href(Button_url))], [lustre@element:text(Button_text)]);
-
-                    false ->
-                        lustre@element:element(~"span", [], [])
-                end])
+                case Block_type of
+                    ~"source_section" -> public_source_section_block(Raw_content);
+                    ~"listing_collection" -> public_listing_collection_block(Raw_content);
+                    ~"region_places" -> public_region_places_block(Db, Raw_content, Tenant_id);
+                    _ -> public_cms_block(Row)
+                end
             end);
 
         {error, _} ->
@@ -2326,6 +2658,65 @@ public_category_canonical(Slug) ->
         Value ->
             Value
     end.
+
+%% Public, language-specific category slugs share the same canonical category
+%% codes. Keep these aliases in sync with header-popovers.js.
+localized_category_code(Slug) ->
+    Aliases = [
+        {~"ferienhaus", ~"holiday_home"}, {~"dom-otdyha", ~"holiday_home"},
+        {~"mnzl-lltl", ~"holiday_home"}, {~"maison-de-vacances", ~"holiday_home"},
+        {~"dujiawu", ~"holiday_home"}, {~"aktivitaet", ~"activity"},
+        {~"flug", ~"flight"}, {~"auto", ~"car"},
+        {~"kreuzfahrt", ~"cruise"}, {~"wallfahrt", ~"pilgrimage"},
+        {~"visum", ~"visa"}, {~"faehre", ~"ferry"},
+        {~"liegestuhl", ~"beach"}, {~"kino", ~"cinema"},
+        {~"veranstaltung", ~"event"},
+        {~"yahta", ~"yacht"}, {~"aktivnost", ~"activity"},
+        {~"polet", ~"flight"}, {~"avtomobil", ~"car"},
+        {~"kruiz", ~"cruise"}, {~"palomnichestvo", ~"pilgrimage"},
+        {~"viza", ~"visa"}, {~"parom", ~"ferry"},
+        {~"lezhak", ~"beach"}, {~"sobytie", ~"event"},
+        {~"restoran", ~"restaurant"}, {~"avtobus", ~"bus"},
+        {~"fndq", ~"hotel"}, {~"rhl", ~"tour"},
+        {~"nshat", ~"activity"}, {~"rylh", ~"flight"},
+        {~"syar", ~"car"}, {~"rhl-bhry", ~"cruise"},
+        {~"hjj-omr", ~"pilgrimage"}, {~"tashyr", ~"visa"},
+        {~"qtar-bhry", ~"ferry"}, {~"nql", ~"transfer"},
+        {~"shaty", ~"beach"}, {~"synyma", ~"cinema"},
+        {~"falyh", ~"event"}, {~"mtm", ~"restaurant"},
+        {~"hafl", ~"bus"}, {~"circuit", ~"tour"},
+        {~"activite", ~"activity"}, {~"vol", ~"flight"},
+        {~"voiture", ~"car"}, {~"croisiere", ~"cruise"},
+        {~"pelerinage", ~"pilgrimage"}, {~"transfert", ~"transfer"},
+        {~"transat", ~"beach"},
+        {~"evenement", ~"event"}, {~"jiudian", ~"hotel"},
+        {~"lvyou", ~"tour"}, {~"huodong", ~"activity"},
+        {~"feiji", ~"flight"}, {~"qiche", ~"car"},
+        {~"youlun", ~"cruise"}, {~"chaosheng", ~"pilgrimage"},
+        {~"qianzheng", ~"visa"}, {~"du-lun", ~"ferry"},
+        {~"jiesong", ~"transfer"}, {~"shatan-yizi", ~"beach"},
+        {~"dianying", ~"cinema"}, {~"yanchu", ~"event"},
+        {~"canting", ~"restaurant"}, {~"gongjiao", ~"bus"}
+    ],
+    case lists:keyfind(Slug, 1, Aliases) of
+        {_, Category} -> Category;
+        false -> undefined
+    end.
+
+category_tr_path(Category) ->
+    Slug = case Category of
+        ~"hotel" -> ~"otel"; ~"holiday_home" -> ~"tatil-evi";
+        ~"yacht" -> ~"yat"; ~"tour" -> ~"tur";
+        ~"activity" -> ~"aktivite"; ~"flight" -> ~"ucus";
+        ~"car" -> ~"arac"; ~"cruise" -> ~"kruvaziyer";
+        ~"pilgrimage" -> ~"hac-umre"; ~"visa" -> ~"vize";
+        ~"ferry" -> ~"feribot"; ~"transfer" -> ~"transfer";
+        ~"beach" -> ~"sezlong"; ~"cinema" -> ~"sinema";
+        ~"event" -> ~"etkinlik"; ~"restaurant" -> ~"restoran";
+        ~"bus" -> ~"otobus";
+        _ -> Category
+    end,
+    <<"/", Slug/binary>>.
 
 -spec public_category_name(binary()) -> binary().
 public_category_name(Slug) ->
@@ -2395,7 +2786,7 @@ public_product_card(Row, Tenant_id) ->
 
         _ ->
             <<" · "/utf8, Locality/binary>>
-    end)/binary>>)]), lustre@element:element(~"h2", [], [lustre@element:element(~"a", [lustre@attribute:href(<<<<<<"/urunler/"/utf8, Id/binary>>/binary, "?tenant="/utf8>>/binary, Tenant_id/binary>>)], [lustre@element:text(Title)])]), lustre@element:element(~"div", [lustre@attribute:class(~"card-divider")], []), lustre@element:element(~"div", [lustre@attribute:class(~"card-price-row")], [lustre@element:element(~"div", [lustre@attribute:class(~"card-price")], [lustre@element:element(~"strong", [lustre@attribute:attribute(~"data-price-minor", erlang:integer_to_binary(Price)), lustre@attribute:attribute(~"data-price-cur", string:uppercase(gleam@string:trim(Currency)))], [lustre@element:text(<<<<(currency_symbol(Currency))/binary, " "/utf8>>/binary, (amount_minor_display(erlang:integer_to_binary(Price)))/binary>>)]), lustre@element:element(~"span", [lustre@attribute:class(~"card-price-unit")], [lustre@element:text(<<"/ "/utf8, (category_price_unit(Category))/binary>>)])]), lustre@element:element(~"span", [lustre@attribute:class(~"card-rating")], [lustre@element:text(~"★ 4.9")])])])]).
+    end)/binary>>)]), lustre@element:element(~"h2", [], [lustre@element:element(~"a", [lustre@attribute:href(<<"/urunler/", Id/binary>>)], [lustre@element:text(Title)])]), lustre@element:element(~"div", [lustre@attribute:class(~"card-divider")], []), lustre@element:element(~"div", [lustre@attribute:class(~"card-price-row")], [lustre@element:element(~"div", [lustre@attribute:class(~"card-price")], [lustre@element:element(~"strong", [lustre@attribute:attribute(~"data-price-minor", erlang:integer_to_binary(Price)), lustre@attribute:attribute(~"data-price-cur", string:uppercase(gleam@string:trim(Currency)))], [lustre@element:text(<<<<(currency_symbol(Currency))/binary, " "/utf8>>/binary, (amount_minor_display(erlang:integer_to_binary(Price)))/binary>>)]), lustre@element:element(~"span", [lustre@attribute:class(~"card-price-unit")], [lustre@element:text(<<"/ "/utf8, (category_price_unit(Category))/binary>>)])]), lustre@element:element(~"span", [lustre@attribute:class(~"card-rating")], [lustre@element:text(~"★ 4.9")])])])]).
 
 -file("src\\nexus_agency\\router.gleam", 5743).
 -spec public_listing_decoder() -> gleam@dynamic@decode:decoder({binary(), binary(), binary(), binary(), binary(), binary(), integer(), binary()}).
@@ -2419,6 +2810,104 @@ public_listing_decoder() ->
     end).
 
 -file("src\\nexus_agency\\router.gleam", 5764).
+public_category_hero_description(Category) ->
+    case Category of
+        ~"hotel" -> ~"Şehir otellerinden sahil resortlarına kadar doğrulanmış konaklama seçeneklerini karşılaştırın.";
+        ~"holiday_home" -> ~"Aileniz ve arkadaşlarınız için villa, apart, bungalov, daire ve residence tatil evlerini keşfedin.";
+        ~"yacht" -> ~"Kaptanlı yat turları, günlük tekne gezileri ve özel deniz kaçamaklarını tek yerde bulun.";
+        ~"tour" -> ~"Şehir turları, kültür rotaları ve rehberli günlük gezilerle bulunduğunuz yeri yakından tanıyın.";
+        ~"activity" -> ~"Spor, doğa ve şehir aktiviteleriyle seyahatinizi size özel bir deneyime dönüştürün.";
+        ~"flight" -> ~"Uçuş seçeneklerini karşılaştırın, rotanızı kolayca planlayın.";
+        ~"car" -> ~"İhtiyacınıza uygun otomobil, SUV ve minibüs seçeneklerini güvenli biçimde kiralayın.";
+        ~"cruise" -> ~"Birden fazla limanı tek seyahatte keşfedeceğiniz kruvaziyer rotalarını karşılaştırın.";
+        ~"pilgrimage" -> ~"Hac ve Umre yolculuğunuzu konaklama, ulaşım ve rehberlik hizmetleriyle birlikte planlayın.";
+        ~"visa" -> ~"Belgeleriniz, randevunuz ve başvuru takibiniz için güvenilir vize danışmanlığı alın.";
+        ~"ferry" -> ~"Ada ve kıyı rotaları için feribot seferlerini, saatleri ve bilet seçeneklerini bulun.";
+        ~"transfer" -> ~"Havalimanı, otel ve şehir içi transferlerinizi güvenilir sürücülerle önceden planlayın.";
+        ~"beach" -> ~"Popüler plajlarda şezlong, loca ve günübirlik sahil deneyimlerini önceden ayırtın.";
+        ~"cinema" -> ~"Vizyondaki filmler için salon, seans ve bilet seçeneklerini tek ekranda keşfedin.";
+        ~"event" -> ~"Konser, festival, gösteri ve şehir etkinlikleri için biletinizi erkenden ayırtın.";
+        ~"restaurant" -> ~"Yerel mutfakları, seçkin restoranları ve özel menüleri kolayca keşfedin.";
+        ~"bus" -> ~"Şehirler arası otobüs seçeneklerini karşılaştırın, rotanızı kolayca planlayın.";
+        _ -> ~"Seyahat seçeneklerini keşfedin."
+    end.
+
+public_builder_hero_config(Db, Tenant_id, Scope) ->
+    Sql = case Scope of
+        <<"home">> ->
+            ~"select b.content::text from agency.page_blocks b join agency.pages p on p.id=b.page_id where p.tenant_id=$1::uuid and p.status='published' and p.slug='home' and b.block_type='source_section' and b.content->>'sectionKey'='hero' order by b.sort_order limit 1";
+        _ ->
+            ~"select b.content::text from agency.page_blocks b join agency.pages p on p.id=b.page_id where p.tenant_id=$1::uuid and p.status='published' and (p.slug=$2 or p.slug='category-' || $2 or p.seo->>'category_scope'=$2) and b.block_type='source_section' and b.content->>'sectionKey'='hero' order by b.sort_order limit 1"
+    end,
+    Q0 = pog:'query'(Sql),
+    Q1 = pog:parameter(Q0, pog_ffi:coerce(Tenant_id)),
+    Q2 = case Scope of <<"home">> -> Q1; _ -> pog:parameter(Q1, pog_ffi:coerce(Scope)) end,
+    Q3 = pog:returning(Q2, gleam@dynamic@decode:at([0], {decoder, fun gleam@dynamic@decode:decode_string/1})),
+    case pog:execute(Q3, Db) of
+        {ok, Rows} ->
+            case gleam@list:first(erlang:element(3, Rows)) of
+                {ok, Raw} ->
+                    try json:decode(Raw) of
+                        Config when erlang:is_map(Config) -> Config;
+                        _ -> #{}
+                    catch _:_ -> #{} end;
+                _ -> #{}
+            end;
+        _ -> #{}
+    end.
+
+public_builder_copy(Config, Key, Default) ->
+    case maps:get(Key, Config, <<>>) of
+        Value when erlang:is_binary(Value), Value =/= <<>> -> Value;
+        _ -> Default
+    end.
+
+public_builder_html_escape(Value) ->
+    Escaped_amp = binary:replace(Value, <<"&">>, <<"&amp;">>, [global]),
+    Escaped_lt = binary:replace(Escaped_amp, <<"<">>, <<"&lt;">>, [global]),
+    Escaped_gt = binary:replace(Escaped_lt, <<">">>, <<"&gt;">>, [global]),
+    binary:replace(Escaped_gt, <<"\"">>, <<"&quot;">>, [global]).
+
+public_home_builder_hero(Main, Config) ->
+    case maps:get(<<"enabled">>, Config, true) of
+        false ->
+            <<"<style>.chisfis-home main > .relative.container > :first-child{display:none!important}</style>", Main/binary>>;
+        _ ->
+            Title = maps:get(<<"title">>, Config, <<>>),
+            Titled = case Title of
+                Value when erlang:is_binary(Value), Value =/= <<>> ->
+                    Safe = public_builder_html_escape(Value),
+                    Without_i18n = binary:replace(Main, <<" data-i18n=\"Hotel, car, experiences\"">>, <<>>),
+                    Old_tr = binary:replace(Without_i18n, <<">Otel, araba, deneyimler</h1>">>, <<">", Safe/binary, "</h1>">>),
+                    binary:replace(Old_tr, <<">Hotel, car, experiences</h1>">>, <<">", Safe/binary, "</h1>">>);
+                _ -> Main
+            end,
+            Description = maps:get(<<"description">>, Config, <<>>),
+            Described = case Description of
+                Value@1 when erlang:is_binary(Value@1), Value@1 =/= <<>> ->
+                    Safe_description = public_builder_html_escape(Value@1),
+                    binary:replace(Titled, <<"Bizimle yolculuğunuz harika deneyimlerle dolu."/utf8>>, Safe_description);
+                _ -> Titled
+            end,
+            Overrides = maps:get(<<"images">>, Config, []),
+            Pattern = <<"src=\"/static/chisfis/images/hero-right.webp\" data-composite=\"true\"">>,
+            case binary:split(Described, Pattern, [global]) of
+                [First, Second, Third, Fourth] ->
+                    <<First/binary, (public_home_hero_image_attr(Overrides, 1))/binary,
+                        Second/binary, (public_home_hero_image_attr(Overrides, 2))/binary,
+                        Third/binary, (public_home_hero_image_attr(Overrides, 3))/binary, Fourth/binary>>;
+                _ -> Described
+            end
+    end.
+
+public_home_hero_image_attr(Overrides, Index) ->
+    Default = <<"/static/chisfis/images/hero-right.webp">>,
+    Url = public_builder_image(Overrides, Index, Default),
+    case Url =:= Default of
+        true -> <<"src=\"/static/chisfis/images/hero-right.webp\" data-composite=\"true\"">>;
+        false -> <<"src=\"", (public_builder_html_escape(Url))/binary, "\"">>
+    end.
+
 -spec public_category_page(gleam@http@request:request(wisp@internal:connection()), pog:connection(), binary(), binary()) -> gleam@http@response:response(wisp:body()).
 public_category_page(Req, Db, Origin, Category_slug) ->
     Category = public_category_canonical(Category_slug),
@@ -2427,35 +2916,52 @@ public_category_page(Req, Db, Origin, Category_slug) ->
         _pipe = public_tenant_id(Db, Req),
         gleam@result:unwrap(_pipe, ~"")
     end,
-    Cards = case begin
-        _pipe@1 = ~"select id::text, title, category, locality, description, currency, price_minor::int, coalesce(images::text,'[]') from agency.listings where tenant_id=$1::uuid and status='published' and category=$2 order by updated_at desc limit 100",
-        _pipe@2 = pog:'query'(_pipe@1),
-        _pipe@3 = pog:parameter(_pipe@2, pog_ffi:coerce(Tenant_id)),
-        _pipe@4 = pog:parameter(_pipe@3, pog_ffi:coerce(Category)),
-        _pipe@5 = pog:returning(_pipe@4, public_listing_decoder()),
-        pog:execute(_pipe@5, Db)
-    end of
-        {ok, Rows} ->
-            case erlang:element(3, Rows) of
-                [] ->
-                    [lustre@element:element(~"p", [lustre@attribute:class(~"muted empty-state")], [lustre@element:text(~"Bu kategoride yayınlanmış ürün bulunmuyor. Danışmanlarımız sizin için seçenekleri hazırlayabilir.")])];
-
-                Values ->
-                    _pipe@6 = Values,
-                    gleam@list:map(_pipe@6, fun(Row) ->
-                        public_product_card(Row, Tenant_id)
-                    end)
-            end;
-
-        {error, _} ->
-            [lustre@element:element(~"p", [lustre@attribute:class(~"muted")], [lustre@element:text(~"Ürünler şu anda yüklenemiyor.")])]
-    end,
     Builder_modules = published_category_modules(Db, Category, Tenant_id),
+    Hero_config = public_builder_hero_config(Db, Tenant_id, Category),
     Csrf_token = csrf_token_for(Req),
-    Content = lustre@element:element(~"html", [lustre@attribute:attribute(~"lang", ~"tr")], [lustre@element:element(~"head", [], [lustre@element:element(~"meta", [lustre@attribute:attribute(~"charset", ~"utf-8")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"viewport"), lustre@attribute:attribute(~"content", ~"width=device-width, initial-scale=1")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"csrf-token"), lustre@attribute:attribute(~"content", Csrf_token)], []), lustre@element:element(~"meta", [lustre@attribute:name(~"description"), lustre@attribute:attribute(~"content", <<Category_title/binary, " için seçilmiş seyahat seçenekleri ve güvenli rezervasyon"/utf8>>)], []), lustre@element:element(~"title", [], [lustre@element:text(<<Category_title/binary, " | NEXUS Agency"/utf8>>)]) | chisfis_head()]), lustre@element:element(~"body", [lustre@attribute:class(~"chisfis-page category-page"), lustre@attribute:attribute(~"data-tenant", Tenant_id)], [public_storefront_header(Origin, Tenant_id), lustre@element:element(~"main", [], [lustre@element:element(~"section", [lustre@attribute:class(~"category-hero")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"KATEGORİ")]), lustre@element:element(~"h1", [], [lustre@element:text(Category_title)]), lustre@element:element(~"p", [lustre@attribute:class(~"muted")], [lustre@element:text(~"İhtiyacınıza uygun seçenekleri karşılaştırın; tarih ve kişi sayınıza göre hızlıca rezervasyon oluşturun.")]), lustre@element:element(~"img", [lustre@attribute:class(~"category-hero-image"), lustre@attribute:attribute(~"src", ~"/static/chisfis/images/hero-right.webp"), lustre@attribute:attribute(~"alt", Category_title), lustre@attribute:attribute(~"loading", ~"eager")], []), lustre@element:element(~"a", [lustre@attribute:class(~"primary"), lustre@attribute:href(<<"/iletisim"/utf8, (public_tenant_query(Tenant_id))/binary>>)], [lustre@element:text(~"Uzman desteği al")])]), lustre@element:element(~"section", [lustre@attribute:class(~"published-builder-modules")], Builder_modules), lustre@element:element(~"section", [lustre@attribute:class(~"category-listings")], [lustre@element:element(~"div", [lustre@attribute:class(~"home-section-heading")], [lustre@element:element(~"h2", [], [lustre@element:text(<<Category_title/binary, " seçenekleri"/utf8>>)]), lustre@element:element(~"a", [lustre@attribute:href(<<<<<<"/urunler?kategori="/utf8, Category/binary>>/binary, "&tenant="/utf8>>/binary, Tenant_id/binary>>)], [lustre@element:text(~"Filtreli listeyi aç →")])]), lustre@element:element(~"div", [lustre@attribute:class(~"product-grid")], Cards)]), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-listings.js"), lustre@attribute:attribute(~"defer", ~"defer")], [])]), public_footer(Tenant_id), public_chat_script(), public_theme_script(), public_header_popovers_script()])]),
+    Category_path = case gleam@http@request:path_segments(Req) of
+        [Slug] -> <<"/", Slug/binary>>;
+        _ -> <<"/", Category/binary>>
+    end,
+    Canonical_url = <<Origin/binary, Category_path/binary>>,
+    Content = lustre@element:element(~"html", [lustre@attribute:attribute(~"lang", ~"tr")], [lustre@element:element(~"head", [], [lustre@element:element(~"meta", [lustre@attribute:attribute(~"charset", ~"utf-8")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"viewport"), lustre@attribute:attribute(~"content", ~"width=device-width, initial-scale=1")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"csrf-token"), lustre@attribute:attribute(~"content", Csrf_token)], []), lustre@element:element(~"meta", [lustre@attribute:name(~"description"), lustre@attribute:attribute(~"content", <<Category_title/binary, " için seçilmiş seyahat seçenekleri ve güvenli rezervasyon"/utf8>>)], []), lustre@element:element(~"title", [], [lustre@element:text(<<Category_title/binary, " | NEXUS Agency"/utf8>>)]), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"canonical"), lustre@attribute:href(Canonical_url)], []) | chisfis_head()]), lustre@element:element(~"body", [lustre@attribute:class(~"chisfis-page category-page chisfis-home shared-hero-ready category-results-pending"), lustre@attribute:attribute(~"data-tenant", Tenant_id)], [public_storefront_header(Origin, Tenant_id), lustre@element:element(~"div", [lustre@attribute:attribute(~"id", ~"nexus-category-main-placeholder")], []), public_footer(Tenant_id), public_chat_script(), public_theme_script(), public_header_popovers_script()])]),
     _pipe@7 = wisp:ok(),
     _pipe@8 = wisp:set_cookie(_pipe@7, Req, ~"agency_csrf", Csrf_token, plain_text, 3600),
-    wisp:html_body(_pipe@8, lustre@element:to_string(Content)).
+    Category_html = binary:replace(lustre@element:to_string(Content), <<"</head>">>, <<"<noscript><style>body.category-page.category-results-pending main{visibility:visible!important}</style></noscript></head>">>),
+    Home_html = nexus_agency@demo_home:render(),
+    Html = case hero_shell_markup(Home_html) of
+        {ok, Home_hero} ->
+            Default_hero_title = case Category of
+                ~"hotel" -> ~"Hayalinizdeki Otel";
+                _ -> Category_title
+            end,
+            Hero_title = public_builder_copy(Hero_config, <<"title">>, Default_hero_title),
+            Hero_description = public_builder_copy(Hero_config, <<"description">>, public_category_hero_description(Category)),
+            Initial_hero_title = binary:replace(Home_hero,
+                <<"data-i18n=\"Hotel, car, experiences\">Otel, araba, deneyimler">>,
+                <<">", (public_builder_html_escape(Hero_title))/binary>>),
+            Initial_hero_copy = binary:replace(
+                binary:replace(Initial_hero_title,
+                    <<"Bizimle yolculuğunuz harika deneyimlerle dolu."/utf8>>,
+                    public_builder_html_escape(Hero_description)),
+                <<"Yurtiçi ve yurtdışı deneyimleri, konaklamayı ve ulaşımı tek yerden güvenle planlayın."/utf8>>,
+                public_builder_html_escape(Hero_description)),
+            Initial_hero = case maps:get(<<"enabled">>, Hero_config, true) of
+                false -> <<>>;
+                _ -> select_category_hero_tab(category_hero_mosaic(Initial_hero_copy, Category, Hero_config), Category)
+            end,
+            Builder_html = erlang:iolist_to_binary([lustre@element:to_string(Module) || Module <- Builder_modules]),
+            Main_html = <<"<main class=\"relative overflow-hidden\">", Initial_hero/binary,
+                "<section class=\"published-builder-modules\">", Builder_html/binary, "</section>",
+                "<section class=\"category-results-root\"></section></main>">>,
+            binary:replace(Category_html, <<"<div id=\"nexus-category-main-placeholder\"></div>">>, Main_html);
+        error ->
+            Fallback_html = <<"<main class=\"category-fallback\"><h1>", Category_title/binary,
+                "</h1><p>Aradığınız kategoriye ait ilanları inceleyebilirsiniz.</p><a href=\"/urunler?kategori=",
+                Category/binary, "\">İlanları Gör</a></main>">>,
+            binary:replace(Category_html, <<"<div id=\"nexus-category-main-placeholder\"></div>">>, Fallback_html)
+    end,
+    wisp:html_body(_pipe@8, Html).
 
 -file("src\\nexus_agency\\router.gleam", 6545).
 -spec chisfis_guest_picker() -> lustre@vdom@vnode:element(any()).
@@ -2474,6 +2980,64 @@ chisfis_date_range_picker() ->
     lustre@element:element(~"div", [lustre@attribute:class(~"chisfis-date-range")], [lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"check_in")], []), lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"check_out")], []), lustre@element:element(~"button", [lustre@attribute:type_(~"button"), lustre@attribute:class(~"chisfis-date-trigger"), lustre@attribute:attribute(~"aria-expanded", ~"false"), lustre@attribute:attribute(~"aria-haspopup", ~"dialog")], [lustre@element:element(~"span", [lustre@attribute:class(~"chisfis-date-icon")], [lustre@element:text(~"📅")]), lustre@element:element(~"span", [lustre@attribute:class(~"chisfis-date-value")], [lustre@element:text(~"Tarih seçin")])]), lustre@element:element(~"div", [lustre@attribute:class(~"chisfis-date-panel")], [lustre@element:element(~"div", [lustre@attribute:class(~"datepicker"), lustre@attribute:attribute(~"aria-label", ~"Tarih aralığı seç")], [])])]).
 
 -file("src\\nexus_agency\\router.gleam", 6659).
+public_listing_slug(Title) ->
+    Lower = string:lowercase(Title),
+    Turkish = lists:foldl(fun({From, To}, Acc) -> binary:replace(Acc, From, To, [global]) end,
+        Lower, [{<<"ı"/utf8>>, <<"i">>}, {<<"ğ"/utf8>>, <<"g">>},
+                {<<"ü"/utf8>>, <<"u">>}, {<<"ş"/utf8>>, <<"s">>},
+                {<<"ö"/utf8>>, <<"o">>}, {<<"ç"/utf8>>, <<"c">>}]),
+    With_dashes = re:replace(Turkish, <<"[^a-z0-9]+">>, <<"-">>, [global, {return, binary}]),
+    re:replace(With_dashes, <<"(^-+|-+$)">>, <<>>, [global, {return, binary}]).
+
+public_listing_url(Category, Title) ->
+    <<(category_tr_path(Category))/binary, "/", (public_listing_slug(Title))/binary>>.
+
+public_listing_category_path(Path) ->
+    Categories = [~"hotel", ~"holiday_home", ~"yacht", ~"tour", ~"activity",
+        ~"flight", ~"car", ~"cruise", ~"pilgrimage", ~"visa", ~"ferry",
+        ~"transfer", ~"beach", ~"cinema", ~"event", ~"restaurant", ~"bus"],
+    case lists:filter(fun(Category) ->
+        Category =:= Path orelse category_tr_path(Category) =:= <<"/", Path/binary>>
+    end, Categories) of
+        [Category | _] -> Category;
+        [] -> localized_category_code(Path)
+    end.
+
+public_listing_slug_page(Req, Db, Origin, Category, Slug) ->
+    Tenant_id = gleam@result:unwrap(public_tenant_id(Db, Req), ~""),
+    Slug_sql = ~"regexp_replace(regexp_replace(translate(lower(translate(l.title,'ÇĞİIÖŞÜ','CGIIOSU')),'çğıöşü','cgiosu'),'[^a-z0-9]+','-','g'),'(^-+|-+$)','','g')",
+    Query = pog:'query'(<<"select l.id::text from agency.listings l where l.tenant_id=$1::uuid and l.category=$2 and l.status='published' and ", Slug_sql/binary, "=$3 limit 1">>),
+    Q1 = pog:parameter(Query, pog_ffi:coerce(Tenant_id)),
+    Q2 = pog:parameter(Q1, pog_ffi:coerce(Category)),
+    Q3 = pog:parameter(Q2, pog_ffi:coerce(Slug)),
+    case pog:execute(pog:returning(Q3, id_decoder()), Db) of
+        {ok, Rows} ->
+            case gleam@list:first(erlang:element(3, Rows)) of
+                {ok, Id} -> public_product_detail_page(Req, Db, Origin, Id);
+                _ -> wisp:string_body(wisp:response(404), ~"İlan bulunamadı")
+            end;
+        _ -> wisp:string_body(wisp:response(503), ~"İlan şu anda yüklenemiyor")
+    end.
+
+public_legacy_listing_redirect(Req, Db, Listing_id) ->
+    Tenant_id = gleam@result:unwrap(public_tenant_id(Db, Req), ~""),
+    Q0 = pog:'query'(~"select title,category from agency.listings where id::text=$1 and tenant_id=$2::uuid and status='published' limit 1"),
+    Q1 = pog:parameter(Q0, pog_ffi:coerce(Listing_id)),
+    Q2 = pog:parameter(Q1, pog_ffi:coerce(Tenant_id)),
+    Decoder = gleam@dynamic@decode:field(0, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Title) ->
+        gleam@dynamic@decode:field(1, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Category) ->
+            gleam@dynamic@decode:success({Title, Category})
+        end)
+    end),
+    case pog:execute(pog:returning(Q2, Decoder), Db) of
+        {ok, Rows} ->
+            case gleam@list:first(erlang:element(3, Rows)) of
+                {ok, {Title, Category}} -> wisp:redirect(<<(public_listing_url(Category, Title))/binary, "?tenant=", Tenant_id/binary>>);
+                _ -> wisp:string_body(wisp:response(404), ~"İlan bulunamadı")
+            end;
+        _ -> wisp:string_body(wisp:response(503), ~"İlan şu anda yüklenemiyor")
+    end.
+
 -spec public_product_detail_page(gleam@http@request:request(wisp@internal:connection()), pog:connection(), binary(), binary()) -> gleam@http@response:response(wisp:body()).
 public_product_detail_page(Req, Db, Origin, Listing_id) ->
     Tenant_id = begin
@@ -2495,14 +3059,45 @@ public_product_detail_page(Req, Db, Origin, Listing_id) ->
                     wisp:string_body(_pipe@5, ~"Ürün bulunamadı");
 
                 {ok, {Id, Title, Category, Locality, Description, Currency, Price, Images}} ->
+                    Public_url = public_listing_url(Category, Title),
+                    Detail_data_query = begin
+                        D0 = pog:'query'(~"select jsonb_build_object('metadata',jsonb_build_object('room_types',coalesce((select jsonb_agg(jsonb_build_object('title',room->>'title','adults',room->>'adults','children',room->>'children','bed',room->>'bed','size_m2',room->>'size_m2','view_type',room->>'view_type','images',room->'images')) from jsonb_array_elements(case when jsonb_typeof(metadata->'room_types')='array' then metadata->'room_types' else '[]'::jsonb end) room),'[]'::jsonb),'hotel_stars',metadata->>'hotel_stars','board_type',metadata->>'board_type','check_in_time',metadata->>'check_in_time','check_out_time',metadata->>'check_out_time','child_policy_1',metadata->>'child_policy_1','child_policy_2_discount',metadata->>'child_policy_2_discount'),'policy',jsonb_build_object('policy',cancellation_policy->>'policy'),'ownerName',coalesce(owner_info->>'name',''))::text from agency.listings where id=$1::uuid and tenant_id=$2::uuid and status='published'"),
+                        D1 = pog:parameter(D0, pog_ffi:coerce(Id)),
+                        D2 = pog:parameter(D1, pog_ffi:coerce(Tenant_id)),
+                        pog:returning(D2, single_string_decoder())
+                    end,
+                    Detail_data = case pog:execute(Detail_data_query, Db) of
+                        {ok, Detail_rows} -> gleam@result:unwrap(gleam@list:first(erlang:element(3, Detail_rows)), ~"{}");
+                        _ -> ~"{}"
+                    end,
+                    Source_query = begin
+                        _source_query = pog:'query'(~"select source from agency.listings where id=$1::uuid and tenant_id=$2::uuid"),
+                        _source_id = pog:parameter(_source_query, pog_ffi:coerce(Id)),
+                        _source_tenant = pog:parameter(_source_id, pog_ffi:coerce(Tenant_id)),
+                        pog:returning(_source_tenant, single_string_decoder())
+                    end,
+                    Source = case pog:execute(Source_query, Db) of
+                        {ok, Source_rows} -> gleam@result:unwrap(gleam@list:first(erlang:element(3, Source_rows)), ~"nexus");
+                        {error, _} -> ~"nexus"
+                    end,
+                    Inquiry_only = Source =:= ~"nexus" andalso not lists:member(Category, [~"hotel", ~"holiday_home", ~"yacht"]),
+                    Booking_action = case Inquiry_only of true -> ~"/iletisim"; false -> ~"/rezervasyon" end,
+                    Booking_label = case Inquiry_only of true -> ~"Rezervasyon teklifi iste"; false -> ~"Müsaitlik ve teklif iste" end,
                     Csrf_token = csrf_token_for(Req),
                     Content = lustre@element:element(~"html", [lustre@attribute:attribute(~"lang", ~"tr")], [lustre@element:element(~"head", [], [lustre@element:element(~"meta", [lustre@attribute:attribute(~"charset", ~"utf-8")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"csrf-token"), lustre@attribute:attribute(~"content", Csrf_token)], []), lustre@element:element(~"meta", [lustre@attribute:name(~"description"), lustre@attribute:attribute(~"content", <<Title/binary, " | NEXUS Agency"/utf8>>)], []), lustre@element:element(~"meta", [lustre@attribute:attribute(~"property", ~"og:title"), lustre@attribute:attribute(~"content", Title)], []), lustre@element:element(~"meta", [lustre@attribute:attribute(~"property", ~"og:description"), lustre@attribute:attribute(~"content", Description)], []), lustre@element:element(~"meta", [lustre@attribute:attribute(~"property", ~"og:type"), lustre@attribute:attribute(~"content", ~"product")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"twitter:card"), lustre@attribute:attribute(~"content", ~"summary_large_image")], []), lustre@element:unsafe_raw_html(~"", ~"script", [lustre@attribute:attribute(~"type", ~"application/ld+json")], begin
                         _pipe@6 = gleam@json:object([{~"@context", gleam@json:string(~"https://schema.org")}, {~"@type", gleam@json:string(~"Product")}, {~"name", gleam@json:string(Title)}, {~"description", gleam@json:string(Description)}, {~"category", gleam@json:string(Category)}, {~"offers", gleam@json:object([{~"@type", gleam@json:string(~"Offer")}, {~"priceCurrency", gleam@json:string(Currency)}, {~"price", gleam@json:float(erlang:float(Price) / 100.0)}, {~"availability", gleam@json:string(~"https://schema.org/InStock")}])}]),
                         gleam@json:to_string(_pipe@6)
-                    end), lustre@element:element(~"title", [], [lustre@element:text(<<Title/binary, " | NEXUS Agency"/utf8>>)]), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"canonical"), lustre@attribute:href(<<<<<<Origin/binary, "/urunler/"/utf8>>/binary, Id/binary>>/binary, (public_tenant_query(Tenant_id))/binary>>)], []) | chisfis_head()]), lustre@element:element(~"body", [lustre@attribute:class(~"chisfis-page"), lustre@attribute:attribute(~"data-tenant", Tenant_id)], [public_storefront_header(Origin, Tenant_id), lustre@element:element(~"main", [lustre@attribute:class(<<"product-detail category-"/utf8, Category/binary>>)], [lustre@element:element(~"nav", [lustre@attribute:class(~"detail-breadcrumb"), lustre@attribute:attribute(~"aria-label", ~"Sayfa yolu")], [lustre@element:element(~"a", [lustre@attribute:href(<<"/urunler"/utf8, (public_tenant_query(Tenant_id))/binary>>)], [lustre@element:text(~"Ürünler")]), lustre@element:element(~"span", [], [lustre@element:text(~"/")]), lustre@element:element(~"span", [], [lustre@element:text(public_category_name(Category))])]), lustre@element:element(~"div", [lustre@attribute:class(~"detail-gallery"), lustre@attribute:attribute(~"data-images", Images)], []), lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"button", [lustre@attribute:class(~"detail-favorite"), lustre@attribute:type_(~"button"), lustre@attribute:attribute(~"aria-label", ~"Favorilere ekle")], [lustre@element:text(~"♡")]), lustre@element:element(~"div", [lustre@attribute:class(~"flex flex-col items-start gap-y-6")], [lustre@element:element(~"span", [lustre@attribute:class(~"detail-badge")], [lustre@element:text(public_category_name(Category))]), lustre@element:element(~"h1", [], [lustre@element:text(Title)]), lustre@element:element(~"div", [lustre@attribute:class(~"detail-meta-row")], [lustre@element:element(~"span", [lustre@attribute:class(~"detail-rating")], [lustre@element:text(~"★ 4.9")]), lustre@element:element(~"span", [lustre@attribute:class(~"detail-meta-dot")], [lustre@element:text(~"·")]), lustre@element:element(~"span", [lustre@attribute:class(~"detail-location")], [lustre@element:text(Locality)])]), lustre@element:element(~"div", [lustre@attribute:class(~"share-actions")], [lustre@element:element(~"a", [lustre@attribute:class(~"secondary"), lustre@attribute:href(<<<<<<<<<<<<<<"https://wa.me/?text="/utf8, Title/binary>>/binary, " - "/utf8>>/binary, Origin/binary>>/binary, "/urunler/"/utf8>>/binary, Id/binary>>/binary, "?tenant="/utf8>>/binary, Tenant_id/binary>>)], [lustre@element:text(~"WhatsApp'ta paylaş")]), lustre@element:element(~"button", [lustre@attribute:class(~"secondary"), lustre@attribute:type_(~"button"), lustre@attribute:attribute(~"onclick", ~"navigator.clipboard.writeText(location.href);this.textContent='Bağlantı kopyalandı'")], [lustre@element:text(~"Bağlantıyı kopyala")])])])]), lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"div", [lustre@attribute:class(~"product-description")], [lustre@element:text(Description)])]), lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"a", [lustre@attribute:class(~"secondary"), lustre@attribute:href(<<<<<<<<<<"/urunler?kategori="/utf8, Category/binary>>/binary, "&konum="/utf8>>/binary, Locality/binary>>/binary, "&tenant="/utf8>>/binary, Tenant_id/binary>>)], [lustre@element:text(~"Benzer ürünleri keşfet")])]), lustre@element:element(~"section", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"h2", [], [lustre@element:text(~"Yaklaşan müsaitlik")]), lustre@element:element(~"div", [lustre@attribute:id(~"public-availability"), lustre@attribute:attribute(~"data-listing-id", Id), lustre@attribute:attribute(~"data-tenant", Tenant_id)], [lustre@element:text(~"Yükleniyor…")])]), lustre@element:element(~"div", [lustre@attribute:class(~"grow")], [lustre@element:element(~"div", [lustre@attribute:class(~"sticky top-8")], [lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap sm:shadow-xl")], [lustre@element:element(~"div", [lustre@attribute:class(~"flex items-end text-2xl font-semibold sm:text-3xl"), lustre@attribute:attribute(~"data-price-minor", erlang:integer_to_binary(Price)), lustre@attribute:attribute(~"data-price-cur", string:uppercase(gleam@string:trim(Currency)))], [lustre@element:text(<<<<(currency_symbol(Currency))/binary, " "/utf8>>/binary, (amount_minor_display(erlang:integer_to_binary(Price)))/binary>>), lustre@element:element(~"span", [lustre@attribute:class(~"text-base font-normal text-neutral-500 dark:text-neutral-400 ms-1")], [lustre@element:text(<<" / "/utf8, (category_price_unit(Category))/binary>>)])]), lustre@element:element(~"form", [lustre@attribute:method(~"get"), lustre@attribute:action(<<"/rezervasyon?tenant="/utf8, Tenant_id/binary>>), lustre@attribute:class(~"flex flex-col rounded-3xl border border-neutral-200 dark:border-neutral-700 mt-4"), lustre@attribute:attribute(~"id", ~"booking-form")], [lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"listing"), lustre@attribute:value(Id)], []), chisfis_date_range_picker(), lustre@element:element(~"div", [lustre@attribute:class(~"w-full border-b border-neutral-200 dark:border-neutral-700")], []), chisfis_guest_picker(), lustre@element:element(~"div", [lustre@attribute:class(~"p-3 border-t border-neutral-200 dark:border-neutral-700")], [lustre@element:element(~"button", [lustre@attribute:type_(~"submit"), lustre@attribute:class(~"w-full rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3.5 text-base transition")], [lustre@element:text(~"Müsaitlik ve teklif iste")])])]), lustre@element:element(~"small", [lustre@attribute:class(~"muted")], [lustre@element:text(~"Ücretsiz teklif · Ön ödeme koşulları danışmanınız tarafından paylaşılır")])])])]), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-availability.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-detail.js?v=20260921-gallery2"), lustre@attribute:attribute(~"defer", ~"defer")], []), public_guests_script(), public_footer(Tenant_id), public_chat_script(), public_theme_script(), public_header_popovers_script()])])]),
+                    end), lustre@element:element(~"title", [], [lustre@element:text(<<Title/binary, " | NEXUS Agency"/utf8>>)]), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"canonical"), lustre@attribute:href(<<<<<<Origin/binary, "/urunler/"/utf8>>/binary, Id/binary>>/binary, (public_tenant_query(Tenant_id))/binary>>)], []) | chisfis_head()]), lustre@element:element(~"body", [lustre@attribute:class(~"chisfis-page"), lustre@attribute:attribute(~"data-tenant", Tenant_id)], [public_storefront_header(Origin, Tenant_id), lustre@element:element(~"main", [lustre@attribute:class(<<"product-detail category-"/utf8, Category/binary>>)], [lustre@element:element(~"nav", [lustre@attribute:class(~"detail-breadcrumb"), lustre@attribute:attribute(~"aria-label", ~"Sayfa yolu")], [lustre@element:element(~"a", [lustre@attribute:href(<<"/urunler"/utf8, (public_tenant_query(Tenant_id))/binary>>)], [lustre@element:text(~"Ürünler")]), lustre@element:element(~"span", [], [lustre@element:text(~"/")]), lustre@element:element(~"span", [], [lustre@element:text(public_category_name(Category))])]), lustre@element:element(~"div", [lustre@attribute:class(~"detail-gallery"), lustre@attribute:attribute(~"data-images", Images)], []), lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"button", [lustre@attribute:class(~"detail-favorite"), lustre@attribute:type_(~"button"), lustre@attribute:attribute(~"aria-label", ~"Favorilere ekle")], [lustre@element:text(~"♡")]), lustre@element:element(~"div", [lustre@attribute:class(~"flex flex-col items-start gap-y-6")], [lustre@element:element(~"span", [lustre@attribute:class(~"detail-badge")], [lustre@element:text(public_category_name(Category))]), lustre@element:element(~"h1", [], [lustre@element:text(Title)]), lustre@element:element(~"div", [lustre@attribute:class(~"detail-meta-row")], [lustre@element:element(~"span", [lustre@attribute:class(~"detail-rating")], [lustre@element:text(~"★ 4.9")]), lustre@element:element(~"span", [lustre@attribute:class(~"detail-meta-dot")], [lustre@element:text(~"·")]), lustre@element:element(~"span", [lustre@attribute:class(~"detail-location")], [lustre@element:text(Locality)])]), lustre@element:element(~"div", [lustre@attribute:class(~"share-actions")], [lustre@element:element(~"a", [lustre@attribute:class(~"secondary"), lustre@attribute:href(<<"https://wa.me/?text=", Title/binary, " - ", Origin/binary, "/urunler/", Id/binary>>)] , [lustre@element:text(~"WhatsApp'ta paylaş")]), lustre@element:element(~"button", [lustre@attribute:class(~"secondary"), lustre@attribute:type_(~"button"), lustre@attribute:attribute(~"onclick", ~"navigator.clipboard.writeText(location.href);this.textContent='Bağlantı kopyalandı'")], [lustre@element:text(~"Bağlantıyı kopyala")])])])]), lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"div", [lustre@attribute:class(~"product-description")], [lustre@element:text(Description)])]), lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"a", [lustre@attribute:class(~"secondary"), lustre@attribute:href(<<<<<<<<<<"/urunler?kategori="/utf8, Category/binary>>/binary, "&konum="/utf8>>/binary, Locality/binary>>/binary, "&tenant="/utf8>>/binary, Tenant_id/binary>>)], [lustre@element:text(~"Benzer ürünleri keşfet")])]), lustre@element:element(~"section", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"h2", [], [lustre@element:text(~"Yaklaşan müsaitlik")]), lustre@element:element(~"div", [lustre@attribute:id(~"public-availability"), lustre@attribute:attribute(~"data-listing-id", Id), lustre@attribute:attribute(~"data-tenant", Tenant_id)], [lustre@element:text(~"Yükleniyor…")])]), lustre@element:element(~"div", [lustre@attribute:class(~"grow")], [lustre@element:element(~"div", [lustre@attribute:class(~"sticky top-8")], [lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap sm:shadow-xl")], [lustre@element:element(~"div", [lustre@attribute:class(~"flex items-end text-2xl font-semibold sm:text-3xl"), lustre@attribute:attribute(~"data-price-minor", erlang:integer_to_binary(Price)), lustre@attribute:attribute(~"data-price-cur", string:uppercase(gleam@string:trim(Currency)))], [lustre@element:text(<<<<(currency_symbol(Currency))/binary, " "/utf8>>/binary, (amount_minor_display(erlang:integer_to_binary(Price)))/binary>>), lustre@element:element(~"span", [lustre@attribute:class(~"text-base font-normal text-neutral-500 dark:text-neutral-400 ms-1")], [lustre@element:text(<<" / "/utf8, (category_price_unit(Category))/binary>>)])]), lustre@element:element(~"form", [lustre@attribute:method(~"get"), lustre@attribute:action(Booking_action), lustre@attribute:class(~"flex flex-col rounded-3xl border border-neutral-200 dark:border-neutral-700 mt-4"), lustre@attribute:attribute(~"id", ~"booking-form")], [lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"listing"), lustre@attribute:value(Id)], []), lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"tenant"), lustre@attribute:value(Tenant_id)], []), chisfis_date_range_picker(), lustre@element:element(~"div", [lustre@attribute:class(~"w-full border-b border-neutral-200 dark:border-neutral-700")], []), chisfis_guest_picker(), lustre@element:element(~"div", [lustre@attribute:class(~"p-3 border-t border-neutral-200 dark:border-neutral-700")], [lustre@element:element(~"button", [lustre@attribute:type_(~"submit"), lustre@attribute:class(~"w-full rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3.5 text-base transition")], [lustre@element:text(Booking_label)])])]), lustre@element:element(~"small", [lustre@attribute:class(~"muted")], [lustre@element:text(~"Ücretsiz teklif · Ön ödeme koşulları danışmanınız tarafından paylaşılır")])])])]), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-availability.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-detail.js?v=20260921-gallery2"), lustre@attribute:attribute(~"defer", ~"defer")], []), public_guests_script(), public_footer(Tenant_id), public_chat_script(), public_theme_script(), public_header_popovers_script()])])]),
                     _pipe@7 = wisp:ok(),
                     _pipe@8 = wisp:set_cookie(_pipe@7, Req, ~"agency_csrf", Csrf_token, plain_text, 3600),
-                    wisp:html_body(_pipe@8, lustre@element:to_string(Content))
+                    Detail_html = lustre@element:to_string(Content),
+                    Main_open = <<"<main class=\"product-detail category-", Category/binary, "\"">>,
+                    Main_with_data = binary:replace(Detail_html, Main_open,
+                        <<"<main class=\"product-detail category-", Category/binary, "\" data-listing-detail=\"", (base64:encode(Detail_data))/binary, "\"">>),
+                    Canonical_html = binary:replace(Main_with_data,
+                        <<Origin/binary, "/urunler/", Id/binary>>,
+                        <<Origin/binary, Public_url/binary>>, [global]),
+                    wisp:html_body(_pipe@8, Canonical_html)
             end;
 
         {error, _} ->
@@ -2691,7 +3286,7 @@ public_products_page(Req, Db, Origin) ->
 
         _ ->
             ~""
-    end)], [lustre@element:text(~"Plaj")])])])]), lustre@element:element(~"div", [lustre@attribute:class(~"products-toolbar")], [lustre@element:element(~"span", [], [lustre@element:text(~"Seçiminize uygun seçenekler")]), lustre@element:element(~"select", [lustre@attribute:class(~"products-sort"), lustre@attribute:attribute(~"aria-label", ~"Sıralama")], [lustre@element:element(~"option", [lustre@attribute:value(~"recommended")], [lustre@element:text(~"Önerilenler")]), lustre@element:element(~"option", [lustre@attribute:value(~"price")], [lustre@element:text(~"Fiyata göre")]), lustre@element:element(~"option", [lustre@attribute:value(~"recent")], [lustre@element:text(~"Yeni eklenenler")])])]), lustre@element:element(~"section", [lustre@attribute:class(~"product-grid")], Cards), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-listings.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-search.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-category-nav.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), public_footer(Tenant_id), public_chat_script(), public_theme_script(), public_header_popovers_script()])])]),
+    end)], [lustre@element:text(~"Plaj")])])])]), lustre@element:element(~"div", [lustre@attribute:class(~"products-toolbar")], [lustre@element:element(~"span", [], [lustre@element:text(~"Seçiminize uygun seçenekler")]), lustre@element:element(~"select", [lustre@attribute:class(~"products-sort"), lustre@attribute:attribute(~"aria-label", ~"Sıralama")], [lustre@element:element(~"option", [lustre@attribute:value(~"recommended")], [lustre@element:text(~"Önerilenler")]), lustre@element:element(~"option", [lustre@attribute:value(~"price")], [lustre@element:text(~"Fiyata göre")]), lustre@element:element(~"option", [lustre@attribute:value(~"recent")], [lustre@element:text(~"Yeni eklenenler")])])]), lustre@element:element(~"section", [lustre@attribute:class(~"product-grid")], Cards), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-listings.js?v=20260926-rating1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-search.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-category-nav.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), public_footer(Tenant_id), public_chat_script(), public_theme_script(), public_header_popovers_script()])])]),
     _pipe@10 = wisp:ok(),
     _pipe@11 = wisp:set_cookie(_pipe@10, Req, ~"agency_csrf", Csrf_token, plain_text, 3600),
     wisp:html_body(_pipe@11, lustre@element:to_string(Content)).
@@ -2729,7 +3324,7 @@ public_adventure_card(Image, City, Count, Suffix) ->
 -file("src\\nexus_agency\\router.gleam", 4436).
 -spec hero_search_tab(binary(), binary(), binary(), boolean()) -> lustre@vdom@vnode:element(any()).
 hero_search_tab(Q, Category, Label, Selected) ->
-    Base_attrs = [lustre@attribute:class(~"group/tab flex shrink-0 cursor-pointer items-center text-sm font-medium text-neutral-500 hover:text-neutral-700 focus-visible:outline-hidden data-[selected]:text-neutral-950 lg:text-base dark:hover:text-neutral-400 dark:data-[selected]:text-neutral-100"), lustre@attribute:href(<<<<"/kategori/"/utf8, Category/binary>>/binary, Q/binary>>), lustre@attribute:attribute(~"role", ~"tab"), lustre@attribute:attribute(~"aria-selected", case Selected of
+    Base_attrs = [lustre@attribute:class(~"group/tab flex shrink-0 cursor-pointer items-center text-sm font-medium text-neutral-500 hover:text-neutral-700 focus-visible:outline-hidden data-[selected]:text-neutral-950 lg:text-base dark:hover:text-neutral-400 dark:data-[selected]:text-neutral-100"), lustre@attribute:href(<<(category_tr_path(Category))/binary, Q/binary>>), lustre@attribute:attribute(~"role", ~"tab"), lustre@attribute:attribute(~"aria-selected", case Selected of
         true ->
             ~"true";
 
@@ -2805,7 +3400,25 @@ demo_home_page(Req, Db, Origin) ->
                     end,
                     Csrf_token = csrf_token_for(Req),
                     Main_length = Main_end + erlang:byte_size(<<"</main>">>) - Main_start,
-                    Main = nexus_agency@demo_home:rewrite_links(binary:part(Demo, Main_start, Main_length)),
+                    Demo_main_raw = nexus_agency@demo_home:rewrite_links(binary:part(Demo, Main_start, Main_length)),
+                    Original_hero_image = <<"<img alt=\"hero\" width=\"1335\" height=\"1370\" decoding=\"async\" class=\"w-full\" src=\"/static/chisfis/images/hero-right.webp\" style=\"color: transparent;\">">>,
+                    Separate_hero_images = <<"<div class=\"home-hero-mosaic\" role=\"img\" aria-label=\"Üç seyahat görseli\"><div class=\"home-hero-mosaic-slot home-hero-mosaic-top\"><img src=\"/static/chisfis/images/hero-right.webp\" data-composite=\"true\" alt=\"\" loading=\"eager\"></div><div class=\"home-hero-mosaic-slot home-hero-mosaic-bottom\"><img src=\"/static/chisfis/images/hero-right.webp\" data-composite=\"true\" alt=\"\" loading=\"eager\"></div><div class=\"home-hero-mosaic-slot home-hero-mosaic-side\"><img src=\"/static/chisfis/images/hero-right.webp\" data-composite=\"true\" alt=\"\" loading=\"eager\"></div></div>">>,
+                    Demo_main = binary:replace(Demo_main_raw, Original_hero_image, Separate_hero_images),
+                    Cookie_header = case gleam@http@request:get_header(Req, ~"cookie") of
+                        {ok, Value} -> Value;
+                        _ -> ~""
+                    end,
+                    Turkish_home = lists:any(fun(Pair) -> string:trim(Pair) =:= ~"nexus_lang=tr" end, binary:split(Cookie_header, ~";", [global])),
+                    Main = case Turkish_home of
+                        true -> binary:replace(Demo_main, <<">Hotel, car, experiences</h1>">>, <<">Otel, araba, deneyimler</h1>">>);
+                        false -> Demo_main
+                    end,
+                    Builder_tenant_id = gleam@result:unwrap(public_tenant_id(Db, Req), ~""),
+                    Home_modules = public_cms_blocks(Db, ~"home", Builder_tenant_id),
+                    Home_modules_html = erlang:iolist_to_binary([lustre@element:to_string(Module) || Module <- Home_modules]),
+                    Home_hero_config = public_builder_hero_config(Db, Builder_tenant_id, <<"home">>),
+                    Builder_main = public_home_builder_hero(Main, Home_hero_config),
+                    Main_with_builder = binary:replace(Builder_main, <<"</main>">>, <<"<section class=\"published-builder-modules\" data-builder-page=\"home\">", Home_modules_html/binary, "</section></main>">>),
                     Head = lustre@element:to_string(lustre@element:element(~"head", [], [
                         lustre@element:element(~"meta", [lustre@attribute:attribute(~"charset", ~"utf-8")], []),
                         lustre@element:element(~"meta", [lustre@attribute:name(~"csrf-token"), lustre@attribute:attribute(~"content", Csrf_token)], []),
@@ -2816,7 +3429,8 @@ demo_home_page(Req, Db, Origin) ->
                     Footer = lustre@element:to_string(public_footer(Tenant_id)),
                     Scripts = [public_chat_script(), public_theme_script(), public_header_popovers_script()],
                     Script_html = erlang:iolist_to_binary([lustre@element:to_string(Script) || Script <- Scripts]),
-                    Html = <<"<!doctype html><html lang=\"tr\">", Head/binary, "<body class=\"chisfis-home\" data-tenant=\"", Tenant_id/binary, "\">", Header/binary, Main/binary, Footer/binary, Script_html/binary, "</body></html>">>,
+                    Head_with_noscript = binary:replace(Head, <<"</head>">>, <<"<noscript><style>.home-layout-pending main{visibility:visible!important;animation:none!important}</style></noscript></head>">>),
+                    Html = <<"<!doctype html><html lang=\"tr\">", Head_with_noscript/binary, "<body class=\"chisfis-home home-layout-pending\" data-tenant=\"", Builder_tenant_id/binary, "\">", Header/binary, Main_with_builder/binary, Footer/binary, Script_html/binary, "</body></html>">>,
                     Response = wisp:set_cookie(wisp:ok(), Req, ~"agency_csrf", Csrf_token, plain_text, 3600),
                     wisp:html_body(Response, Html);
         _ -> wisp:html_body(wisp:ok(), <<"<!doctype html><html lang=\"tr\"><body><h1>Ana sayfa geçici olarak kullanılamıyor</h1></body></html>">>)
@@ -2841,7 +3455,7 @@ page(Req, Db, Origin) ->
     end,
     Q = public_tenant_query(Tenant_id),
     Csrf_token = csrf_token_for(Req),
-    Content = lustre@element:element(~"html", [lustre@attribute:attribute(~"lang", ~"tr")], [lustre@element:element(~"head", [], [lustre@element:element(~"meta", [lustre@attribute:attribute(~"charset", ~"utf-8")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"csrf-token"), lustre@attribute:attribute(~"content", Csrf_token)], []), lustre@element:element(~"meta", [lustre@attribute:name(~"viewport"), lustre@attribute:attribute(~"content", ~"width=device-width, initial-scale=1")], []), lustre@element:element(~"title", [], [lustre@element:text(~"NEXUS Agency")]) | chisfis_head()]), lustre@element:element(~"body", [lustre@attribute:class(~"chisfis-home"), lustre@attribute:attribute(~"data-tenant", Tenant_id)], [public_home_header(Origin, Tenant_id), lustre@element:element(~"main", [lustre@attribute:class(~"relative overflow-hidden")], [lustre@element:element(~"div", [lustre@attribute:class(~"absolute inset-x-0 md:top-10 xl:top-40 min-h-0 pl-20 py-24 flex overflow-hidden -z-10")], [lustre@element:element(~"span", [lustre@attribute:class(~"block h-72 w-72 rounded-full bg-[#ef233c] opacity-10 mix-blend-multiply blur-3xl filter lg:h-96 lg:w-96")], []), lustre@element:element(~"span", [lustre@attribute:class(~"nc-animation-delay-2000 mt-40 -ml-20 block h-72 w-72 rounded-full bg-[#04868b] opacity-10 mix-blend-multiply blur-3xl filter lg:h-96 lg:w-96")], [])]), lustre@element:element(~"div", [lustre@attribute:class(~"relative container mb-24 flex flex-col gap-y-24 lg:mb-28 lg:gap-y-32")], [lustre@element:element(~"div", [lustre@attribute:class(~"relative flex flex-col-reverse pt-10 lg:flex-col lg:pt-28")], [lustre@element:element(~"div", [lustre@attribute:class(~"flex flex-col lg:flex-row")], [lustre@element:element(~"div", [lustre@attribute:class(~"relative flex w-full flex-col items-start gap-y-8 pb-16 lg:pe-10 lg:pt-12 lg:pb-60 xl:gap-y-10 xl:pe-14")], [lustre@element:element(~"h1", [lustre@attribute:class(~"text-5xl/[1.15] font-medium tracking-tight text-pretty xl:text-7xl/[1.1]")], [lustre@element:text(~"Bizimle Keşfedin")]), lustre@element:element(~"p", [lustre@attribute:class(~"max-w-xl text-base text-neutral-500 sm:text-xl dark:text-neutral-400")], [lustre@element:text(~"Yurtiçi ve yurtdışı deneyimleri, konaklamayı ve ulaşımı tek yerden güvenle planlayın.")]), lustre@element:element(~"a", [lustre@attribute:class(~"sm:text-base/normal relative isolate inline-flex shrink-0 items-center justify-center gap-x-2.5 rounded-full border px-[calc(--spacing(4)-1px)] py-[calc(--spacing(2.5)-1px)] sm:px-[calc(--spacing(5)-1px)] sm:text-sm/6 border-transparent bg-neutral-950 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200"), lustre@attribute:href(<<"/urunler"/utf8, Q/binary>>)], [lustre@element:text(~"Aramaya başla")]), lustre@element:element(~"div", [lustre@attribute:class(~"absolute start-0 bottom-4 hidden w-screen max-w-4xl lg:block xl:max-w-6xl")], [lustre@element:element(~"div", [lustre@attribute:class(~"hero-search-form")], [lustre@element:element(~"div", [], [lustre@element:element(~"div", [lustre@attribute:class(~"ms-3 mb-8 flex sm:gap-x-6 xl:ms-10 xl:gap-x-10"), lustre@attribute:attribute(~"role", ~"tablist"), lustre@attribute:attribute(~"aria-orientation", ~"horizontal")], [hero_search_tab(Q, ~"hotel", ~"Oteller", true), hero_search_tab(Q, ~"holiday_home", ~"Tatil evleri", false), hero_search_tab(Q, ~"tour", ~"Deneyimler", false), hero_search_tab(Q, ~"car", ~"Araçlar", false), hero_search_tab(Q, ~"flight", ~"Uçuşlar", false), hero_search_tab(Q, ~"bus", ~"Otobüs", false)])]), lustre@element:element(~"form", [lustre@attribute:class(~"relative z-10 flex w-full rounded-full bg-white shadow-xl dark:bg-neutral-800 dark:shadow-2xl"), lustre@attribute:attribute(~"action", <<"/urunler"/utf8, Q/binary>>), lustre@attribute:attribute(~"method", ~"get")], [lustre@element:element(~"div", [lustre@attribute:class(~"group relative z-10 flex hero-search-form__field-after flex-5/12")], [lustre@element:element(~"div", [lustre@attribute:class(~"relative z-10 shrink-0 w-full cursor-pointer flex items-center gap-x-3 focus:outline-hidden text-start px-7 py-4 xl:px-8 xl:py-6")], [lustre@element:element(~"div", [lustre@attribute:class(~"grow")], [lustre@element:element(~"input", [lustre@attribute:class(~"block w-full truncate border-none bg-transparent p-0 font-semibold placeholder-neutral-800 focus:placeholder-neutral-300 focus:ring-0 focus:outline-hidden dark:placeholder-neutral-200 text-base xl:text-lg"), lustre@attribute:name(~"konum"), lustre@attribute:attribute(~"placeholder", ~"Konum"), lustre@attribute:attribute(~"autocomplete", ~"off"), lustre@attribute:attribute(~"aria-label", ~"Nereye gidiyorsunuz?")], []), lustre@element:element(~"div", [lustre@attribute:class(~"mt-0.5 text-start text-sm font-light text-neutral-400")], [lustre@element:element(~"span", [lustre@attribute:class(~"line-clamp-1")], [lustre@element:text(~"Nereye gidiyorsunuz?")])])])])]), lustre@element:element(~"div", [lustre@attribute:class(~"group relative z-10 flex flex-5/12")], [lustre@element:element(~"div", [lustre@attribute:class(~"relative z-10 shrink-0 w-full cursor-pointer flex items-center gap-x-3 text-start px-7 py-4 xl:px-8 xl:py-6")], [lustre@element:element(~"div", [lustre@attribute:class(~"grow")], [lustre@element:element(~"input", [lustre@attribute:class(~"block w-full border-none bg-transparent p-0 font-semibold text-base xl:text-lg dark:text-white"), lustre@attribute:name(~"check_in"), lustre@attribute:attribute(~"type", ~"date"), lustre@attribute:attribute(~"aria-label", ~"Tarih")], []), lustre@element:element(~"div", [lustre@attribute:class(~"mt-0.5 text-start text-sm font-light text-neutral-400")], [lustre@element:element(~"span", [lustre@attribute:class(~"line-clamp-1")], [lustre@element:text(~"Tarihlerinizi seçin")])])])])]), lustre@element:element(~"button", [lustre@attribute:class(~"absolute z-10 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-full bg-primary-600 text-neutral-50 hover:bg-primary-700 focus:outline-hidden cursor-pointer size-16 end-2 xl:end-4"), lustre@attribute:type_(~"submit"), lustre@attribute:attribute(~"aria-label", ~"Ara")], [lustre@element:element(~"svg", [lustre@attribute:class(~"size-6"), lustre@attribute:attribute(~"viewBox", ~"0 0 24 24"), lustre@attribute:attribute(~"fill", ~"none"), lustre@attribute:attribute(~"stroke", ~"currentColor"), lustre@attribute:attribute(~"stroke-width", ~"1.5")], [lustre@element:element(~"path", [lustre@attribute:attribute(~"d", ~"M17 17L21 21M19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19C15.4183 19 19 15.4183 19 11Z"), lustre@attribute:attribute(~"stroke-linecap", ~"round"), lustre@attribute:attribute(~"stroke-linejoin", ~"round")], [])])])])])])]), lustre@element:element(~"div", [lustre@attribute:class(~"w-full")], [lustre@element:element(~"img", [lustre@attribute:class(~"w-full"), lustre@attribute:attribute(~"src", ~"/static/chisfis/images/hero-right.webp"), lustre@attribute:attribute(~"alt", ~"Türkiye'de unutulmaz seyahat deneyimi"), lustre@attribute:attribute(~"loading", ~"eager")], [])])])])])]), lustre@element:element(~"section", [lustre@attribute:class(~"published-builder-modules")], Builder_modules), lustre@element:element(~"section", [lustre@attribute:class(~"home-trust-strip")], [lustre@element:element(~"span", [], [lustre@element:text(~"Binlerce seyahat deneyimi")]), lustre@element:element(~"span", [], [lustre@element:text(~"Güvenli rezervasyon")]), lustre@element:element(~"span", [], [lustre@element:text(~"Yerel uzman desteği")]), lustre@element:element(~"span", [], [lustre@element:text(~"Esnek iptal seçenekleri")])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-adventure")], [lustre@element:element(~"div", [lustre@attribute:class(~"home-section-heading centered")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"MACERAYA ÇIKALIM")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Dünyanın en güzel yerlerini keşfedin")])]), lustre@element:element(~"div", [lustre@attribute:class(~"adventure-grid")], [public_adventure_card(~"/static/chisfis/images/4.0w6tqzlhplq.q.webp", ~"İstanbul, Türkiye", ~"12,500", ~"+ konaklama"), public_adventure_card(~"/static/chisfis/images/5.0-cyep_wbo5i3.webp", ~"Bodrum, Türkiye", ~"3,200", ~"+ konaklama"), public_adventure_card(~"/static/chisfis/images/6.15d7hd4mb~4yd.webp", ~"Kapadokya, Türkiye", ~"1,800", ~"+ konaklama"), public_adventure_card(~"/static/chisfis/images/HIW1.0pyy~70or-44f.webp", ~"Antalya, Türkiye", ~"8,400", ~"+ konaklama"), public_adventure_card(~"/static/chisfis/images/HIW2.webp", ~"Alanya, Türkiye", ~"4,600", ~"+ konaklama"), public_adventure_card(~"/static/chisfis/images/HIW3.10ja0mcrcg_7_.webp", ~"Fethiye, Türkiye", ~"2,900", ~"+ konaklama")]), lustre@element:element(~"div", [lustre@attribute:class(~"adventure-cta")], [lustre@element:element(~"a", [lustre@attribute:class(~"home-cta-btn"), lustre@attribute:href(<<"/urunler"/utf8, (public_tenant_query(Tenant_id))/binary>>)], [lustre@element:text(~"Daha fazlasını keşfet →")])])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-benefits")], [lustre@element:element(~"div", [lustre@attribute:class(~"home-section-heading centered")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"AVANTAJLAR")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Neden bizi tercih etmelisiniz?")])]), lustre@element:element(~"div", [lustre@attribute:class(~"benefits-grid")], [public_benefit_card(~"📢", ~"Etkili reklam", ~"Ücretsiz ilan vererek kiralama mülkünüzü ön masraf olmadan tanıtabilirsiniz."), public_benefit_card(~"🌍", ~"Geniş kitle", ~"Dünya genelinde milyonlarca kişi benzersiz konaklama arıyor."), public_benefit_card(~"🔒", ~"Güvenli ve basit", ~"Chisfis ilanı, çevrimiçi rezervasyon ve ödeme için güvenli ve kolay bir yol sunar.")])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-featured")], [lustre@element:element(~"div", [lustre@attribute:class(~"home-section-heading")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"ÖNE ÇIKAN YERLER")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Kullanıcı yorumlarına göre seçildi")]), lustre@element:element(~"a", [lustre@attribute:href(<<"/urunler"/utf8, (public_tenant_query(Tenant_id))/binary>>)], [lustre@element:text(~"Tümünü gör →")])]), lustre@element:element(~"div", [lustre@attribute:class(~"featured-grid")], [public_featured_card(~"/static/chisfis/images/4.0w6tqzlhplq.q.webp", ~"Oda", ~"4 Yatak", ~"Bodrum Deniz Manzaralı Süit", ~"Bodrum, Muğla", ~"₺2.800", ~"280000", ~"4.8", ~"28"), public_featured_card(~"/static/chisfis/images/5.0-cyep_wbo5i3.webp", ~"Villa", ~"6 Yatak", ~"Özel Havuzlu Tatil Evi", ~"Fethiye, Muğla", ~"₺5.200", ~"520000", ~"4.4", ~"198"), public_featured_card(~"/static/chisfis/images/6.15d7hd4mb~4yd.webp", ~"Kabin", ~"3 Yatak", ~"Dağ Evinde Huzurlu Konaklama", ~"Kapadokya, Nevşehir", ~"₺3.400", ~"340000", ~"4.9", ~"56"), public_featured_card(~"/static/chisfis/images/HIW1.0pyy~70or-44f.webp", ~"Oda", ~"2 Yatak", ~"Antalya Resort & Spa", ~"Kemer, Antalya", ~"₺4.100", ~"410000", ~"4.7", ~"340")])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-discovery")], [lustre@element:element(~"div", [lustre@attribute:class(~"home-section-heading")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"İLHAM ALIN")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Bir sonraki kaçamağınızı keşfedin")]), lustre@element:element(~"a", [lustre@attribute:href(<<"/urunler"/utf8, (public_tenant_query(Tenant_id))/binary>>)], [lustre@element:text(~"Tümünü gör →")])]), lustre@element:element(~"div", [lustre@attribute:class(~"discovery-grid")], [lustre@element:element(~"a", [lustre@attribute:href(<<"/kategori/hotel"/utf8, (public_tenant_query(Tenant_id))/binary>>), lustre@attribute:class(~"discovery-card discovery-card-large")], [lustre@element:element(~"span", [], [lustre@element:text(~"Otel ve resortlar")]), lustre@element:element(~"strong", [], [lustre@element:text(~"Konforu yeniden keşfedin")])]), lustre@element:element(~"a", [lustre@attribute:href(<<"/kategori/holiday_home"/utf8, (public_tenant_query(Tenant_id))/binary>>), lustre@attribute:class(~"discovery-card")], [lustre@element:element(~"span", [], [lustre@element:text(~"Tatil Evleri")]), lustre@element:element(~"strong", [], [lustre@element:text(~"Kendi alanınızda dinlenin")])]), lustre@element:element(~"a", [lustre@attribute:href(<<"/kategori/tour"/utf8, (public_tenant_query(Tenant_id))/binary>>), lustre@attribute:class(~"discovery-card")], [lustre@element:element(~"span", [], [lustre@element:text(~"Deneyimler")]), lustre@element:element(~"strong", [], [lustre@element:text(~"Yereli yaşayın")])])])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-blog"), lustre@attribute:id(~"home-blog")], [lustre@element:element(~"div", [lustre@attribute:class(~"home-section-heading")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"GEZİ REHBERİ")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Bir sonraki rotanıza ilham")]), lustre@element:element(~"a", [lustre@attribute:href(<<<<"/"/utf8, (public_tenant_query(Tenant_id))/binary>>/binary, "#home-blog"/utf8>>)], [lustre@element:text(~"Tüm yazılar →")])]), lustre@element:element(~"div", [lustre@attribute:class(~"home-blog-grid")], [public_home_blog_card(~"/static/chisfis/images/4.0w6tqzlhplq.q.webp", ~"Türkiye'nin en güzel rotaları", ~"Keşfedilmeyi bekleyen kıyılar, şehirler ve seyahat ipuçları."), public_home_blog_card(~"/static/chisfis/images/5.0-cyep_wbo5i3.webp", ~"Deniz ve kıyı tatil rehberi", ~"Mavi bayraklı plajlar ve sakin koylar için seçtiklerimiz."), public_home_blog_card(~"/static/chisfis/images/6.15d7hd4mb~4yd.webp", ~"Doğa kaçamakları", ~"Kamp, yürüyüş ve doğayla baş başa bir hafta sonu planı.")])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-host-cta")], [lustre@element:element(~"div", [], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"TEDARİKÇİLERE")]), lustre@element:element(~"h2", [], [lustre@element:text(~"İlanınızı ekleyin, daha çok gezgine ulaşın")]), lustre@element:element(~"p", [], [lustre@element:text(~"Otel, tur, villa, tekne veya araç hizmetinizi NEXUS ağına taşıyın; ilanınızı kolayca yönetin.")]), lustre@element:element(~"a", [lustre@attribute:class(~"primary"), lustre@attribute:href(<<Origin/binary, "/login"/utf8>>)], [lustre@element:text(~"Ücretsiz ilan ver →")])]), lustre@element:element(~"img", [lustre@attribute:attribute(~"src", ~"/static/chisfis/images/BecomeAnAuthorImg.webp"), lustre@attribute:attribute(~"alt", ~"NEXUS'a ilan ekleyin"), lustre@attribute:attribute(~"loading", ~"lazy")], [])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-testimonials")], [lustre@element:element(~"div", [lustre@attribute:class(~"home-section-heading centered")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"MİSAFİRLERİMİZ NE DİYOR?")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Seyahat edenlerin gerçek yorumları")]), lustre@element:element(~"p", [], [lustre@element:text(~"Planını bizimle yapan gezginlerin deneyimlerinden ilham alın.")])]), lustre@element:element(~"div", [lustre@attribute:class(~"testimonial-grid")], [public_home_testimonial(~"Harika bir deneyimdi; her şey çok kolay ve şeffaftı.", ~"Ayşe K."), public_home_testimonial(~"Fiyat ve hizmet dengesi çok iyi, destek ekibi çok hızlı.", ~"Mehmet T."), public_home_testimonial(~"Rezervasyonumuz sorunsuz tamamlandı, tekrar kullanacağız.", ~"Zeynep A.")])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-how-it-works")], [lustre@element:element(~"div", [lustre@attribute:class(~"home-section-heading centered")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"NASIL ÇALIŞIR")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Sakin olun, seyahatin keyfini çıkarın")]), lustre@element:element(~"p", [], [lustre@element:text(~"Planınızı birkaç adımda tamamlayın; gerisini uzman ekibimiz takip etsin.")])]), lustre@element:element(~"div", [lustre@attribute:class(~"home-how-grid")], [public_home_how_card(~"/static/chisfis/images/HIW1.0pyy~70or-44f.webp", ~"Rezervasyon yapın", ~"İhtiyacınıza uygun konaklama ve deneyimi seçin."), public_home_how_card(~"/static/chisfis/images/HIW2.webp", ~"Akıllı planlayın", ~"Ulaşım, transfer ve ek hizmetleri tek seferde ekleyin."), public_home_how_card(~"/static/chisfis/images/HIW3.10ja0mcrcg_7_.webp", ~"Daha çok keşfedin", ~"Güvenli ödeme ve yerel destekle yolculuğun tadını çıkarın.")])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-newsletter")], [lustre@element:element(~"div", [], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"SEYAHAT İLHAMINI KAÇIRMAYIN")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Yeni fırsatlar ve rotalar gelen kutunuzda")]), lustre@element:element(~"p", [], [lustre@element:text(~"Bölgenize özel kampanyaları ve seçilmiş seyahat fikirlerini paylaşalım.")])]), lustre@element:element(~"form", [lustre@attribute:class(~"newsletter-form"), lustre@attribute:attribute(~"action", ~"/iletisim"), lustre@attribute:attribute(~"method", ~"get")], [lustre@element:element(~"input", [lustre@attribute:name(~"email"), lustre@attribute:attribute(~"type", ~"email"), lustre@attribute:attribute(~"required", ~"required"), lustre@attribute:attribute(~"placeholder", ~"E-posta adresiniz"), lustre@attribute:attribute(~"aria-label", ~"E-posta adresiniz")], []), lustre@element:element(~"button", [lustre@attribute:class(~"primary"), lustre@attribute:attribute(~"type", ~"submit")], [lustre@element:text(~"Katıl")])])]), public_footer(Tenant_id), public_chat_script(), public_theme_script(), public_header_popovers_script()])]),
+    Content = lustre@element:element(~"html", [lustre@attribute:attribute(~"lang", ~"tr")], [lustre@element:element(~"head", [], [lustre@element:element(~"meta", [lustre@attribute:attribute(~"charset", ~"utf-8")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"csrf-token"), lustre@attribute:attribute(~"content", Csrf_token)], []), lustre@element:element(~"meta", [lustre@attribute:name(~"viewport"), lustre@attribute:attribute(~"content", ~"width=device-width, initial-scale=1")], []), lustre@element:element(~"title", [], [lustre@element:text(~"NEXUS Agency")]) | chisfis_head()]), lustre@element:element(~"body", [lustre@attribute:class(~"chisfis-home"), lustre@attribute:attribute(~"data-tenant", Tenant_id)], [public_home_header(Origin, Tenant_id), lustre@element:element(~"main", [lustre@attribute:class(~"relative overflow-hidden")], [lustre@element:element(~"div", [lustre@attribute:class(~"absolute inset-x-0 md:top-10 xl:top-40 min-h-0 pl-20 py-24 flex overflow-hidden -z-10")], [lustre@element:element(~"span", [lustre@attribute:class(~"block h-72 w-72 rounded-full bg-[#ef233c] opacity-10 mix-blend-multiply blur-3xl filter lg:h-96 lg:w-96")], []), lustre@element:element(~"span", [lustre@attribute:class(~"nc-animation-delay-2000 mt-40 -ml-20 block h-72 w-72 rounded-full bg-[#04868b] opacity-10 mix-blend-multiply blur-3xl filter lg:h-96 lg:w-96")], [])]), lustre@element:element(~"div", [lustre@attribute:class(~"relative container mb-24 flex flex-col gap-y-24 lg:mb-28 lg:gap-y-32")], [lustre@element:element(~"div", [lustre@attribute:class(~"relative flex flex-col-reverse pt-10 lg:flex-col lg:pt-28")], [lustre@element:element(~"div", [lustre@attribute:class(~"flex flex-col lg:flex-row")], [lustre@element:element(~"div", [lustre@attribute:class(~"relative flex w-full flex-col items-start gap-y-8 pb-16 lg:pe-10 lg:pt-12 lg:pb-60 xl:gap-y-10 xl:pe-14")], [lustre@element:element(~"h1", [lustre@attribute:class(~"text-5xl/[1.15] font-medium tracking-tight text-pretty xl:text-7xl/[1.1]")], [lustre@element:text(~"Bizimle Keşfedin")]), lustre@element:element(~"p", [lustre@attribute:class(~"max-w-xl text-base text-neutral-500 sm:text-xl dark:text-neutral-400")], [lustre@element:text(~"Yurtiçi ve yurtdışı deneyimleri, konaklamayı ve ulaşımı tek yerden güvenle planlayın.")]), lustre@element:element(~"a", [lustre@attribute:class(~"sm:text-base/normal relative isolate inline-flex shrink-0 items-center justify-center gap-x-2.5 rounded-full border px-[calc(--spacing(4)-1px)] py-[calc(--spacing(2.5)-1px)] sm:px-[calc(--spacing(5)-1px)] sm:text-sm/6 border-transparent bg-neutral-950 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200"), lustre@attribute:href(<<"/urunler"/utf8, Q/binary>>)], [lustre@element:text(~"Aramaya başla")]), lustre@element:element(~"div", [lustre@attribute:class(~"absolute start-0 bottom-4 hidden w-screen max-w-4xl lg:block xl:max-w-6xl")], [lustre@element:element(~"div", [lustre@attribute:class(~"hero-search-form")], [lustre@element:element(~"div", [], [lustre@element:element(~"div", [lustre@attribute:class(~"ms-3 mb-8 flex sm:gap-x-6 xl:ms-10 xl:gap-x-10"), lustre@attribute:attribute(~"role", ~"tablist"), lustre@attribute:attribute(~"aria-orientation", ~"horizontal")], [hero_search_tab(Q, ~"hotel", ~"Otel", true), hero_search_tab(Q, ~"holiday_home", ~"Villa", false), hero_search_tab(Q, ~"yacht", ~"Yat", false), hero_search_tab(Q, ~"tour", ~"Tur", false), hero_search_tab(Q, ~"activity", ~"Aktivite", false), hero_search_tab(Q, ~"flight", ~"Uçuş", false), hero_search_tab(Q, ~"car", ~"Araç", false), hero_search_tab(Q, ~"bus", ~"Devamı", false)])]), lustre@element:element(~"form", [lustre@attribute:class(~"relative z-10 flex w-full rounded-full bg-white shadow-xl dark:bg-neutral-800 dark:shadow-2xl"), lustre@attribute:attribute(~"action", <<"/urunler"/utf8, Q/binary>>), lustre@attribute:attribute(~"method", ~"get")], [lustre@element:element(~"div", [lustre@attribute:class(~"group relative z-10 flex hero-search-form__field-after flex-5/12")], [lustre@element:element(~"div", [lustre@attribute:class(~"relative z-10 shrink-0 w-full cursor-pointer flex items-center gap-x-3 focus:outline-hidden text-start px-7 py-4 xl:px-8 xl:py-6")], [lustre@element:element(~"div", [lustre@attribute:class(~"grow")], [lustre@element:element(~"input", [lustre@attribute:class(~"block w-full truncate border-none bg-transparent p-0 font-semibold placeholder-neutral-800 focus:placeholder-neutral-300 focus:ring-0 focus:outline-hidden dark:placeholder-neutral-200 text-base xl:text-lg"), lustre@attribute:name(~"konum"), lustre@attribute:attribute(~"placeholder", ~"Konum"), lustre@attribute:attribute(~"autocomplete", ~"off"), lustre@attribute:attribute(~"aria-label", ~"Nereye gidiyorsunuz?")], []), lustre@element:element(~"div", [lustre@attribute:class(~"mt-0.5 text-start text-sm font-light text-neutral-400")], [lustre@element:element(~"span", [lustre@attribute:class(~"line-clamp-1")], [lustre@element:text(~"Nereye gidiyorsunuz?")])])])])]), lustre@element:element(~"div", [lustre@attribute:class(~"group relative z-10 flex flex-5/12")], [lustre@element:element(~"div", [lustre@attribute:class(~"relative z-10 shrink-0 w-full cursor-pointer flex items-center gap-x-3 text-start px-7 py-4 xl:px-8 xl:py-6")], [lustre@element:element(~"div", [lustre@attribute:class(~"grow")], [lustre@element:element(~"input", [lustre@attribute:class(~"block w-full border-none bg-transparent p-0 font-semibold text-base xl:text-lg dark:text-white"), lustre@attribute:name(~"check_in"), lustre@attribute:attribute(~"type", ~"date"), lustre@attribute:attribute(~"aria-label", ~"Tarih")], []), lustre@element:element(~"div", [lustre@attribute:class(~"mt-0.5 text-start text-sm font-light text-neutral-400")], [lustre@element:element(~"span", [lustre@attribute:class(~"line-clamp-1")], [lustre@element:text(~"Tarihlerinizi seçin")])])])])]), lustre@element:element(~"button", [lustre@attribute:class(~"absolute z-10 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-full bg-primary-600 text-neutral-50 hover:bg-primary-700 focus:outline-hidden cursor-pointer size-16 end-2 xl:end-4"), lustre@attribute:type_(~"submit"), lustre@attribute:attribute(~"aria-label", ~"Ara")], [lustre@element:element(~"svg", [lustre@attribute:class(~"size-6"), lustre@attribute:attribute(~"viewBox", ~"0 0 24 24"), lustre@attribute:attribute(~"fill", ~"none"), lustre@attribute:attribute(~"stroke", ~"currentColor"), lustre@attribute:attribute(~"stroke-width", ~"1.5")], [lustre@element:element(~"path", [lustre@attribute:attribute(~"d", ~"M17 17L21 21M19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19C15.4183 19 19 15.4183 19 11Z"), lustre@attribute:attribute(~"stroke-linecap", ~"round"), lustre@attribute:attribute(~"stroke-linejoin", ~"round")], [])])])])])])]), lustre@element:element(~"div", [lustre@attribute:class(~"w-full")], [lustre@element:element(~"img", [lustre@attribute:class(~"w-full"), lustre@attribute:attribute(~"src", ~"/static/chisfis/images/hero-right.webp"), lustre@attribute:attribute(~"alt", ~"Türkiye'de unutulmaz seyahat deneyimi"), lustre@attribute:attribute(~"loading", ~"eager")], [])])])])])]), lustre@element:element(~"section", [lustre@attribute:class(~"published-builder-modules")], Builder_modules), lustre@element:element(~"section", [lustre@attribute:class(~"home-trust-strip")], [lustre@element:element(~"span", [], [lustre@element:text(~"Binlerce seyahat deneyimi")]), lustre@element:element(~"span", [], [lustre@element:text(~"Güvenli rezervasyon")]), lustre@element:element(~"span", [], [lustre@element:text(~"Yerel uzman desteği")]), lustre@element:element(~"span", [], [lustre@element:text(~"Esnek iptal seçenekleri")])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-adventure")], [lustre@element:element(~"div", [lustre@attribute:class(~"home-section-heading centered")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"MACERAYA ÇIKALIM")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Dünyanın en güzel yerlerini keşfedin")])]), lustre@element:element(~"div", [lustre@attribute:class(~"adventure-grid")], [public_adventure_card(~"/static/chisfis/images/4.0w6tqzlhplq.q.webp", ~"İstanbul, Türkiye", ~"12,500", ~"+ konaklama"), public_adventure_card(~"/static/chisfis/images/5.0-cyep_wbo5i3.webp", ~"Bodrum, Türkiye", ~"3,200", ~"+ konaklama"), public_adventure_card(~"/static/chisfis/images/6.15d7hd4mb~4yd.webp", ~"Kapadokya, Türkiye", ~"1,800", ~"+ konaklama"), public_adventure_card(~"/static/chisfis/images/HIW1.0pyy~70or-44f.webp", ~"Antalya, Türkiye", ~"8,400", ~"+ konaklama"), public_adventure_card(~"/static/chisfis/images/HIW2.webp", ~"Alanya, Türkiye", ~"4,600", ~"+ konaklama"), public_adventure_card(~"/static/chisfis/images/HIW3.10ja0mcrcg_7_.webp", ~"Fethiye, Türkiye", ~"2,900", ~"+ konaklama")]), lustre@element:element(~"div", [lustre@attribute:class(~"adventure-cta")], [lustre@element:element(~"a", [lustre@attribute:class(~"home-cta-btn"), lustre@attribute:href(<<"/urunler"/utf8, (public_tenant_query(Tenant_id))/binary>>)], [lustre@element:text(~"Daha fazlasını keşfet →")])])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-benefits")], [lustre@element:element(~"div", [lustre@attribute:class(~"home-section-heading centered")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"AVANTAJLAR")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Neden bizi tercih etmelisiniz?")])]), lustre@element:element(~"div", [lustre@attribute:class(~"benefits-grid")], [public_benefit_card(~"📢", ~"Etkili reklam", ~"Ücretsiz ilan vererek kiralama mülkünüzü ön masraf olmadan tanıtabilirsiniz."), public_benefit_card(~"🌍", ~"Geniş kitle", ~"Dünya genelinde milyonlarca kişi benzersiz konaklama arıyor."), public_benefit_card(~"🔒", ~"Güvenli ve basit", ~"Chisfis ilanı, çevrimiçi rezervasyon ve ödeme için güvenli ve kolay bir yol sunar.")])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-featured")], [lustre@element:element(~"div", [lustre@attribute:class(~"home-section-heading")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"ÖNE ÇIKAN YERLER")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Kullanıcı yorumlarına göre seçildi")]), lustre@element:element(~"a", [lustre@attribute:href(<<"/urunler"/utf8, (public_tenant_query(Tenant_id))/binary>>)], [lustre@element:text(~"Tümünü gör →")])]), lustre@element:element(~"div", [lustre@attribute:class(~"featured-grid")], [public_featured_card(~"/static/chisfis/images/4.0w6tqzlhplq.q.webp", ~"Oda", ~"4 Yatak", ~"Bodrum Deniz Manzaralı Süit", ~"Bodrum, Muğla", ~"₺2.800", ~"280000", ~"4.8", ~"28"), public_featured_card(~"/static/chisfis/images/5.0-cyep_wbo5i3.webp", ~"Villa", ~"6 Yatak", ~"Özel Havuzlu Tatil Evi", ~"Fethiye, Muğla", ~"₺5.200", ~"520000", ~"4.4", ~"198"), public_featured_card(~"/static/chisfis/images/6.15d7hd4mb~4yd.webp", ~"Kabin", ~"3 Yatak", ~"Dağ Evinde Huzurlu Konaklama", ~"Kapadokya, Nevşehir", ~"₺3.400", ~"340000", ~"4.9", ~"56"), public_featured_card(~"/static/chisfis/images/HIW1.0pyy~70or-44f.webp", ~"Oda", ~"2 Yatak", ~"Antalya Resort & Spa", ~"Kemer, Antalya", ~"₺4.100", ~"410000", ~"4.7", ~"340")])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-discovery")], [lustre@element:element(~"div", [lustre@attribute:class(~"home-section-heading")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"İLHAM ALIN")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Bir sonraki kaçamağınızı keşfedin")]), lustre@element:element(~"a", [lustre@attribute:href(<<"/urunler"/utf8, (public_tenant_query(Tenant_id))/binary>>)], [lustre@element:text(~"Tümünü gör →")])]), lustre@element:element(~"div", [lustre@attribute:class(~"discovery-grid")], [lustre@element:element(~"a", [lustre@attribute:href(<<"/otel"/utf8, (public_tenant_query(Tenant_id))/binary>>), lustre@attribute:class(~"discovery-card discovery-card-large")], [lustre@element:element(~"span", [], [lustre@element:text(~"Otel ve resortlar")]), lustre@element:element(~"strong", [], [lustre@element:text(~"Konforu yeniden keşfedin")])]), lustre@element:element(~"a", [lustre@attribute:href(<<"/tatil-evi"/utf8, (public_tenant_query(Tenant_id))/binary>>), lustre@attribute:class(~"discovery-card")], [lustre@element:element(~"span", [], [lustre@element:text(~"Tatil Evleri")]), lustre@element:element(~"strong", [], [lustre@element:text(~"Kendi alanınızda dinlenin")])]), lustre@element:element(~"a", [lustre@attribute:href(<<"/tur"/utf8, (public_tenant_query(Tenant_id))/binary>>), lustre@attribute:class(~"discovery-card")], [lustre@element:element(~"span", [], [lustre@element:text(~"Deneyimler")]), lustre@element:element(~"strong", [], [lustre@element:text(~"Yereli yaşayın")])])])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-blog"), lustre@attribute:id(~"home-blog")], [lustre@element:element(~"div", [lustre@attribute:class(~"home-section-heading")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"GEZİ REHBERİ")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Bir sonraki rotanıza ilham")]), lustre@element:element(~"a", [lustre@attribute:href(<<"/blog/gezilesi-yerler"/utf8, (public_tenant_query(Tenant_id))/binary>>)], [lustre@element:text(~"Tüm yazılar →")])]), lustre@element:element(~"div", [lustre@attribute:class(~"home-blog-grid")], [public_home_blog_card(~"/static/chisfis/images/4.0w6tqzlhplq.q.webp", ~"Türkiye'nin en güzel rotaları", ~"Keşfedilmeyi bekleyen kıyılar, şehirler ve seyahat ipuçları."), public_home_blog_card(~"/static/chisfis/images/5.0-cyep_wbo5i3.webp", ~"Deniz ve kıyı tatil rehberi", ~"Mavi bayraklı plajlar ve sakin koylar için seçtiklerimiz."), public_home_blog_card(~"/static/chisfis/images/6.15d7hd4mb~4yd.webp", ~"Doğa kaçamakları", ~"Kamp, yürüyüş ve doğayla baş başa bir hafta sonu planı.")])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-host-cta")], [lustre@element:element(~"div", [], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"TEDARİKÇİLERE")]), lustre@element:element(~"h2", [], [lustre@element:text(~"İlanınızı ekleyin, daha çok gezgine ulaşın")]), lustre@element:element(~"p", [], [lustre@element:text(~"Otel, tur, villa, tekne veya araç hizmetinizi NEXUS ağına taşıyın; ilanınızı kolayca yönetin.")]), lustre@element:element(~"a", [lustre@attribute:class(~"primary"), lustre@attribute:href(<<Origin/binary, "/login"/utf8>>)], [lustre@element:text(~"Ücretsiz ilan ver →")])]), lustre@element:element(~"img", [lustre@attribute:attribute(~"src", ~"/static/chisfis/images/BecomeAnAuthorImg.webp"), lustre@attribute:attribute(~"alt", ~"NEXUS'a ilan ekleyin"), lustre@attribute:attribute(~"loading", ~"lazy")], [])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-testimonials")], [lustre@element:element(~"div", [lustre@attribute:class(~"home-section-heading centered")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"MİSAFİRLERİMİZ NE DİYOR?")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Seyahat edenlerin gerçek yorumları")]), lustre@element:element(~"p", [], [lustre@element:text(~"Planını bizimle yapan gezginlerin deneyimlerinden ilham alın.")])]), lustre@element:element(~"div", [lustre@attribute:class(~"testimonial-grid")], [public_home_testimonial(~"Harika bir deneyimdi; her şey çok kolay ve şeffaftı.", ~"Ayşe K."), public_home_testimonial(~"Fiyat ve hizmet dengesi çok iyi, destek ekibi çok hızlı.", ~"Mehmet T."), public_home_testimonial(~"Rezervasyonumuz sorunsuz tamamlandı, tekrar kullanacağız.", ~"Zeynep A.")])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-how-it-works")], [lustre@element:element(~"div", [lustre@attribute:class(~"home-section-heading centered")], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"NASIL ÇALIŞIR")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Sakin olun, seyahatin keyfini çıkarın")]), lustre@element:element(~"p", [], [lustre@element:text(~"Planınızı birkaç adımda tamamlayın; gerisini uzman ekibimiz takip etsin.")])]), lustre@element:element(~"div", [lustre@attribute:class(~"home-how-grid")], [public_home_how_card(~"/static/chisfis/images/HIW1.0pyy~70or-44f.webp", ~"Rezervasyon yapın", ~"İhtiyacınıza uygun konaklama ve deneyimi seçin."), public_home_how_card(~"/static/chisfis/images/HIW2.webp", ~"Akıllı planlayın", ~"Ulaşım, transfer ve ek hizmetleri tek seferde ekleyin."), public_home_how_card(~"/static/chisfis/images/HIW3.10ja0mcrcg_7_.webp", ~"Daha çok keşfedin", ~"Güvenli ödeme ve yerel destekle yolculuğun tadını çıkarın.")])]), lustre@element:element(~"section", [lustre@attribute:class(~"home-newsletter")], [lustre@element:element(~"div", [], [lustre@element:element(~"span", [lustre@attribute:class(~"eyebrow")], [lustre@element:text(~"SEYAHAT İLHAMINI KAÇIRMAYIN")]), lustre@element:element(~"h2", [], [lustre@element:text(~"Yeni fırsatlar ve rotalar gelen kutunuzda")]), lustre@element:element(~"p", [], [lustre@element:text(~"Bölgenize özel kampanyaları ve seçilmiş seyahat fikirlerini paylaşalım.")])]), lustre@element:element(~"form", [lustre@attribute:class(~"newsletter-form"), lustre@attribute:attribute(~"action", ~"/iletisim"), lustre@attribute:attribute(~"method", ~"get")], [lustre@element:element(~"input", [lustre@attribute:name(~"email"), lustre@attribute:attribute(~"type", ~"email"), lustre@attribute:attribute(~"required", ~"required"), lustre@attribute:attribute(~"placeholder", ~"E-posta adresiniz"), lustre@attribute:attribute(~"aria-label", ~"E-posta adresiniz")], []), lustre@element:element(~"button", [lustre@attribute:class(~"primary"), lustre@attribute:attribute(~"type", ~"submit")], [lustre@element:text(~"Katıl")])])]), public_footer(Tenant_id), public_chat_script(), public_theme_script(), public_header_popovers_script()])]),
     _pipe@1 = wisp:ok(),
     _pipe@2 = wisp:set_cookie(_pipe@1, Req, ~"agency_csrf", Csrf_token, plain_text, 3600),
     wisp:html_body(_pipe@2, lustre@element:to_string(Content)).
@@ -2856,17 +3470,22 @@ id_decoder() ->
 -file("src\\nexus_agency\\router.gleam", 4657).
 -spec listing_sitemap_urls(pog:connection(), binary(), binary()) -> binary().
 listing_sitemap_urls(Db, Origin, Tenant_id) ->
+    Decoder = gleam@dynamic@decode:field(0, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Title) ->
+        gleam@dynamic@decode:field(1, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Category) ->
+            gleam@dynamic@decode:success({Title, Category})
+        end)
+    end),
     case begin
-        _pipe = ~"select id::text from agency.listings where tenant_id=$1::uuid and status='published' order by updated_at desc limit 5000",
+        _pipe = ~"select title,category from agency.listings where tenant_id=$1::uuid and status='published' order by updated_at desc limit 5000",
         _pipe@1 = pog:'query'(_pipe),
         _pipe@2 = pog:parameter(_pipe@1, pog_ffi:coerce(Tenant_id)),
-        _pipe@3 = pog:returning(_pipe@2, id_decoder()),
+        _pipe@3 = pog:returning(_pipe@2, Decoder),
         pog:execute(_pipe@3, Db)
     end of
         {ok, Result} ->
             _pipe@4 = erlang:element(3, Result),
-            _pipe@5 = gleam@list:map(_pipe@4, fun(Id) ->
-                <<<<<<<<"<url><loc>"/utf8, Origin/binary>>/binary, "/urunler/"/utf8>>/binary, Id/binary>>/binary, "</loc></url>"/utf8>>
+            _pipe@5 = gleam@list:map(_pipe@4, fun({Title, Category}) ->
+                <<"<url><loc>", Origin/binary, (public_listing_url(Category, Title))/binary, "</loc></url>">>
             end),
             gleam@string:join(_pipe@5, ~"");
 
@@ -2903,9 +3522,9 @@ cms_sitemap_urls(Db, Origin, Tenant_id) ->
 -file("src\\nexus_agency\\router.gleam", 4632).
 -spec category_sitemap_urls(binary()) -> binary().
 category_sitemap_urls(Origin) ->
-    _pipe = [~"hotel", ~"holiday_home", ~"yacht", ~"tour", ~"activity", ~"flight", ~"car", ~"cruise", ~"pilgrimage", ~"visa", ~"ferry", ~"transfer", ~"beach", ~"cinema", ~"event", ~"restaurant", ~"bus"],
+    _pipe = [~"otel", ~"tatil-evi", ~"yat", ~"tur", ~"aktivite", ~"ucus", ~"arac", ~"kruvaziyer", ~"hac-umre", ~"vize", ~"feribot", ~"transfer", ~"sezlong", ~"sinema", ~"etkinlik", ~"restoran", ~"otobus"],
     _pipe@1 = gleam@list:map(_pipe, fun(Slug) ->
-        <<<<<<<<"<url><loc>"/utf8, Origin/binary>>/binary, "/kategori/"/utf8>>/binary, Slug/binary>>/binary, "</loc></url>"/utf8>>
+        <<"<url><loc>", Origin/binary, "/", Slug/binary, "</loc></url>">>
     end),
     gleam@string:join(_pipe@1, ~"").
 
@@ -2964,6 +3583,32 @@ search_intent(Req, Db) ->
     end).
 
 -file("src\\nexus_agency\\router.gleam", 9589).
+public_search_quotes(Req, Db) ->
+    Tenant_id = gleam@result:unwrap(public_tenant_id(Db, Req), ~""),
+    Query = wisp:get_query(Req),
+    Check_in = gleam@result:unwrap(gleam@list:key_find(Query, ~"check_in"), ~""),
+    Check_out = gleam@result:unwrap(gleam@list:key_find(Query, ~"check_out"), ~""),
+    Search = gleam@result:unwrap(gleam@list:key_find(Query, ~"q"), ~""),
+    Locality = gleam@result:unwrap(gleam@list:key_find(Query, ~"konum"), ~""),
+    Category = gleam@result:unwrap(gleam@list:key_find(Query, ~"kategori"), ~""),
+    Decoder = settings_decoder(),
+    Sql = ~"select coalesce(json_agg(json_build_object('id',l.id::text,'title',l.title,'category',l.category,'locality',l.locality,'currency',l.currency,'nightlyMinor',(coalesce(p.total_minor,l.price_minor*greatest(($3::text::date-$2::text::date),1))/greatest(($3::text::date-$2::text::date),1))::text,'totalMinor',coalesce(p.total_minor,l.price_minor*greatest(($3::text::date-$2::text::date),1))::text,'available',coalesce(a.recorded,0)=($3::text::date-$2::text::date) and coalesce(a.blocked,0)=0,'availabilityKnown',coalesce(a.recorded,0)=($3::text::date-$2::text::date),'roomTypes',coalesce(l.metadata->'contract_fields'->'room_types',l.metadata->'room_types','[]'::jsonb)) order by l.title),'[]'::json)::text from agency.listings l left join lateral (select (select sum(coalesce((select per.price_minor from agency.rate_periods per where per.rate_plan_id=rp.id and day::date between per.starts_on and per.ends_on order by per.starts_on desc limit 1),rp.base_minor)) from generate_series($2::text::date,least($3::text::date-1,$2::text::date+30),'1 day'::interval) day) as total_minor from agency.rate_plans rp where rp.listing_id=l.id and rp.active order by rp.base_minor limit 1) p on true left join lateral (select count(*) as recorded,count(*) filter(where av.closed or av.units_available<=0) as blocked from agency.availability av where av.listing_id=l.id and av.day >= $2::text::date and av.day < $3::text::date) a on true where l.tenant_id=$1::uuid and l.status='published' and ($4='' or l.title ilike '%'||$4||'%' or l.locality ilike '%'||$4||'%') and ($5='' or l.locality ilike '%'||$5||'%') and ($6='' or l.category=$6) and ($3::text::date-$2::text::date) between 1 and 31 limit 100",
+    Pg_query = pog:'query'(Sql),
+    Pg_query@1 = pog:parameter(Pg_query, pog_ffi:coerce(Tenant_id)),
+    Pg_query@2 = pog:parameter(Pg_query@1, pog_ffi:coerce(Check_in)),
+    Pg_query@3 = pog:parameter(Pg_query@2, pog_ffi:coerce(Check_out)),
+    Pg_query@4 = pog:parameter(Pg_query@3, pog_ffi:coerce(Search)),
+    Pg_query@5 = pog:parameter(Pg_query@4, pog_ffi:coerce(Locality)),
+    Pg_query@6 = pog:parameter(Pg_query@5, pog_ffi:coerce(Category)),
+    Pg_query@7 = pog:returning(Pg_query@6, Decoder),
+    case pog:execute(Pg_query@7, Db) of
+        {ok, Result} ->
+            Body = gleam@result:unwrap(gleam@list:first(erlang:element(3, Result)), ~"[]"),
+            wisp:json_body(wisp:ok(), Body);
+        {error, _} ->
+            wisp:json_body(wisp:response(400), ~"[]")
+    end.
+
 -spec public_availability(gleam@http@request:request(wisp@internal:connection()), pog:connection(), binary()) -> gleam@http@response:response(wisp:body()).
 public_availability(Req, Db, Listing_id) ->
     Tenant_id = begin
@@ -3427,12 +4072,22 @@ save_ai_pool_key(Db, Tenant_id, Provider, Label, Api_key, Model, Priority, Daily
         false ->
             Daily_limit
     end,
+    Stored_key = case gleam@string:trim(Api_key) of
+        ~"" ->
+            ~"";
+
+        Trimmed ->
+            case 'nexus_agency@secrets':seal_for_tenant(Tenant_id, ~"ai_pool.api_key", Trimmed) of
+                {ok, Sealed} -> Sealed;
+                {error, _} -> ~""
+            end
+    end,
     _pipe = ~"INSERT INTO agency.ai_key_pool(tenant_id,provider,label,api_key_encrypted,model,priority,daily_limit,active,updated_at) VALUES($1::uuid,$2,$3,$4,$5,$6,$7,$8,now()) ON CONFLICT(tenant_id,provider,label) DO UPDATE SET api_key_encrypted=case when excluded.api_key_encrypted='' then agency.ai_key_pool.api_key_encrypted else excluded.api_key_encrypted end,model=case when excluded.model='' then agency.ai_key_pool.model else excluded.model end,priority=excluded.priority,daily_limit=excluded.daily_limit,active=excluded.active,updated_at=now()",
     _pipe@1 = pog:'query'(_pipe),
     _pipe@2 = pog:parameter(_pipe@1, pog_ffi:coerce(Tenant_id)),
     _pipe@3 = pog:parameter(_pipe@2, pog_ffi:coerce(Provider)),
     _pipe@4 = pog:parameter(_pipe@3, pog_ffi:coerce(Label)),
-    _pipe@5 = pog:parameter(_pipe@4, pog_ffi:coerce(Api_key)),
+    _pipe@5 = pog:parameter(_pipe@4, pog_ffi:coerce(Stored_key)),
     _pipe@6 = pog:parameter(_pipe@5, pog_ffi:coerce(Model)),
     _pipe@7 = pog:parameter(_pipe@6, pog_ffi:coerce(Priority)),
     _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(Safe_limit)),
@@ -3443,7 +4098,7 @@ save_ai_pool_key(Db, Tenant_id, Provider, Label, Api_key, Model, Priority, Daily
     end(_pipe@10).
 
 -file("src\\nexus_agency\\router.gleam", 3854).
--spec page_decoder() -> gleam@dynamic@decode:decoder({binary(), binary(), binary(), binary(), binary(), binary()}).
+-spec page_decoder() -> gleam@dynamic@decode:decoder({binary(), binary(), binary(), binary(), binary(), binary(), binary()}).
 page_decoder() ->
     gleam@dynamic@decode:field(0, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Id) ->
         gleam@dynamic@decode:field(1, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Slug) ->
@@ -3451,7 +4106,9 @@ page_decoder() ->
                 gleam@dynamic@decode:field(3, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Status) ->
                     gleam@dynamic@decode:field(4, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Seo_title) ->
                         gleam@dynamic@decode:field(5, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Published_at) ->
-                            gleam@dynamic@decode:success({Id, Slug, Template, Status, Seo_title, Published_at})
+                            gleam@dynamic@decode:field(6, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Seo_json) ->
+                                gleam@dynamic@decode:success({Id, Slug, Template, Status, Seo_title, Published_at, Seo_json})
+                            end)
                         end)
                     end)
                 end)
@@ -3507,15 +4164,48 @@ settings_decoder() ->
 -file("src\\nexus_agency\\router.gleam", 3403).
 -spec save_setting(pog:connection(), binary(), binary(), binary()) -> nil.
 save_setting(Db, Tenant_id, Key, Value) ->
-    _pipe = ~"INSERT INTO agency.settings(tenant_id,key,value,updated_at) VALUES($1::uuid,$2,to_jsonb($3::text),now()) ON CONFLICT(tenant_id,key) DO UPDATE SET value=excluded.value,updated_at=now()",
-    _pipe@1 = pog:'query'(_pipe),
-    _pipe@2 = pog:parameter(_pipe@1, pog_ffi:coerce(Tenant_id)),
-    _pipe@3 = pog:parameter(_pipe@2, pog_ffi:coerce(Key)),
-    _pipe@4 = pog:parameter(_pipe@3, pog_ffi:coerce(Value)),
-    _pipe@5 = pog:execute(_pipe@4, Db),
-    fun(_) ->
-        nil
-    end(_pipe@5).
+    Sensitive = ((Key =:= ~"parampos_password") orelse (Key =:= ~"parampos_guid"))
+        orelse (((Key =:= ~"smtp_password") orelse (Key =:= ~"ai_api_key")) orelse (Key =:= ~"netgsm_password")),
+    case {Sensitive, gleam@string:trim(Value)} of
+        {true, ~""} ->
+            nil;
+
+        {true, Trimmed} ->
+            case 'nexus_agency@secrets':seal_for_tenant(Tenant_id, <<~"settings."/binary, Key/binary>>, Trimmed) of
+                {ok, Sealed} ->
+                    Sealed_key = <<Key/binary, "_sealed"/utf8>>,
+                    _pipe = ~"WITH saved AS (
+                          INSERT INTO agency.settings(tenant_id,key,value,updated_at)
+                          VALUES($1::uuid,$2,to_jsonb($3::text),now())
+                          ON CONFLICT(tenant_id,key) DO UPDATE SET value=excluded.value,updated_at=now()
+                          RETURNING 1
+                        )
+                        DELETE FROM agency.settings WHERE tenant_id=$1::uuid AND key=$4",
+                    _pipe@1 = pog:'query'(_pipe),
+                    _pipe@2 = pog:parameter(_pipe@1, pog_ffi:coerce(Tenant_id)),
+                    _pipe@3 = pog:parameter(_pipe@2, pog_ffi:coerce(Sealed_key)),
+                    _pipe@4 = pog:parameter(_pipe@3, pog_ffi:coerce(Sealed)),
+                    _pipe@5 = pog:parameter(_pipe@4, pog_ffi:coerce(Key)),
+                    _pipe@6 = pog:execute(_pipe@5, Db),
+                    fun(_) ->
+                        nil
+                    end(_pipe@6);
+
+                {error, _} ->
+                    nil
+            end;
+
+        {false, _} ->
+            _pipe = ~"INSERT INTO agency.settings(tenant_id,key,value,updated_at) VALUES($1::uuid,$2,to_jsonb($3::text),now()) ON CONFLICT(tenant_id,key) DO UPDATE SET value=excluded.value,updated_at=now()",
+            _pipe@1 = pog:'query'(_pipe),
+            _pipe@2 = pog:parameter(_pipe@1, pog_ffi:coerce(Tenant_id)),
+            _pipe@3 = pog:parameter(_pipe@2, pog_ffi:coerce(Key)),
+            _pipe@4 = pog:parameter(_pipe@3, pog_ffi:coerce(Value)),
+            _pipe@5 = pog:execute(_pipe@4, Db),
+            fun(_) ->
+                nil
+            end(_pipe@5)
+    end.
 
 -file("src\\nexus_agency\\router.gleam", 3374).
 -spec options_decoder() -> gleam@dynamic@decode:decoder({binary(), binary()}).
@@ -4302,7 +4992,7 @@ dispatch(Req, Db, Origin) ->
                             {ok, Session} ->
                                 Destination = case erlang:element(5, Session) of
                                     ~"customer" ->
-                                        ~"/";
+                                        ~"/hesap";
 
                                     _ ->
                                         ~"/admin"
@@ -4350,9 +5040,145 @@ dispatch(Req, Db, Origin) ->
 
                 {get, [~"admin"]} ->
                     require_session(Db, Token, fun(Session) ->
-                        _pipe@6 = wisp:ok(),
-                        wisp:html_body(_pipe@6, nexus_agency@panel:dashboard(Session, Lang, Active_cat))
+                        case erlang:element(5, Session) of
+                            ~"customer" -> wisp:redirect(~"/hesap");
+                            _ ->
+                                _pipe@6 = wisp:ok(),
+                                wisp:html_body(_pipe@6, nexus_agency@panel:dashboard(Session, Lang, Active_cat))
+                        end
                     end);
+
+                {get, [~"admin", ~"dashboard", ~"data"]} ->
+                    panel_dashboard_data(Db, Token);
+
+                {get, [~"admin", ~"dashboard", ~"series"]} ->
+                    panel_dashboard_series(Req, Db, Token);
+
+                {get, [~"admin", ~"role-context"]} ->
+                    panel_role_context_page(Db, Token, Lang, Active_cat);
+
+                {get, [~"admin", ~"role-context", ~"data"]} ->
+                    panel_role_context_data(Db, Token);
+
+                {post, [~"admin", ~"role-context", ~"switch"]} ->
+                    panel_role_context_switch(Req, Db, Token);
+
+                {post, [~"admin", ~"role-context", ~"grant"]} ->
+                    panel_role_context_grant(Req, Db, Token);
+
+                {post, [~"admin", ~"role-context", ~"revoke"]} ->
+                    panel_role_context_revoke(Req, Db, Token);
+
+                {get, [~"admin", ~"supplier-bookings"]} ->
+                    panel_supplier_bookings_page(Db, Token, Lang, Active_cat);
+
+                {get, [~"admin", ~"supplier-operations"]} ->
+                    panel_supplier_operations_page(Db, Token, Lang, Active_cat);
+
+                {get, [~"admin", ~"supplier-operations", ~"data"]} ->
+                    panel_supplier_operations_data(Db, Token);
+
+                {post, [~"admin", ~"supplier-operations", ~"document"]} ->
+                    panel_supplier_operations_document(Req, Db, Token);
+
+                {post, [~"admin", ~"supplier-operations", ~"document-review"]} ->
+                    panel_supplier_operations_document_review(Req, Db, Token);
+
+                {post, [~"admin", ~"supplier-operations", ~"settlement"]} ->
+                    panel_supplier_operations_settlement(Req, Db, Token);
+
+                {post, [~"admin", ~"supplier-operations", ~"settlement-action"]} ->
+                    panel_supplier_operations_settlement_action(Req, Db, Token);
+
+                {post, [~"admin", ~"supplier-operations", ~"settlement-policy"]} ->
+                    panel_supplier_operations_settlement_policy(Req, Db, Token);
+
+                {post, [~"admin", ~"supplier-operations", ~"settlement-generate"]} ->
+                    panel_supplier_operations_settlement_generate(Db, Token);
+
+                {get, [~"admin", ~"supplier-bookings", ~"data"]} ->
+                    panel_supplier_bookings_data(Db, Token);
+
+                {post, [~"admin", ~"supplier-bookings", ~"decision"]} ->
+                    panel_supplier_booking_decision(Req, Db, Token);
+
+                {post, [~"admin", ~"supplier-bookings", ~"message"]} ->
+                    panel_supplier_booking_message(Req, Db, Token);
+
+                {post, [~"admin", ~"supplier-bookings", ~"service-start"]} ->
+                    panel_supplier_booking_service_start(Req, Db, Token);
+
+                {post, [~"admin", ~"supplier-bookings", ~"service-task"]} ->
+                    panel_supplier_booking_service_task(Req, Db, Token);
+
+                {get, [~"admin", ~"supplier-inquiries"]} ->
+                    panel_supplier_inquiries_page(Db, Token, Lang, Active_cat);
+
+                {get, [~"admin", ~"supplier-inquiries", ~"data"]} ->
+                    panel_supplier_inquiries_data(Db, Token);
+
+                {post, [~"admin", ~"supplier-inquiries", ~"reply"]} ->
+                    panel_supplier_lead_reply(Req, Db, Token);
+
+                {get, [~"admin", ~"review-center"]} ->
+                    panel_review_center_page(Db, Token, Lang, Active_cat);
+
+                {get, [~"admin", ~"review-center", ~"data"]} ->
+                    panel_review_center_data(Db, Token);
+
+                {post, [~"admin", ~"review-center", ~"booking-decision"]} ->
+                    panel_review_booking_decision(Req, Db, Token);
+
+                {post, [~"admin", ~"review-center", ~"booking-decisions-bulk"]} ->
+                    panel_review_booking_decisions_bulk(Req, Db, Token);
+
+                {post, [~"admin", ~"review-center", ~"notify-overdue"]} ->
+                    panel_review_notify_overdue(Db, Token);
+
+                {post, [~"admin", ~"review-center", ~"assign"]} ->
+                    panel_review_assign(Req, Db, Token);
+
+                {get, [~"admin", ~"finance-overview"]} ->
+                    panel_finance_overview_page(Db, Token, Lang, Active_cat);
+
+                {get, [~"admin", ~"finance-overview", ~"data"]} ->
+                    panel_finance_overview_data(Db, Token);
+
+                {post, [~"admin", ~"finance-overview", ~"refund"]} ->
+                    panel_finance_action(Req, Db, Token, ~"refund");
+
+                {post, [~"admin", ~"finance-overview", ~"reconcile"]} ->
+                    panel_finance_action(Req, Db, Token, ~"reconcile");
+
+                {get, [~"admin", ~"commercial-operations"]} ->
+                    panel_commercial_page(Db, Token, Lang, Active_cat);
+
+                {get, [~"admin", ~"commercial-operations", ~"data"]} ->
+                    panel_commercial_data(Db, Token);
+
+                {get, [~"admin", ~"commercial-operations", ~"options"]} ->
+                    panel_commercial_options(Db, Token);
+
+                {post, [~"admin", ~"commercial-operations", ~"action", Action]} ->
+                    panel_commercial_action(Req, Db, Token, Action);
+
+                {get, [~"admin", ~"partner-network", ~"data"]} ->
+                    panel_partner_network_data(Db, Token);
+
+                {post, [~"admin", ~"partner-network", ~"actions"]} ->
+                    panel_partner_network_action(Req, Db, Token);
+
+                {get, [~"admin", ~"assigned-inquiries", ~"data"]} ->
+                    panel_assigned_inquiries_data(Db, Token);
+
+                {get, [~"admin", ~"customer-care"]} ->
+                    public_customer_care_page(Db, Token);
+
+                {get, [~"admin", ~"customer-care", ~"data"]} ->
+                    public_customer_care_data(Db, Token);
+
+                {post, [~"admin", ~"customer-care", Resource]} ->
+                    public_customer_care_save(Req, Db, Token, Resource);
 
                 {get, [~"admin", Section]} ->
                     require_panel_session(Db, Token, Section, fun(Session) ->
@@ -4382,10 +5208,12 @@ dispatch(Req, Db, Origin) ->
                             _pipe@15 = pog:parameter(_pipe@14, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"longitude"))),
                             _pipe@16 = pog:parameter(_pipe@15, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"seo_title"))),
                             _pipe@17 = pog:parameter(_pipe@16, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"seo_description"))),
-                            _pipe@18 = pog:execute(_pipe@17, Db),
-                            fun(_) ->
-                                wisp:redirect(~"/admin/regions")
-                            end(_pipe@18)
+                            case pog:execute(_pipe@17, Db) of
+                                {ok, _} -> wisp:redirect(~"/admin/regions");
+                                {error, _} ->
+                                    Error_response = wisp:response(400),
+                                    wisp:string_body(Error_response, ~"Bölge kaydedilemedi. Üst bölge aynı acenteye ait olmalı.")
+                            end
                         end)
                     end);
 
@@ -4662,7 +5490,8 @@ dispatch(Req, Db, Origin) ->
                   where c.tenant_id=$1::uuid and c.code=$3 and f.required
                     and nullif(trim(coalesce(case when $44 ~ '^\\s*\\{' then ($44::jsonb->'contract_fields'->>f.field_key) else null end,'')),'') is null
                 ),
-                'extra_metadata',case when $44 ~ '^\\s*\\{' then $44::jsonb else '{}'::jsonb end
+                'extra_metadata',case when $44 ~ '^\\s*\\{' then $44::jsonb else '{}'::jsonb end,
+                'contract_fields',case when $44 ~ '^\\s*\\{' then coalesce($44::jsonb->'contract_fields','{}'::jsonb) else '{}'::jsonb end
               ),
               case when $23 ~ '^\\s*\\[' then $23::jsonb else '[]'::jsonb end,
               case when $24 ~ '^\\s*\\[' then $24::jsonb else '[]'::jsonb end,
@@ -4826,7 +5655,8 @@ dispatch(Req, Db, Origin) ->
                   where c.tenant_id=$1::uuid and c.code=$3 and f.required
                     and nullif(trim(coalesce(case when $44 ~ '^\\s*\\{' then ($44::jsonb->'contract_fields'->>f.field_key) else null end,'')),'') is null
                 ),
-                'extra_metadata',case when $44 ~ '^\\s*\\{' then $44::jsonb else '{}'::jsonb end
+                'extra_metadata',case when $44 ~ '^\\s*\\{' then $44::jsonb else '{}'::jsonb end,
+                'contract_fields',case when $44 ~ '^\\s*\\{' then coalesce($44::jsonb->'contract_fields','{}'::jsonb) else '{}'::jsonb end
               ),
               case when $23 ~ '^\\s*\\[' then $23::jsonb else '[]'::jsonb end,
               case when $24 ~ '^\\s*\\[' then $24::jsonb else '[]'::jsonb end,
@@ -5210,11 +6040,13 @@ dispatch(Req, Db, Origin) ->
                             end,
                             _pipe@8 = Ids,
                             gleam@list:each(_pipe@8, fun(Id) ->
-                                _pipe@9 = ~"DELETE FROM agency.customers WHERE tenant_id=$1::uuid AND id=$2::uuid",
+                                _pipe@9 = ~"DELETE FROM agency.customers WHERE tenant_id=$1::uuid AND id=$2::uuid AND ($3 IN ('admin','staff') OR ($3='sub_agency' AND agency.partner_can_access($1::uuid,$4::uuid,partner_organization_id)))",
                                 _pipe@10 = pog:'query'(_pipe@9),
                                 _pipe@11 = pog:parameter(_pipe@10, pog_ffi:coerce(erlang:element(2, Session))),
                                 _pipe@12 = pog:parameter(_pipe@11, pog_ffi:coerce(Id)),
-                                _pipe@13 = pog:execute(_pipe@12, Db),
+                                _pipe@12a = pog:parameter(_pipe@12, pog_ffi:coerce(erlang:element(5, Session))),
+                                _pipe@12b = pog:parameter(_pipe@12a, pog_ffi:coerce(erlang:element(3, Session))),
+                                _pipe@13 = pog:execute(_pipe@12b, Db),
                                 fun(_) ->
                                     nil
                                 end(_pipe@13)
@@ -5237,7 +6069,7 @@ dispatch(Req, Db, Origin) ->
                             end,
                             _pipe@8 = Ids,
                             gleam@list:each(_pipe@8, fun(Id) ->
-                                _pipe@9 = ~"DELETE FROM agency.reservations r WHERE r.tenant_id=$1::uuid AND r.id=$2::uuid AND ($3 in ('admin','staff','sub_agency') OR EXISTS (SELECT 1 FROM agency.listings l WHERE l.id=r.listing_id AND l.owner_user_id=$4::uuid))",
+                                _pipe@9 = ~"DELETE FROM agency.reservations r WHERE r.tenant_id=$1::uuid AND r.id=$2::uuid AND ($3 in ('admin','staff') OR ($3='sub_agency' AND agency.partner_can_access($1::uuid,$4::uuid,r.partner_organization_id)) OR ($3='supplier' AND EXISTS (SELECT 1 FROM agency.listings l WHERE l.id=r.listing_id AND l.owner_user_id=$4::uuid)))",
                                 _pipe@10 = pog:'query'(_pipe@9),
                                 _pipe@11 = pog:parameter(_pipe@10, pog_ffi:coerce(erlang:element(2, Session))),
                                 _pipe@12 = pog:parameter(_pipe@11, pog_ffi:coerce(Id)),
@@ -5622,7 +6454,7 @@ dispatch(Req, Db, Origin) ->
                 {post, [~"admin", ~"categories"]} ->
                     require_admin(Db, Token, fun(Session) ->
                         wisp:require_form(Req, fun(Form) ->
-                            _pipe@6 = ~"INSERT INTO agency.categories(tenant_id,parent_id,code,name,slug,description,active,sort_order) VALUES($1::uuid,NULLIF($2,'')::uuid,upper($3),$4,$5,$6,$7::text::boolean,$8) ON CONFLICT(tenant_id,slug) DO UPDATE SET parent_id=excluded.parent_id,code=excluded.code,name=excluded.name,description=excluded.description,active=excluded.active,sort_order=excluded.sort_order",
+                            _pipe@6 = ~"INSERT INTO agency.categories(tenant_id,parent_id,code,name,slug,description,active,sort_order) VALUES($1::uuid,NULLIF($2,'')::uuid,lower($3),$4,$5,$6,$7::text::boolean,$8) ON CONFLICT(tenant_id,slug) DO UPDATE SET parent_id=excluded.parent_id,code=excluded.code,name=excluded.name,description=excluded.description,active=excluded.active,sort_order=excluded.sort_order",
                             _pipe@7 = pog:'query'(_pipe@6),
                             _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(erlang:element(2, Session))),
                             _pipe@9 = pog:parameter(_pipe@8, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"parent_id"))),
@@ -5632,10 +6464,12 @@ dispatch(Req, Db, Origin) ->
                             _pipe@13 = pog:parameter(_pipe@12, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"description"))),
                             _pipe@14 = pog:parameter(_pipe@13, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"active"))),
                             _pipe@15 = pog:parameter(_pipe@14, pog_ffi:coerce(form_int(erlang:element(2, Form), ~"sort_order"))),
-                            _pipe@16 = pog:execute(_pipe@15, Db),
-                            fun(_) ->
-                                wisp:redirect(~"/admin/categories")
-                            end(_pipe@16)
+                            case pog:execute(_pipe@15, Db) of
+                                {ok, _} -> wisp:redirect(~"/admin/categories");
+                                {error, _} ->
+                                    Error_response = wisp:response(400),
+                                    wisp:string_body(Error_response, ~"Kategori kaydedilemedi. Üst kategori aynı acenteye ait olmalı ve ana kategori kodu ortak sözleşmeye uymalı.")
+                            end
                         end)
                     end);
 
@@ -5753,13 +6587,15 @@ dispatch(Req, Db, Origin) ->
                                     wisp:string_body(_pipe@6, ~"Ad ve geçerli bir e-posta veya telefon zorunludur.");
 
                                 false ->
-                                    _pipe@7 = ~"INSERT INTO agency.customers(tenant_id,full_name,email,phone) VALUES($1::uuid,$2,NULLIF(lower(trim($3)),''),$4) ON CONFLICT(tenant_id,email) DO UPDATE SET full_name=excluded.full_name,phone=excluded.phone",
+                                     _pipe@7 = ~"INSERT INTO agency.customers(tenant_id,full_name,email,phone,created_by_user_id,partner_organization_id) VALUES($1::uuid,$2,NULLIF(lower(trim($3)),''),$4,$5::uuid,CASE WHEN $6='sub_agency' THEN (SELECT m.organization_id FROM agency.partner_organization_members m JOIN agency.partner_organizations o ON o.id=m.organization_id AND o.tenant_id=m.tenant_id WHERE m.tenant_id=$1::uuid AND m.user_id=$5::uuid AND o.status='active') ELSE NULL END) ON CONFLICT(tenant_id,email) DO UPDATE SET full_name=excluded.full_name,phone=excluded.phone WHERE $6 IN ('admin','staff') OR ($6='sub_agency' AND agency.partner_can_access($1::uuid,$5::uuid,agency.customers.partner_organization_id))",
                                     _pipe@8 = pog:'query'(_pipe@7),
                                     _pipe@9 = pog:parameter(_pipe@8, pog_ffi:coerce(erlang:element(2, Session))),
                                     _pipe@10 = pog:parameter(_pipe@9, pog_ffi:coerce(Full_name)),
                                     _pipe@11 = pog:parameter(_pipe@10, pog_ffi:coerce(Email)),
                                     _pipe@12 = pog:parameter(_pipe@11, pog_ffi:coerce(Phone)),
-                                    _pipe@13 = pog:execute(_pipe@12, Db),
+                                     _pipe@12a = pog:parameter(_pipe@12, pog_ffi:coerce(erlang:element(3, Session))),
+                                     _pipe@12b = pog:parameter(_pipe@12a, pog_ffi:coerce(erlang:element(5, Session))),
+                                     _pipe@13 = pog:execute(_pipe@12b, Db),
                                     fun(Result) ->
                                         case Result of
                                             {ok, _} ->
@@ -5777,7 +6613,7 @@ dispatch(Req, Db, Origin) ->
                 {get, [~"admin", ~"customers", ~"data"]} ->
                     require_panel_session(Db, Token, ~"customers", fun(Session) ->
                         case begin
-                            _pipe@6 = ~"select id::text,full_name,coalesce(email,''),phone,to_char(created_at,'YYYY-MM-DD HH24:MI') from agency.customers c where c.tenant_id=$1::uuid and ($2 in ('admin','staff','sub_agency') or exists (select 1 from agency.reservations r join agency.listings l on l.id=r.listing_id where r.customer_id=c.id and l.owner_user_id=$3::uuid)) order by created_at desc",
+                             _pipe@6 = ~"select id::text,full_name,coalesce(email,''),phone,to_char(created_at,'YYYY-MM-DD HH24:MI') from agency.customers c where c.tenant_id=$1::uuid and ($2 in ('admin','staff') or ($2='sub_agency' and agency.partner_can_access($1::uuid,$3::uuid,c.partner_organization_id)) or ($2='supplier' and exists (select 1 from agency.reservations r join agency.listings l on l.id=r.listing_id where r.customer_id=c.id and l.owner_user_id=$3::uuid))) order by created_at desc",
                             _pipe@7 = pog:'query'(_pipe@6),
                             _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(erlang:element(2, Session))),
                             _pipe@9 = pog:parameter(_pipe@8, pog_ffi:coerce(erlang:element(5, Session))),
@@ -5803,11 +6639,22 @@ dispatch(Req, Db, Origin) ->
                         end
                     end);
 
+                {post, [~"admin", ~"customers", ~"recommend"]} ->
+                    require_admin(Db, Token, fun(Session) ->
+                        wisp:require_form(Req, fun(Form) ->
+                            Values = erlang:element(2, Form),
+                            panel_operation_execute(Db,
+                              ~"select agency.queue_personal_recommendation($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5)::text",
+                              [erlang:element(2,Session),erlang:element(3,Session),form_value(Values,~"customer_id"),form_value(Values,~"listing_id"),form_value(Values,~"channel")],
+                              ~"/admin/customers")
+                        end)
+                    end);
+
                 {post, [~"admin", ~"reservations"]} ->
                     require_panel_session(Db, Token, ~"reservations", fun(Session) ->
                         wisp:require_form(Req, fun(Form) ->
                             Insert_result = begin
-                                _pipe@6 = ~"INSERT INTO agency.reservations(tenant_id,listing_id,customer_id,reference_code,check_in,check_out,guest_count,total_minor,currency,status) SELECT $1::uuid,NULLIF($2,'')::uuid,NULLIF($3,'')::uuid,$4,NULLIF($5,'')::date,NULLIF($6,'')::date,$7,$8,upper($9),$10 WHERE (NULLIF($2,'') IS NULL OR EXISTS (SELECT 1 FROM agency.listings l WHERE l.id=NULLIF($2,'')::uuid AND l.tenant_id=$1::uuid AND ($11 in ('admin','staff','sub_agency') OR l.owner_user_id=$12::uuid))) AND (NULLIF($3,'') IS NULL OR EXISTS (SELECT 1 FROM agency.customers c WHERE c.id=NULLIF($3,'')::uuid AND c.tenant_id=$1::uuid)) AND EXISTS (SELECT 1 FROM agency.currencies cur WHERE cur.code=upper($9)) AND $10 IN ('inquiry','option','confirmed','cancelled','completed') RETURNING id::text",
+                                _pipe@6 = ~"INSERT INTO agency.reservations(tenant_id,listing_id,customer_id,reference_code,check_in,check_out,guest_count,total_minor,currency,status,created_by_user_id,partner_organization_id) SELECT $1::uuid,NULLIF($2,'')::uuid,NULLIF($3,'')::uuid,$4,NULLIF($5,'')::date,NULLIF($6,'')::date,$7,$8,upper($9),$10,$12::uuid,CASE WHEN $11='sub_agency' THEN (SELECT m.organization_id FROM agency.partner_organization_members m JOIN agency.partner_organizations o ON o.id=m.organization_id AND o.tenant_id=m.tenant_id WHERE m.tenant_id=$1::uuid AND m.user_id=$12::uuid AND o.status='active') ELSE NULL END WHERE (NULLIF($2,'') IS NULL OR EXISTS (SELECT 1 FROM agency.listings l WHERE l.id=NULLIF($2,'')::uuid AND l.tenant_id=$1::uuid AND ($11 in ('admin','staff','sub_agency') OR l.owner_user_id=$12::uuid))) AND (NULLIF($3,'') IS NULL OR EXISTS (SELECT 1 FROM agency.customers c WHERE c.id=NULLIF($3,'')::uuid AND c.tenant_id=$1::uuid AND ($11 in ('admin','staff') OR ($11='sub_agency' AND agency.partner_can_access($1::uuid,$12::uuid,c.partner_organization_id))))) AND ($11<>'sub_agency' OR EXISTS(SELECT 1 FROM agency.partner_organization_members m JOIN agency.partner_organizations o ON o.id=m.organization_id AND o.tenant_id=m.tenant_id WHERE m.tenant_id=$1::uuid AND m.user_id=$12::uuid AND o.status='active')) AND EXISTS (SELECT 1 FROM agency.currencies cur WHERE cur.code=upper($9)) AND $10 IN ('inquiry','option','confirmed','cancelled','completed') RETURNING id::text",
                                 _pipe@7 = pog:'query'(_pipe@6),
                                 _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(erlang:element(2, Session))),
                                 _pipe@9 = pog:parameter(_pipe@8, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"listing_id"))),
@@ -5867,7 +6714,7 @@ dispatch(Req, Db, Origin) ->
                 {get, [~"admin", ~"reservations", ~"data"]} ->
                     require_panel_session(Db, Token, ~"reservations", fun(Session) ->
                         case begin
-                            _pipe@6 = ~"select r.id::text,r.reference_code,coalesce(l.title,''),coalesce(c.full_name,''),coalesce(to_char(r.check_in,'YYYY-MM-DD'),''),coalesce(to_char(r.check_out,'YYYY-MM-DD'),''),r.guest_count::text,r.total_minor::text,r.currency,r.status,r.payment_status from agency.reservations r left join agency.listings l on l.id=r.listing_id left join agency.customers c on c.id=r.customer_id where r.tenant_id=$1::uuid and ($2 in ('admin','staff','sub_agency') or l.owner_user_id=$3::uuid) order by r.created_at desc",
+                            _pipe@6 = ~"select r.id::text,r.reference_code,coalesce(l.title,''),coalesce(c.full_name,''),coalesce(to_char(r.check_in,'YYYY-MM-DD'),''),coalesce(to_char(r.check_out,'YYYY-MM-DD'),''),r.guest_count::text,r.total_minor::text,r.currency,r.status,r.payment_status from agency.reservations r left join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id left join agency.customers c on c.id=r.customer_id and c.tenant_id=r.tenant_id where r.tenant_id=$1::uuid and ($2 in ('admin','staff') or ($2='sub_agency' and agency.partner_can_access($1::uuid,$3::uuid,r.partner_organization_id)) or ($2='supplier' and l.owner_user_id=$3::uuid)) order by r.created_at desc",
                             _pipe@7 = pog:'query'(_pipe@6),
                             _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(erlang:element(2, Session))),
                             _pipe@9 = pog:parameter(_pipe@8, pog_ffi:coerce(erlang:element(5, Session))),
@@ -5936,7 +6783,7 @@ dispatch(Req, Db, Origin) ->
                 {get, [~"admin", ~"reservations", ~"options"]} ->
                     require_panel_session(Db, Token, ~"reservations", fun(Session) ->
                         case begin
-                            _pipe@6 = ~"select coalesce((select json_agg(json_build_object('id',l.id::text,'name',l.title) order by l.title) from agency.listings l where l.tenant_id=$1::uuid and ($2 in ('admin','staff','sub_agency') or l.owner_user_id=$3::uuid)),'[]'::json)::text,coalesce((select json_agg(json_build_object('id',c.id::text,'name',c.full_name) order by c.full_name) from agency.customers c where c.tenant_id=$1::uuid and ($2 in ('admin','staff','sub_agency') or exists (select 1 from agency.reservations r join agency.listings l on l.id=r.listing_id where r.customer_id=c.id and l.owner_user_id=$3::uuid))),'[]'::json)::text",
+                            _pipe@6 = ~"select coalesce((select json_agg(json_build_object('id',l.id::text,'name',l.title) order by l.title) from agency.listings l where l.tenant_id=$1::uuid and ($2 in ('admin','staff','sub_agency') or l.owner_user_id=$3::uuid)),'[]'::json)::text,coalesce((select json_agg(json_build_object('id',c.id::text,'name',c.full_name) order by c.full_name) from agency.customers c where c.tenant_id=$1::uuid and ($2 in ('admin','staff') or ($2='sub_agency' and agency.partner_can_access($1::uuid,$3::uuid,c.partner_organization_id)) or ($2='supplier' and exists (select 1 from agency.reservations r join agency.listings l on l.id=r.listing_id where r.customer_id=c.id and l.owner_user_id=$3::uuid)))),'[]'::json)::text",
                             _pipe@7 = pog:'query'(_pipe@6),
                             _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(erlang:element(2, Session))),
                             _pipe@9 = pog:parameter(_pipe@8, pog_ffi:coerce(erlang:element(5, Session))),
@@ -6018,7 +6865,7 @@ dispatch(Req, Db, Origin) ->
                 {post, [~"admin", ~"settings"]} ->
                     require_admin(Db, Token, fun(Session) ->
                         wisp:require_form(Req, fun(Form) ->
-                            All_keys = [~"brand_name", ~"contact_email", ~"contact_phone", ~"whatsapp", ~"address", ~"logo_url", ~"logo_dark_url", ~"favicon_url", ~"default_language", ~"default_currency", ~"tursab_no", ~"tursab_verify_url", ~"tax_office", ~"tax_no", ~"active_payment_gateway", ~"parampos_client_code", ~"parampos_username", ~"parampos_password", ~"parampos_guid", ~"bank_iban_try", ~"bank_iban_eur", ~"bank_iban_usd", ~"bank_iban_gbp", ~"bank_instructions", ~"cash_payment_enabled", ~"ai_provider", ~"ai_api_key", ~"ai_model", ~"ai_temperature", ~"ai_auto_seo_enabled", ~"netgsm_usercode", ~"netgsm_password", ~"netgsm_header", ~"sms_template_booking", ~"sms_template_reminder", ~"sms_enabled", ~"tcmb_auto_sync", ~"currency_spread_percent", ~"ga4_measurement_id", ~"gtm_id", ~"meta_pixel_id", ~"tiktok_pixel_id", ~"google_maps_api_key", ~"map_default_lat", ~"map_default_lng", ~"map_default_zoom", ~"smtp_host", ~"smtp_username", ~"smtp_password", ~"integration_endpoint", ~"contract_distance_selling", ~"contract_cancellation_refund", ~"contract_privacy_policy", ~"contract_cookie_policy", ~"contract_templates_json", ~"contract_general_json", ~"ai_chat_enabled", ~"ai_followup_enabled", ~"ai_cross_sell_enabled", ~"ai_region_content_enabled", ~"social_meta_account", ~"social_global_account", ~"social_language_routing"],
+                            All_keys = [~"brand_name", ~"contact_email", ~"contact_phone", ~"whatsapp", ~"tawk_embed_code", ~"address", ~"logo_url", ~"logo_dark_url", ~"favicon_url", ~"default_language", ~"default_currency", ~"tursab_no", ~"tursab_verify_url", ~"tax_office", ~"tax_no", ~"active_payment_gateway", ~"parampos_client_code", ~"parampos_username", ~"parampos_password", ~"parampos_guid", ~"bank_iban_try", ~"bank_iban_eur", ~"bank_iban_usd", ~"bank_iban_gbp", ~"bank_instructions", ~"cash_payment_enabled", ~"ai_provider", ~"ai_api_key", ~"ai_model", ~"ai_temperature", ~"ai_auto_seo_enabled", ~"netgsm_usercode", ~"netgsm_password", ~"netgsm_header", ~"sms_template_booking", ~"sms_template_reminder", ~"sms_enabled", ~"tcmb_auto_sync", ~"currency_spread_percent", ~"ga4_measurement_id", ~"gtm_id", ~"meta_pixel_id", ~"tiktok_pixel_id", ~"google_maps_api_key", ~"map_default_lat", ~"map_default_lng", ~"map_default_zoom", ~"smtp_host", ~"smtp_username", ~"smtp_password", ~"integration_endpoint", ~"contract_distance_selling", ~"contract_cancellation_refund", ~"contract_privacy_policy", ~"contract_cookie_policy", ~"contract_templates_json", ~"contract_general_json", ~"ai_chat_enabled", ~"ai_followup_enabled", ~"ai_cross_sell_enabled", ~"ai_region_content_enabled", ~"social_meta_account", ~"social_global_account", ~"social_language_routing"],
                             gleam@list:each(All_keys, fun(K) ->
                                 case gleam@list:key_find(erlang:element(2, Form), K) of
                                     {ok, V} ->
@@ -6082,7 +6929,7 @@ dispatch(Req, Db, Origin) ->
                 {get, [~"admin", ~"settings", ~"data"]} ->
                     require_admin(Db, Token, fun(Session) ->
                         case begin
-                            _pipe@6 = ~"select coalesce(json_object_agg(key,value),'{}'::json)::text from agency.settings where tenant_id=$1::uuid and key not in ('parampos_password','smtp_password','ai_api_key','netgsm_password')",
+                            _pipe@6 = ~"select coalesce(json_object_agg(key,value),'{}'::json)::text from agency.settings where tenant_id=$1::uuid and key not in ('parampos_password','parampos_guid','parampos_password_sealed','parampos_guid_sealed','smtp_password','smtp_password_sealed','ai_api_key','ai_api_key_sealed','netgsm_password','netgsm_password_sealed')",
                             _pipe@7 = pog:'query'(_pipe@6),
                             _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(erlang:element(2, Session))),
                             _pipe@9 = pog:returning(_pipe@8, settings_decoder()),
@@ -6109,34 +6956,36 @@ dispatch(Req, Db, Origin) ->
                 {post, [~"admin", ~"integrations"]} ->
                     require_admin(Db, Token, fun(Session) ->
                         wisp:require_form(Req, fun(Form) ->
-                            _pipe@6 = ~"INSERT INTO agency.integrations(tenant_id,provider,kind,credentials,active) VALUES($1::uuid,$2,$3,jsonb_build_object('client_code',$4,'username',$5,'password',$6,'guid',$7,'host',$8,'endpoint',$9,'api_key',$10,'provider_name',$11,'agency_code',$12,'token',$13,'margin_percent',$14,'netgsm_user',$15,'netgsm_pass',$16,'netgsm_header',$17,'whatsapp_phone_id',$18,'whatsapp_token',$19,'access_token',$20,'page_id',$21,'instagram_id',$22,'threads_user_id',$23,'pinterest_token',$24,'pinterest_board_id',$25),$26::text::boolean) ON CONFLICT(tenant_id,provider,kind) DO UPDATE SET credentials=agency.integrations.credentials || coalesce((select jsonb_object_agg(k,v) from jsonb_each_text(excluded.credentials) where v <> ''),'{}'::jsonb),active=excluded.active",
+                            _pipe@6 = ~"INSERT INTO agency.integrations(tenant_id,provider,kind,credentials,active) VALUES($1::uuid,$2,$3,jsonb_build_object('client_code',$4,'username',$5,'password_sealed',$6,'guid',$7,'host',$8,'endpoint',$9,'api_key_sealed',$10,'provider_name',$11,'agency_code',$12,'token_sealed',$13,'margin_percent',$14,'netgsm_user',$15,'netgsm_pass_sealed',$16,'netgsm_header',$17,'whatsapp_phone_id',$18,'whatsapp_token_sealed',$19,'access_token_sealed',$20,'page_id',$21,'instagram_id',$22,'threads_user_id',$23,'pinterest_token_sealed',$24,'pinterest_board_id',$25,'whatsapp_recommendation_template',$26,'whatsapp_recommendation_language',$27),$28::text::boolean) ON CONFLICT(tenant_id,provider,kind) DO UPDATE SET credentials=(agency.integrations.credentials - 'password' - 'api_key' - 'token' - 'netgsm_pass' - 'whatsapp_token' - 'access_token' - 'pinterest_token') || coalesce((select jsonb_object_agg(k,v) from jsonb_each_text(excluded.credentials) where v <> ''),'{}'::jsonb),active=excluded.active",
                             _pipe@7 = pog:'query'(_pipe@6),
                             _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(erlang:element(2, Session))),
                             _pipe@9 = pog:parameter(_pipe@8, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"provider"))),
                             _pipe@10 = pog:parameter(_pipe@9, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"kind"))),
                             _pipe@11 = pog:parameter(_pipe@10, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"client_code"))),
                             _pipe@12 = pog:parameter(_pipe@11, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"username"))),
-                            _pipe@13 = pog:parameter(_pipe@12, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"password"))),
+                            _pipe@13 = pog:parameter(_pipe@12, pog_ffi:coerce(integration_secret(erlang:element(2, Session), ~"password", form_value(erlang:element(2, Form), ~"password")))),
                             _pipe@14 = pog:parameter(_pipe@13, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"guid"))),
                             _pipe@15 = pog:parameter(_pipe@14, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"host"))),
                             _pipe@16 = pog:parameter(_pipe@15, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"endpoint"))),
-                            _pipe@17 = pog:parameter(_pipe@16, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"api_key"))),
+                            _pipe@17 = pog:parameter(_pipe@16, pog_ffi:coerce(integration_secret(erlang:element(2, Session), ~"api_key", form_value(erlang:element(2, Form), ~"api_key")))),
                             _pipe@18 = pog:parameter(_pipe@17, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"provider_name"))),
                             _pipe@19 = pog:parameter(_pipe@18, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"agency_code"))),
-                            _pipe@20 = pog:parameter(_pipe@19, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"token"))),
+                            _pipe@20 = pog:parameter(_pipe@19, pog_ffi:coerce(integration_secret(erlang:element(2, Session), ~"token", form_value(erlang:element(2, Form), ~"token")))),
                             _pipe@21 = pog:parameter(_pipe@20, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"margin_percent"))),
                             _pipe@22 = pog:parameter(_pipe@21, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"netgsm_user"))),
-                            _pipe@23 = pog:parameter(_pipe@22, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"netgsm_pass"))),
+                            _pipe@23 = pog:parameter(_pipe@22, pog_ffi:coerce(integration_secret(erlang:element(2, Session), ~"netgsm_pass", form_value(erlang:element(2, Form), ~"netgsm_pass")))),
                             _pipe@24 = pog:parameter(_pipe@23, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"netgsm_header"))),
                             _pipe@25 = pog:parameter(_pipe@24, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"whatsapp_phone_id"))),
-                            _pipe@26 = pog:parameter(_pipe@25, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"whatsapp_token"))),
-                            _pipe@27 = pog:parameter(_pipe@26, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"access_token"))),
+                            _pipe@26 = pog:parameter(_pipe@25, pog_ffi:coerce(integration_secret(erlang:element(2, Session), ~"whatsapp_token", form_value(erlang:element(2, Form), ~"whatsapp_token")))),
+                            _pipe@27 = pog:parameter(_pipe@26, pog_ffi:coerce(integration_secret(erlang:element(2, Session), ~"access_token", form_value(erlang:element(2, Form), ~"access_token")))),
                             _pipe@28 = pog:parameter(_pipe@27, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"page_id"))),
                             _pipe@29 = pog:parameter(_pipe@28, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"instagram_id"))),
                             _pipe@30 = pog:parameter(_pipe@29, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"threads_user_id"))),
-                            _pipe@31 = pog:parameter(_pipe@30, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"pinterest_token"))),
+                            _pipe@31 = pog:parameter(_pipe@30, pog_ffi:coerce(integration_secret(erlang:element(2, Session), ~"pinterest_token", form_value(erlang:element(2, Form), ~"pinterest_token")))),
                             _pipe@32 = pog:parameter(_pipe@31, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"pinterest_board_id"))),
-                            _pipe@33 = pog:parameter(_pipe@32, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"active"))),
+                            _pipe@33a = pog:parameter(_pipe@32, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"whatsapp_recommendation_template"))),
+                            _pipe@33b = pog:parameter(_pipe@33a, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"whatsapp_recommendation_language"))),
+                            _pipe@33 = pog:parameter(_pipe@33b, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"active"))),
                             _pipe@34 = pog:execute(_pipe@33, Db),
                             fun(_) ->
                                 wisp:redirect(~"/admin/integrations")
@@ -6313,7 +7162,7 @@ dispatch(Req, Db, Origin) ->
                     require_admin(Db, Token, fun(Session) ->
                         wisp:require_form(Req, fun(Form) ->
                             Page_result = begin
-                                _pipe@6 = ~"WITH upsert AS (INSERT INTO agency.pages AS target(tenant_id,slug,template,status,seo,published_at) VALUES($1::uuid,$2,$3,$4,jsonb_build_object('title',$5::text,'description',$6::text,'keywords',$7::text,'category_scope',$8::text),case when $4='published' then now() else null end) ON CONFLICT(tenant_id,slug) DO UPDATE SET template=excluded.template,status=excluded.status,seo=excluded.seo,published_at=case when excluded.status='published' then coalesce(target.published_at,now()) else null end RETURNING id), removed AS (DELETE FROM agency.page_blocks WHERE page_id=(SELECT id FROM upsert)), added AS (INSERT INTO agency.page_blocks(page_id,block_type,sort_order,content) SELECT (SELECT id FROM upsert), coalesce(x->>'type','rich_text'), (row_number() over () - 1)::int, coalesce(x - 'type','{}'::jsonb) FROM jsonb_array_elements(CASE WHEN jsonb_typeof($9::jsonb)='array' THEN $9::jsonb ELSE '[]'::jsonb END) x RETURNING id) SELECT 1",
+                                _pipe@6 = ~"WITH upsert AS (INSERT INTO agency.pages AS target(tenant_id,slug,template,status,seo,published_at) VALUES($1::uuid,$2,$3,$4,jsonb_build_object('title',$5::text,'description',$6::text,'keywords',$7::text,'category_scope',$8::text,'blog_category',$9::text,'region_slug',$10::text,'cover_image',$11::text),case when $4='published' then now() else null end) ON CONFLICT(tenant_id,slug) DO UPDATE SET template=excluded.template,status=excluded.status,seo=excluded.seo,published_at=case when excluded.status='published' then coalesce(target.published_at,now()) else null end RETURNING id), removed AS (DELETE FROM agency.page_blocks WHERE page_id=(SELECT id FROM upsert)), added AS (INSERT INTO agency.page_blocks(page_id,block_type,sort_order,content) SELECT (SELECT id FROM upsert), coalesce(x->>'type','rich_text'), (row_number() over () - 1)::int, coalesce(x - 'type','{}'::jsonb) FROM jsonb_array_elements(CASE WHEN jsonb_typeof($12::jsonb)='array' THEN $12::jsonb ELSE '[]'::jsonb END) x RETURNING id) SELECT 1",
                                 _pipe@7 = pog:'query'(_pipe@6),
                                 _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(erlang:element(2, Session))),
                                 _pipe@9 = pog:parameter(_pipe@8, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"slug"))),
@@ -6323,8 +7172,11 @@ dispatch(Req, Db, Origin) ->
                                 _pipe@13 = pog:parameter(_pipe@12, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"seo_description"))),
                                 _pipe@14 = pog:parameter(_pipe@13, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"seo_keywords"))),
                                 _pipe@15 = pog:parameter(_pipe@14, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"category_scope"))),
-                                _pipe@16 = pog:parameter(_pipe@15, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"blocks_json"))),
-                                pog:execute(_pipe@16, Db)
+                                CmsQ1 = pog:parameter(_pipe@15, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"blog_category"))),
+                                CmsQ2 = pog:parameter(CmsQ1, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"region_slug"))),
+                                CmsQ3 = pog:parameter(CmsQ2, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"cover_image"))),
+                                CmsQ4 = pog:parameter(CmsQ3, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"blocks_json"))),
+                                pog:execute(CmsQ4, Db)
                             end,
                             case Page_result of
                                 {ok, _} ->
@@ -6362,7 +7214,7 @@ dispatch(Req, Db, Origin) ->
                 {get, [~"admin", ~"cms", ~"data"]} ->
                     require_admin(Db, Token, fun(Session) ->
                         case begin
-                            _pipe@6 = ~"select id::text,slug,template,status,coalesce(seo->>'title',''),coalesce(to_char(published_at,'YYYY-MM-DD HH24:MI'),'') from agency.pages where tenant_id=$1::uuid order by slug",
+                            _pipe@6 = ~"select id::text,slug,template,status,coalesce(seo->>'title',''),coalesce(to_char(published_at,'YYYY-MM-DD HH24:MI'),''),coalesce(seo,'{}'::jsonb)::text from agency.pages where tenant_id=$1::uuid order by slug",
                             _pipe@7 = pog:'query'(_pipe@6),
                             _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(erlang:element(2, Session))),
                             _pipe@9 = pog:returning(_pipe@8, page_decoder()),
@@ -6371,7 +7223,7 @@ dispatch(Req, Db, Origin) ->
                             {ok, Result} ->
                                 _pipe@10 = erlang:element(3, Result),
                                 _pipe@11 = gleam@json:array(_pipe@10, fun(Row) ->
-                                    gleam@json:object([{~"id", gleam@json:string(erlang:element(1, Row))}, {~"slug", gleam@json:string(erlang:element(2, Row))}, {~"template", gleam@json:string(erlang:element(3, Row))}, {~"status", gleam@json:string(erlang:element(4, Row))}, {~"seoTitle", gleam@json:string(erlang:element(5, Row))}, {~"publishedAt", gleam@json:string(erlang:element(6, Row))}])
+                                    gleam@json:object([{~"id", gleam@json:string(erlang:element(1, Row))}, {~"slug", gleam@json:string(erlang:element(2, Row))}, {~"template", gleam@json:string(erlang:element(3, Row))}, {~"status", gleam@json:string(erlang:element(4, Row))}, {~"seoTitle", gleam@json:string(erlang:element(5, Row))}, {~"publishedAt", gleam@json:string(erlang:element(6, Row))}, {~"seo", gleam@json:string(erlang:element(7, Row))}])
                                 end),
                                 _pipe@12 = gleam@json:to_string(_pipe@11),
                                 fun(Body) ->
@@ -6477,12 +7329,22 @@ dispatch(Req, Db, Origin) ->
                 {post, [~"admin", ~"ai"]} ->
                     require_admin(Db, Token, fun(Session) ->
                         wisp:require_form(Req, fun(Form) ->
+                            Ai_token = case gleam@string:trim(form_value(erlang:element(2, Form), ~"api_key")) of
+                                ~"" ->
+                                    ~"";
+
+                                Token_value ->
+                                    case 'nexus_agency@secrets':seal_for_tenant(erlang:element(2, Session), ~"ai_provider.api_key", Token_value) of
+                                        {ok, Sealed_token} -> Sealed_token;
+                                        {error, _} -> ~""
+                                    end
+                            end,
                             _pipe@6 = ~"INSERT INTO agency.ai_providers(tenant_id,provider,model,token_encrypted,active) VALUES($1::uuid,$2,$3,$4,$5::text::boolean) ON CONFLICT(tenant_id,provider,model) DO UPDATE SET token_encrypted=case when excluded.token_encrypted='' then agency.ai_providers.token_encrypted else excluded.token_encrypted end,active=excluded.active",
                             _pipe@7 = pog:'query'(_pipe@6),
                             _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(erlang:element(2, Session))),
                             _pipe@9 = pog:parameter(_pipe@8, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"provider"))),
                             _pipe@10 = pog:parameter(_pipe@9, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"model"))),
-                            _pipe@11 = pog:parameter(_pipe@10, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"api_key"))),
+                            _pipe@11 = pog:parameter(_pipe@10, pog_ffi:coerce(Ai_token)),
                             _pipe@12 = pog:parameter(_pipe@11, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"active"))),
                             _pipe@13 = pog:execute(_pipe@12, Db),
                             fun(_) ->
@@ -6642,7 +7504,7 @@ dispatch(Req, Db, Origin) ->
                 {get, [~"admin", ~"campaigns", ~"data"]} ->
                     require_campaign_access(Db, Token, fun(Session) ->
                         case begin
-                            _pipe@6 = ~"select coalesce((select json_agg(json_build_object('name',name,'kind',kind,'audience',coalesce(rules->>'audience','all'),'startsAt',coalesce(to_char(starts_at,'YYYY-MM-DD HH24:MI'),''),'endsAt',coalesce(to_char(ends_at,'YYYY-MM-DD HH24:MI'),''),'discount',coalesce(discount_percent::text,''),'status',case when active then 'Aktif' else 'Pasif' end) order by starts_at desc nulls last) from agency.campaigns where tenant_id=$1::uuid and ($2 <> 'supplier' or coalesce(rules->>'audience','all')='supplier')),'[]'::json)::text,coalesce((select json_agg(json_build_object('code',code,'audience',coalesce(audience,'all'),'discount',coalesce(discount_percent::text,''),'usageLimit',coalesce(usage_limit::text,'Sınırsız'),'usedCount',used_count::text,'endsAt',coalesce(to_char(ends_at,'YYYY-MM-DD HH24:MI'),''),'status',case when active then 'Aktif' else 'Pasif' end) order by code) from agency.coupons where tenant_id=$1::uuid and ($2 <> 'supplier' or audience='supplier')),'[]'::json)::text",
+                            _pipe@6 = ~"select coalesce((select json_agg(json_build_object('id',id::text,'name',name,'kind',kind,'audience',coalesce(rules->>'audience','all'),'startsAt',coalesce(to_char(starts_at,'YYYY-MM-DD HH24:MI'),''),'endsAt',coalesce(to_char(ends_at,'YYYY-MM-DD HH24:MI'),''),'discount',coalesce(discount_percent::text,''),'status',case when active then 'Aktif' else 'Pasif' end) order by starts_at desc nulls last) from agency.campaigns where tenant_id=$1::uuid and ($2 <> 'supplier' or coalesce(rules->>'audience','all')='supplier')),'[]'::json)::text,coalesce((select json_agg(json_build_object('code',code,'audience',coalesce(audience,'all'),'discount',coalesce(discount_percent::text,''),'usageLimit',coalesce(usage_limit::text,'Sınırsız'),'usedCount',used_count::text,'endsAt',coalesce(to_char(ends_at,'YYYY-MM-DD HH24:MI'),''),'status',case when active then 'Aktif' else 'Pasif' end) order by code) from agency.coupons where tenant_id=$1::uuid and ($2 <> 'supplier' or audience='supplier')),'[]'::json)::text",
                             _pipe@7 = pog:'query'(_pipe@6),
                             _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(erlang:element(2, Session))),
                             _pipe@9 = pog:parameter(_pipe@8, pog_ffi:coerce(erlang:element(5, Session))),
@@ -7046,10 +7908,12 @@ dispatch(Req, Db, Origin) ->
                 {get, [~"admin", ~"offers", ~"data"]} ->
                     require_panel_session(Db, Token, ~"offers", fun(Session) ->
                         case begin
-                            _pipe@6 = ~"select o.id::text,o.reference_code,coalesce(c.full_name,'Misafir'),coalesce(l.title,'Özel İlan'),o.total_minor::text,o.currency,o.dates_text,o.status from agency.offers o left join agency.customers c on c.id=o.customer_id left join agency.listings l on l.id=o.listing_id where o.tenant_id=$1::uuid order by o.created_at desc",
+                            _pipe@6 = ~"select o.id::text,o.reference_code,coalesce(c.full_name,'Misafir'),coalesce(l.title,'Özel İlan'),o.total_minor::text,o.currency,o.dates_text,o.status from agency.offers o left join agency.customers c on c.id=o.customer_id and c.tenant_id=o.tenant_id left join agency.listings l on l.id=o.listing_id and l.tenant_id=o.tenant_id where o.tenant_id=$1::uuid and ($2 in ('admin','staff') or agency.partner_can_access($1::uuid,$3::uuid,o.partner_organization_id)) order by o.created_at desc",
                             _pipe@7 = pog:'query'(_pipe@6),
                             _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(erlang:element(2, Session))),
-                            _pipe@9 = pog:returning(_pipe@8, offer_decoder()),
+                            _pipe@8a = pog:parameter(_pipe@8, pog_ffi:coerce(erlang:element(5, Session))),
+                            _pipe@8b = pog:parameter(_pipe@8a, pog_ffi:coerce(erlang:element(3, Session))),
+                            _pipe@9 = pog:returning(_pipe@8b, offer_decoder()),
                             pog:execute(_pipe@9, Db)
                         end of
                             {ok, Result} ->
@@ -7073,7 +7937,7 @@ dispatch(Req, Db, Origin) ->
                 {post, [~"admin", ~"offers"]} ->
                     require_panel_session(Db, Token, ~"offers", fun(Session) ->
                         wisp:require_form(Req, fun(Form) ->
-                            _pipe@6 = ~"INSERT INTO agency.offers(tenant_id, reference_code, dates_text, total_minor, currency, notes, status) VALUES($1::uuid, $2, $3, greatest($4,0), coalesce((select cur.code from agency.currencies cur where cur.code=upper($5) limit 1),'TRY'), $6, 'sent') ON CONFLICT(reference_code) DO UPDATE SET dates_text=excluded.dates_text, total_minor=excluded.total_minor, currency=excluded.currency, notes=excluded.notes WHERE agency.offers.tenant_id=$1::uuid",
+                            _pipe@6 = ~"INSERT INTO agency.offers(tenant_id, reference_code, dates_text, total_minor, currency, notes, status, created_by_user_id, partner_organization_id) VALUES($1::uuid, $2, $3, greatest($4,0), coalesce((select cur.code from agency.currencies cur where cur.code=upper($5) limit 1),'TRY'), $6, 'sent', $7::uuid, CASE WHEN $8='sub_agency' THEN (SELECT m.organization_id FROM agency.partner_organization_members m JOIN agency.partner_organizations o ON o.id=m.organization_id AND o.tenant_id=m.tenant_id WHERE m.tenant_id=$1::uuid AND m.user_id=$7::uuid AND o.status='active') ELSE NULL END) ON CONFLICT(reference_code) DO UPDATE SET dates_text=excluded.dates_text, total_minor=excluded.total_minor, currency=excluded.currency, notes=excluded.notes WHERE agency.offers.tenant_id=$1::uuid AND ($8 IN ('admin','staff') OR ($8='sub_agency' AND agency.partner_can_access($1::uuid,$7::uuid,agency.offers.partner_organization_id)))",
                             _pipe@7 = pog:'query'(_pipe@6),
                             _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(erlang:element(2, Session))),
                             _pipe@9 = pog:parameter(_pipe@8, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"reference_code"))),
@@ -7081,7 +7945,9 @@ dispatch(Req, Db, Origin) ->
                             _pipe@11 = pog:parameter(_pipe@10, pog_ffi:coerce(form_int(erlang:element(2, Form), ~"total_minor"))),
                             _pipe@12 = pog:parameter(_pipe@11, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"currency"))),
                             _pipe@13 = pog:parameter(_pipe@12, pog_ffi:coerce(form_value(erlang:element(2, Form), ~"notes"))),
-                            _pipe@14 = pog:execute(_pipe@13, Db),
+                            _pipe@13a = pog:parameter(_pipe@13, pog_ffi:coerce(erlang:element(3, Session))),
+                            _pipe@13b = pog:parameter(_pipe@13a, pog_ffi:coerce(erlang:element(5, Session))),
+                            _pipe@14 = pog:execute(_pipe@13b, Db),
                             fun(_) ->
                                 wisp:redirect(~"/admin/offers")
                             end(_pipe@14)
@@ -7110,6 +7976,28 @@ dispatch(Req, Db, Origin) ->
                     _pipe@7 = fun gleam@http@response:set_header/3(_pipe@6, ~"cache-control", ~"no-store"),
                     wisp:json_body(_pipe@7, ~"{\"service\":\"nexus-agency\",\"database\":\"ready\",\"environment\":\"development\"}");
 
+                {get, [~"api", ~"public", ~"support-settings"]} ->
+                    case public_tenant_id(Db, Req) of
+                        {ok, Support_tenant_id} ->
+                            Support_query = pog:'query'(~"select coalesce(json_object_agg(key,value),'{}'::json)::text from agency.settings where tenant_id=$1::uuid and key in ('contact_phone','whatsapp','tawk_embed_code')"),
+                            Support_query@1 = pog:parameter(Support_query, pog_ffi:coerce(Support_tenant_id)),
+                            Support_query@2 = pog:returning(Support_query@1, settings_decoder()),
+                            case pog:execute(Support_query@2, Db) of
+                                {ok, Support_result} ->
+                                    Support_body = gleam@result:unwrap(gleam@list:first(erlang:element(3, Support_result)), ~"{}"),
+                                    Support_response = wisp:ok(),
+                                    Support_response@1 = fun gleam@http@response:set_header/3(Support_response, ~"cache-control", ~"no-store"),
+                                    wisp:json_body(Support_response@1, Support_body);
+                                {error, _} ->
+                                    wisp:json_body(wisp:ok(), ~"{}")
+                            end;
+                        {error, _} ->
+                            wisp:json_body(wisp:ok(), ~"{}")
+                    end;
+
+                {get, [~"api", ~"public", ~"search-quotes"]} ->
+                    public_search_quotes(Req, Db);
+
                 {get, [~"v1", ~"health"]} ->
                     _pipe@8 = wisp:ok(),
                     _pipe@9 = fun gleam@http@response:set_header/3(_pipe@8, ~"cache-control", ~"no-store"),
@@ -7135,6 +8023,11 @@ dispatch(Req, Db, Origin) ->
                     _pipe@14 = fun gleam@http@response:set_header/3(_pipe@13, ~"content-type", ~"application/xml; charset=utf-8"),
                     wisp:string_body(_pipe@14, <<<<<<<<<<<<<<<<<<<<"<?xml version=\"1.0\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"><url><loc>"/utf8, Origin/binary>>/binary, "/</loc></url><url><loc>"/utf8>>/binary, Origin/binary>>/binary, "/urunler</loc></url><url><loc>"/utf8>>/binary, Origin/binary>>/binary, "/iletisim</loc></url>"/utf8>>/binary, (category_sitemap_urls(Origin))/binary>>/binary, (cms_sitemap_urls(Db, Origin, Tenant_id))/binary>>/binary, (listing_sitemap_urls(Db, Origin, Tenant_id))/binary>>/binary, "</urlset>"/utf8>>);
 
+                {get, [~"sitemap-index.xml"]} ->
+                    _pipe@15 = wisp:ok(),
+                    _pipe@16 = fun gleam@http@response:set_header/3(_pipe@15, ~"content-type", ~"application/xml; charset=utf-8"),
+                    wisp:string_body(_pipe@16, <<"<?xml version=\"1.0\"?><sitemapindex xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"><sitemap><loc>"/utf8, Origin/binary, "/sitemap.xml</loc></sitemap><sitemap><loc>"/utf8, Origin/binary, "/sitemap-categories.xml</loc></sitemap><sitemap><loc>"/utf8, Origin/binary, "/sitemap-content.xml</loc></sitemap><sitemap><loc>"/utf8, Origin/binary, "/sitemap-listings.xml</loc></sitemap></sitemapindex>"/utf8>>);
+
                 {get, []} ->
                     demo_home_page(Req, Db, Origin);
 
@@ -7142,10 +8035,7 @@ dispatch(Req, Db, Origin) ->
                     public_products_page(Req, Db, Origin);
 
                 {get, [~"urunler", Listing_id@1]} ->
-                    public_product_detail_page(Req, Db, Origin, Listing_id@1);
-
-                {get, [~"kategori", Category_slug]} ->
-                    public_category_page(Req, Db, Origin, Category_slug);
+                    public_legacy_listing_redirect(Req, Db, Listing_id@1);
 
                 {post, [~"api", ~"public", ~"checkout", ~"start"]} ->
                     public_checkout_start(Req, Db);
@@ -7173,34 +8063,81 @@ dispatch(Req, Db, Origin) ->
                     public_inquiry(Req, Db);
 
                 {get, [~"hesap"]} ->
-                    public_account_page(Req, Db, Origin);
+                    public_customer_account_page(Req, Db, Origin);
 
-                {get, [~"konaklama-kategoriler"]} ->
-                    public_category_page(Req, Db, Origin, ~"hotel");
+                {get, [~"api", ~"public", ~"account"]} ->
+                    public_customer_account_data(Req, Db);
 
-                {get, [~"deneyimler"]} ->
-                    public_category_page(Req, Db, Origin, ~"tour");
+                {get, [~"api", ~"public", ~"account", ~"benefits"]} ->
+                    public_customer_account_benefits(Req, Db);
 
-                {get, [~"emlak"]} ->
-                    public_category_page(Req, Db, Origin, ~"holiday_home");
+                {get, [~"api", ~"public", ~"account", ~"portal"]} ->
+                    public_customer_portal_data(Req, Db);
+
+                {get, [~"api", ~"public", ~"account", ~"recommendations"]} ->
+                    public_customer_recommendations(Req, Db);
+
+                {get, [~"api", ~"webhooks", ~"whatsapp"]} ->
+                    whatsapp_webhook_verify(Req);
+
+                {post, [~"api", ~"webhooks", ~"whatsapp"]} ->
+                    whatsapp_webhook_status(Req, Db);
+
+                {post, [~"api", ~"public", ~"account", ~"portal", Resource]} ->
+                    public_customer_portal_save(Req, Db, Resource);
+
 
                 {get, [~"yazarlar"]} ->
                     public_authors_page(Req, Db, Origin);
 
-                {get, [~"arac"]} ->
-                    public_category_page(Req, Db, Origin, ~"car");
+                {get, [~"hotel"]} -> public_category_page(Req, Db, Origin, ~"hotel");
+                {get, [~"otel"]} -> public_category_page(Req, Db, Origin, ~"hotel");
+                {get, [~"holiday-home"]} -> public_category_page(Req, Db, Origin, ~"holiday_home");
+                {get, [~"tatil-evi"]} -> public_category_page(Req, Db, Origin, ~"holiday_home");
+                {get, [~"yacht"]} -> public_category_page(Req, Db, Origin, ~"yacht");
+                {get, [~"yat"]} -> public_category_page(Req, Db, Origin, ~"yacht");
+                {get, [~"tour"]} -> public_category_page(Req, Db, Origin, ~"tour");
+                {get, [~"tur"]} -> public_category_page(Req, Db, Origin, ~"tour");
+                {get, [~"activity"]} -> public_category_page(Req, Db, Origin, ~"activity");
+                {get, [~"aktivite"]} -> public_category_page(Req, Db, Origin, ~"activity");
+                {get, [~"flight"]} -> public_category_page(Req, Db, Origin, ~"flight");
+                {get, [~"ucus"]} -> public_category_page(Req, Db, Origin, ~"flight");
+                {get, [~"car"]} -> public_category_page(Req, Db, Origin, ~"car");
+                {get, [~"arac"]} -> public_category_page(Req, Db, Origin, ~"car");
+                {get, [~"cruise"]} -> public_category_page(Req, Db, Origin, ~"cruise");
+                {get, [~"kruvaziyer"]} -> public_category_page(Req, Db, Origin, ~"cruise");
+                {get, [~"pilgrimage"]} -> public_category_page(Req, Db, Origin, ~"pilgrimage");
+                {get, [~"hac-umre"]} -> public_category_page(Req, Db, Origin, ~"pilgrimage");
+                {get, [~"visa"]} -> public_category_page(Req, Db, Origin, ~"visa");
+                {get, [~"vize"]} -> public_category_page(Req, Db, Origin, ~"visa");
+                {get, [~"ferry"]} -> public_category_page(Req, Db, Origin, ~"ferry");
+                {get, [~"feribot"]} -> public_category_page(Req, Db, Origin, ~"ferry");
+                {get, [~"transfer"]} -> public_category_page(Req, Db, Origin, ~"transfer");
+                {get, [~"beach"]} -> public_category_page(Req, Db, Origin, ~"beach");
+                {get, [~"sezlong"]} -> public_category_page(Req, Db, Origin, ~"beach");
+                {get, [~"cinema"]} -> public_category_page(Req, Db, Origin, ~"cinema");
+                {get, [~"sinema"]} -> public_category_page(Req, Db, Origin, ~"cinema");
+                {get, [~"event"]} -> public_category_page(Req, Db, Origin, ~"event");
+                {get, [~"etkinlik"]} -> public_category_page(Req, Db, Origin, ~"event");
+                {get, [~"restaurant"]} -> public_category_page(Req, Db, Origin, ~"restaurant");
+                {get, [~"restoran"]} -> public_category_page(Req, Db, Origin, ~"restaurant");
+                {get, [~"bus"]} -> public_category_page(Req, Db, Origin, ~"bus");
+                {get, [~"otobus"]} -> public_category_page(Req, Db, Origin, ~"bus");
 
-                {get, [~"ucus"]} ->
-                    public_category_page(Req, Db, Origin, ~"flight");
-
-                {get, [~"otobus"]} ->
-                    public_category_page(Req, Db, Origin, ~"bus");
+                {get, [~"kategori", _]} ->
+                    wisp:string_body(wisp:response(404), ~"Sayfa bulunamadı");
 
                 {get, [Parent, Child]} ->
-                    public_cms_page(Req, Db, Origin, <<<<Parent/binary, "/"/utf8>>/binary, Child/binary>>);
+                    case public_listing_category_path(Parent) of
+                        undefined -> public_cms_page(Req, Db, Origin, <<<<Parent/binary, "/"/utf8>>/binary, Child/binary>>);
+                        Category -> public_listing_slug_page(Req, Db, Origin, Category, Child)
+                    end;
 
                 {get, [Slug]} ->
-                    public_cms_page(Req, Db, Origin, Slug);
+                    case localized_category_code(Slug) of
+                        undefined -> public_cms_page(Req, Db, Origin, Slug);
+                        Category -> public_category_page(Req, Db, Origin, Category)
+                    end;
 
                 {_, _} ->
                     _pipe@16 = wisp:response(404),
@@ -7298,3 +8235,1267 @@ handle(Req, Db, Origin) ->
                     end
             end
     end.
+-file("src\\nexus_agency\\router.gleam", 5764).
+category_hero_mosaic(Html, Category, Config) ->
+    Images = case Category of
+        ~"hotel" -> [~"pexels-photo-6129967.home.webp", ~"pexels-photo-261394.home.webp", ~"pexels-photo-2861361.home.webp"];
+        ~"holiday_home" -> [~"pexels-photo-6129967.home.webp", ~"pexels-photo-1320686.home.webp", ~"pexels-photo-7163619.home.webp"];
+        ~"yacht" -> [~"pexels-photo-131423.home.webp", ~"pexels-photo-186077.home.webp", ~"pexels-photo-1660995.home.webp"];
+        ~"activity" -> [~"pexels-photo-247532.home.webp", ~"pexels-photo-2869499.home.webp", ~"pexels-photo-7031413.home.webp"];
+        _ -> [~"pexels-photo-739407.home.webp", ~"pexels-photo-7740160.home.webp", ~"pexels-photo-460672.home.webp"]
+    end,
+    Overrides = maps:get(<<"images">>, Config, []),
+    Tiles = erlang:iolist_to_binary([begin
+        Default_url = <<"/static/chisfis/images/", Image/binary>>,
+        Url = public_builder_image(Overrides, Index, Default_url),
+        <<"<img src=\"", (public_builder_html_escape(Url))/binary,
+            "\" alt=\"\" decoding=\"async\" loading=\"eager\" />">>
+    end || {Image, Index} <- lists:zip(Images, lists:seq(1, erlang:length(Images)))]),
+    Mosaic = <<"<div class=\"category-hero-mosaic\" role=\"img\">", Tiles/binary, "</div>">>,
+    Original = <<"<img alt=\"hero\" width=\"1335\" height=\"1370\" decoding=\"async\" class=\"w-full\" src=\"/static/chisfis/images/hero-right.webp\" style=\"color: transparent;\">">>,
+    binary:replace(Html, Original, Mosaic).
+
+public_builder_image(Overrides, Index, Default) when erlang:is_list(Overrides), erlang:length(Overrides) >= Index ->
+    Value = lists:nth(Index, Overrides),
+    case Value of
+        Url when erlang:is_binary(Url) ->
+            case re:run(Url, <<"^(https?://|/[^/])">>) of
+                {match, _} -> Url;
+                _ -> Default
+            end;
+        _ -> Default
+    end;
+public_builder_image(_, _, Default) -> Default.
+
+select_category_hero_tab(Html, Category) ->
+    Path = category_tr_path(Category),
+    Cleared = binary:replace(Html, <<"role=\"tab\" aria-selected=\"true\" data-selected=\"\"">>,
+        <<"role=\"tab\" aria-selected=\"false\"">>, [global]),
+    binary:replace(Cleared,
+        <<"role=\"tab\" aria-selected=\"false\" href=\"", Path/binary, "\"">>,
+        <<"role=\"tab\" aria-selected=\"true\" data-selected=\"\" href=\"", Path/binary, "\"">>).
+
+hero_shell_markup(Html) ->
+    case binary:match(Html, <<"<main ">>) of
+        {Main_start, _} ->
+            Main_rest = binary:part(Html, Main_start, erlang:byte_size(Html) - Main_start),
+            case binary:match(Main_rest, <<">">>) of
+                {Tag_end, _} ->
+                    First_rest_start = Main_start + Tag_end + 1,
+                    First_rest = binary:part(Html, First_rest_start, erlang:byte_size(Html) - First_rest_start),
+                    case binary:match(First_rest, <<"<div">>) of
+                        {First_offset, _} ->
+                            First_start = First_rest_start + First_offset,
+                            case hero_div_end(Html, First_start + 4, 1) of
+                                {ok, First_end} -> hero_shell_second(Html, First_start, First_end);
+                                error -> error
+                            end;
+                        nomatch -> error
+                    end;
+                nomatch -> error
+            end;
+        nomatch -> error
+    end.
+
+hero_shell_second(Html, First_start, First_end) ->
+    Rest = binary:part(Html, First_end, erlang:byte_size(Html) - First_end),
+    case binary:match(Rest, <<"<div">>) of
+        {Second_offset, _} ->
+            Second_start = First_end + Second_offset,
+            Second_rest = binary:part(Html, Second_start, erlang:byte_size(Html) - Second_start),
+            case binary:match(Second_rest, <<">">>) of
+                {Tag_end, _} ->
+                    Child_rest_start = Second_start + Tag_end + 1,
+                    Child_rest = binary:part(Html, Child_rest_start, erlang:byte_size(Html) - Child_rest_start),
+                    case binary:match(Child_rest, <<"<div">>) of
+                        {Child_offset, _} ->
+                            Child_start = Child_rest_start + Child_offset,
+                            case hero_div_end(Html, Child_start + 4, 1) of
+                                {ok, Child_end} ->
+                                    Background = binary:part(Html, First_start, First_end - First_start),
+                                    Wrapper = binary:part(Html, Second_start, Tag_end + 1),
+                                    Hero = binary:part(Html, Child_start, Child_end - Child_start),
+                                    {ok, <<Background/binary, Wrapper/binary, Hero/binary, "</div>">>};
+                                error -> error
+                            end;
+                        nomatch -> error
+                    end;
+                nomatch -> error
+            end;
+        nomatch -> error
+    end.
+
+hero_div_end(Html, Pos, Depth) when Pos < erlang:byte_size(Html) ->
+    Rest = binary:part(Html, Pos, erlang:byte_size(Html) - Pos),
+    Open = binary:match(Rest, <<"<div">>),
+    Close = binary:match(Rest, <<"</div>">>),
+    case {Open, Close} of
+        {_, nomatch} -> error;
+        {{Open_pos, _}, {Close_pos, _}} when Open_pos < Close_pos ->
+            hero_div_end(Html, Pos + Open_pos + 4, Depth + 1);
+        {_, {Close_pos, _}} when Depth =:= 1 ->
+            {ok, Pos + Close_pos + 6};
+        {_, {Close_pos, _}} ->
+            hero_div_end(Html, Pos + Close_pos + 6, Depth - 1)
+    end;
+hero_div_end(_, _, _) -> error.
+
+%% Customer dashboard is deliberately scoped to the signed customer session.
+%% The account API never accepts a tenant or customer identifier from the browser.
+public_customer_account_session(Req, Db) ->
+    case wisp:get_cookie(Req, ~"agency_session", signed) of
+        {ok, Token} ->
+            case nexus_agency@auth:session(Db, Token) of
+                {ok, Session} ->
+                    case erlang:element(5, Session) of
+                        ~"customer" -> {ok, Session};
+                        _ -> error
+                    end;
+                _ -> error
+            end;
+        _ -> error
+    end.
+
+public_customer_account_page(Req, Db, Origin) ->
+    case public_customer_account_session(Req, Db) of
+        {ok, Session} ->
+            Tenant_id = erlang:element(2, Session),
+            Csrf_token = case wisp:get_cookie(Req, ~"agency_session", signed) of
+                {ok, Value} -> nexus_agency@csrf:token_for(Value);
+                _ -> ~""
+            end,
+            Content = lustre@element:element(~"html", [lustre@attribute:attribute(~"lang", ~"tr")], [
+                lustre@element:element(~"head", [], [
+                    lustre@element:element(~"meta", [lustre@attribute:attribute(~"charset", ~"utf-8")], []),
+                    lustre@element:element(~"meta", [lustre@attribute:name(~"viewport"), lustre@attribute:attribute(~"content", ~"width=device-width, initial-scale=1")], []),
+                    lustre@element:element(~"meta", [lustre@attribute:name(~"csrf-token"), lustre@attribute:attribute(~"content", Csrf_token)], []),
+                    lustre@element:element(~"title", [], [lustre@element:text(~"Hesabım | NEXUS Agency")]),
+                    lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/account-dashboard.css?v=20260927-8")], [])
+                    | chisfis_head()
+                ]),
+                lustre@element:element(~"body", [lustre@attribute:class(~"chisfis-page account-dashboard-page"), lustre@attribute:attribute(~"data-tenant", Tenant_id)], [
+                    public_storefront_header(Origin, Tenant_id),
+                    lustre@element:element(~"main", [lustre@attribute:id(~"account-dashboard"), lustre@attribute:attribute(~"aria-live", ~"polite")], [lustre@element:text(~"Hesabınız yükleniyor…")]),
+                    public_footer(Tenant_id), public_chat_script(), public_theme_script(), public_header_popovers_script(),
+                    lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/account-dashboard.js?v=20260927-8"), lustre@attribute:attribute(~"defer", ~"defer")], []),
+                    lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/account-portal.js?v=20260928-1"), lustre@attribute:attribute(~"defer", ~"defer")], [])
+                ])
+            ]),
+            wisp:html_body(wisp:ok(), lustre@element:to_string(Content));
+        error -> wisp:redirect(~"/login")
+    end.
+
+public_customer_account_data(Req, Db) ->
+    case public_customer_account_session(Req, Db) of
+        {ok, Session} ->
+            Tenant_id = erlang:element(2, Session),
+            User_id = erlang:element(3, Session),
+            Sql = ~"select jsonb_build_object('name',u.display_name,'email',u.email,'memberSince',to_char(u.created_at,'YYYY-MM-DD'),'phone',coalesce(c.phone,''),'reservations',coalesce((select jsonb_agg(x.item order by x.created_at desc) from (select r.created_at,jsonb_build_object('id',r.id,'reference',r.reference_code,'title',coalesce(l.title,'İlan'),'category',coalesce(l.category,''),'checkIn',coalesce(r.check_in::text,''),'checkOut',coalesce(r.check_out::text,''),'guests',r.guest_count,'amount',r.total_minor,'currency',r.currency,'status',r.status,'paymentStatus',r.payment_status) item from agency.reservations r left join agency.listings l on l.id=r.listing_id and l.tenant_id=u.tenant_id where r.tenant_id=u.tenant_id and r.customer_id=c.id order by r.created_at desc limit 30) x),'[]'::jsonb),'orders',coalesce((select jsonb_agg(x.item order by x.created_at desc) from (select o.created_at,jsonb_build_object('number',o.number,'status',o.status,'amount',o.total_minor,'currency',o.currency,'date',to_char(o.created_at,'YYYY-MM-DD'),'paymentStatus',coalesce((select p.status from agency.payments p where p.order_id=o.id order by p.created_at desc limit 1),'pending')) item from agency.orders o where o.tenant_id=u.tenant_id and o.customer_id=c.id order by o.created_at desc limit 30) x),'[]'::jsonb),'favorites',coalesce((select jsonb_agg(jsonb_build_object('id',l.id,'title',l.title,'category',l.category,'locality',l.locality,'price',l.price_minor,'currency',l.currency) order by f.created_at desc) from agency.favorites f join agency.listings l on l.id=f.listing_id and l.tenant_id=u.tenant_id and l.status='published' where f.customer_id=c.id),'[]'::jsonb),'cartCount',coalesce((select sum(ci.quantity) from agency.carts ca join agency.cart_items ci on ci.cart_id=ca.id where ca.tenant_id=u.tenant_id and ca.customer_id=c.id and ca.status='active'),0))::text from agency.users u left join agency.customers c on c.tenant_id=u.tenant_id and lower(c.email)=lower(u.email) where u.id=$1::uuid and u.tenant_id=$2::uuid and u.active=true and u.membership_type='customer'",
+            Q0 = pog:'query'(Sql),
+            Q1 = pog:parameter(Q0, pog_ffi:coerce(User_id)),
+            Q2 = pog:parameter(Q1, pog_ffi:coerce(Tenant_id)),
+            Q3 = pog:returning(Q2, gleam@dynamic@decode:at([0], {decoder, fun gleam@dynamic@decode:decode_string/1})),
+            case pog:execute(Q3, Db) of
+                {ok, Rows} ->
+                    case gleam@list:first(erlang:element(3, Rows)) of
+                        {ok, Data} -> wisp:json_body(wisp:ok(), Data);
+                        _ -> wisp:response(404)
+                    end;
+                {error, _} -> wisp:response(503)
+            end;
+        error -> wisp:response(401)
+    end.
+
+public_customer_account_benefits(Req, Db) ->
+    case public_customer_account_session(Req, Db) of
+        {ok, Session} ->
+            Tenant_id = erlang:element(2, Session),
+            User_id = erlang:element(3, Session),
+            Sql = ~"select jsonb_build_object('wallets',coalesce((select jsonb_agg(jsonb_build_object('currency',w.currency,'balance',w.balance_minor,'transactions',coalesce((select jsonb_agg(t.item order by t.created_at desc) from (select wt.created_at,jsonb_build_object('amount',wt.amount_minor,'type',wt.type,'reference',coalesce(wt.reference,''),'date',to_char(wt.created_at,'YYYY-MM-DD')) item from agency.wallet_transactions wt where wt.wallet_id=w.id order by wt.created_at desc limit 20) t),'[]'::jsonb)) order by w.currency) from agency.wallets w where w.user_id=u.id and w.tenant_id=u.tenant_id),'[]'::jsonb),'loyalty',coalesce((select jsonb_build_object('tier',lp.tier,'points',lp.points,'lifetimeValue',lp.lifetime_value_minor) from agency.ai_loyalty_profiles lp join agency.customers lc on lc.id=lp.customer_id and lc.tenant_id=u.tenant_id and lower(lc.email)=lower(u.email) where lp.tenant_id=u.tenant_id order by lp.updated_at desc limit 1),jsonb_build_object('tier','standard','points',0,'lifetimeValue',0)),'invoices',coalesce((select jsonb_agg(x.item order by x.issued_at desc nulls last) from (select i.issued_at,jsonb_build_object('number',i.number,'type',i.invoice_type,'status',i.status,'amount',i.total_minor,'currency',i.currency,'date',coalesce(to_char(i.issued_at,'YYYY-MM-DD'),''),'orderNumber',o.number) item from agency.invoices i join agency.orders o on o.id=i.order_id and o.tenant_id=u.tenant_id join agency.customers ic on ic.id=o.customer_id and ic.tenant_id=u.tenant_id and lower(ic.email)=lower(u.email) where i.tenant_id=u.tenant_id order by i.issued_at desc nulls last limit 30) x),'[]'::jsonb),'completedBookings',coalesce((select count(*) from agency.reservations r join agency.customers bc on bc.id=r.customer_id and bc.tenant_id=u.tenant_id and lower(bc.email)=lower(u.email) where r.tenant_id=u.tenant_id and r.status='completed'),0))::text from agency.users u where u.id=$1::uuid and u.tenant_id=$2::uuid and u.active=true and u.membership_type='customer'",
+            Q0 = pog:'query'(Sql),
+            Q1 = pog:parameter(Q0, pog_ffi:coerce(User_id)),
+            Q2 = pog:parameter(Q1, pog_ffi:coerce(Tenant_id)),
+            Q3 = pog:returning(Q2, gleam@dynamic@decode:at([0], {decoder, fun gleam@dynamic@decode:decode_string/1})),
+            case pog:execute(Q3, Db) of
+                {ok, Rows} ->
+                    case gleam@list:first(erlang:element(3, Rows)) of
+                        {ok, Data} -> wisp:json_body(wisp:ok(), Data);
+                        _ -> wisp:response(404)
+                    end;
+                {error, _} -> wisp:response(503)
+            end;
+        error -> wisp:response(401)
+    end.
+
+public_customer_portal_data(Req, Db) ->
+    case public_customer_account_session(Req, Db) of
+        {ok, Session} ->
+            Tenant_id = erlang:element(2, Session),
+            User_id = erlang:element(3, Session),
+            Sql = <<
+              "select jsonb_build_object(",
+              "'travelers',coalesce((select jsonb_agg(jsonb_build_object('id',id,'name',full_name,'birthDate',coalesce(birth_date::text,''),'nationality',nationality) order by created_at desc) from agency.customer_travelers where tenant_id=$1::uuid and user_id=$2::uuid),'[]'::jsonb),",
+              "'documents',coalesce((select jsonb_agg(jsonb_build_object('id',id,'kind',kind,'title',title,'url',document_url,'createdAt',to_char(created_at,'YYYY-MM-DD')) order by created_at desc) from agency.customer_travel_documents where tenant_id=$1::uuid and user_id=$2::uuid),'[]'::jsonb),",
+              "'billing',coalesce((select jsonb_agg(jsonb_build_object('id',id,'label',label,'legalName',legal_name,'taxNumber',tax_number,'taxOffice',tax_office,'address',address,'country',country_code) order by created_at desc) from agency.customer_billing_details where tenant_id=$1::uuid and user_id=$2::uuid),'[]'::jsonb),",
+              "'requests',coalesce((select jsonb_agg(jsonb_build_object('id',q.id,'reference',r.reference_code,'kind',q.kind,'message',q.message,'status',q.status,'createdAt',to_char(q.created_at,'YYYY-MM-DD')) order by q.created_at desc) from agency.customer_reservation_requests q join agency.reservations r on r.id=q.reservation_id and r.tenant_id=q.tenant_id where q.tenant_id=$1::uuid and q.user_id=$2::uuid),'[]'::jsonb),",
+              "'preferences',coalesce((select jsonb_build_object('bookingEmail',booking_email,'priceEmail',price_email,'marketingEmail',marketing_email,'marketingWhatsapp',marketing_whatsapp) from agency.customer_notification_preferences where tenant_id=$1::uuid and user_id=$2::uuid),jsonb_build_object('bookingEmail',true,'priceEmail',true,'marketingEmail',false,'marketingWhatsapp',false)),",
+              "'notifications',coalesce((select jsonb_agg(n.item order by n.created_at desc) from (select created_at,jsonb_build_object('id',id,'kind',kind,'title',title,'message',message,'url',target_url,'read',read_at is not null,'createdAt',to_char(created_at,'YYYY-MM-DD')) item from agency.customer_notifications where tenant_id=$1::uuid and user_id=$2::uuid order by created_at desc limit 50) n),'[]'::jsonb),",
+              "'alerts',coalesce((select jsonb_agg(jsonb_build_object('id',a.id,'listingId',l.id,'title',l.title,'target',a.target_price_minor,'current',l.price_minor,'currency',a.currency,'active',a.active) order by a.created_at desc) from agency.customer_price_alerts a join agency.listings l on l.id=a.listing_id and l.tenant_id=a.tenant_id where a.tenant_id=$1::uuid and a.user_id=$2::uuid),'[]'::jsonb),",
+              "'tickets',coalesce((select jsonb_agg(jsonb_build_object('id',t.id,'subject',t.subject,'status',t.status,'createdAt',to_char(t.created_at,'YYYY-MM-DD'),'messages',coalesce((select jsonb_agg(jsonb_build_object('author',m.author_type,'message',m.message,'createdAt',to_char(m.created_at,'YYYY-MM-DD HH24:MI')) order by m.created_at) from agency.customer_support_messages m where m.ticket_id=t.id),'[]'::jsonb)) order by t.created_at desc) from agency.customer_support_tickets t where t.tenant_id=$1::uuid and t.user_id=$2::uuid),'[]'::jsonb),",
+              "'reservationMessages',coalesce((select jsonb_agg(jsonb_build_object('id',r.id,'reference',r.reference_code,'listing',l.title,'messages',coalesce((select jsonb_agg(jsonb_build_object('author',m.author_role,'message',m.message,'createdAt',to_char(m.created_at,'YYYY-MM-DD HH24:MI')) order by m.created_at) from agency.reservation_messages m where m.tenant_id=r.tenant_id and m.reservation_id=r.id),'[]'::jsonb)) order by r.created_at desc) from agency.reservations r join agency.customers c on c.id=r.customer_id and c.tenant_id=r.tenant_id join agency.users u on u.id=$2::uuid and u.tenant_id=r.tenant_id and lower(u.email)=lower(c.email) join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id where r.tenant_id=$1::uuid),'[]'::jsonb),",
+              "'tripTimeline',coalesce((select jsonb_agg(jsonb_build_object('reference',r.reference_code,'listing',l.title,'category',l.category,'startsOn',coalesce(r.check_in::text,''),'endsOn',coalesce(r.check_out::text,''),'status',r.status,'steps',coalesce((select jsonb_agg(jsonb_build_object('title',t.title_tr,'stage',t.stage,'status',t.status) order by t.position) from agency.reservation_service_tasks t where t.tenant_id=r.tenant_id and t.reservation_id=r.id),'[]'::jsonb)) order by r.created_at desc) from agency.reservations r join agency.customers c on c.id=r.customer_id and c.tenant_id=r.tenant_id join agency.users u on u.id=$2::uuid and u.tenant_id=r.tenant_id and lower(u.email)=lower(c.email) join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id where r.tenant_id=$1::uuid and r.status in ('confirmed','completed')),'[]'::jsonb)",
+              ")::text"
+            >>,
+            Q0 = pog:'query'(Sql),
+            Q1 = pog:parameter(Q0, pog_ffi:coerce(Tenant_id)),
+            Q2 = pog:parameter(Q1, pog_ffi:coerce(User_id)),
+            Q3 = pog:returning(Q2, gleam@dynamic@decode:at([0], {decoder, fun gleam@dynamic@decode:decode_string/1})),
+            case pog:execute(Q3, Db) of
+                {ok, Rows} ->
+                    case gleam@list:first(erlang:element(3, Rows)) of
+                        {ok, Data} -> wisp:json_body(wisp:ok(), Data);
+                        _ -> wisp:response(404)
+                    end;
+                {error, _} -> wisp:response(503)
+            end;
+        error -> wisp:response(401)
+    end.
+
+public_customer_recommendations(Req, Db) ->
+    case public_customer_account_session(Req, Db) of
+        {ok, Session} ->
+            Sql = <<
+              "select jsonb_build_object(",
+              "'intent',coalesce((select jsonb_build_object('region',region,'category',category,'startDate',start_date,'endDate',end_date,'guests',guests,'budget',budget_minor) from agency.customer_travel_intents where tenant_id=$1::uuid and user_id=$2::uuid),'{}'::jsonb),",
+              "'journey',agency.customer_journey_recommendations($1::uuid,$2::uuid),",
+              "'chat',coalesce((select jsonb_agg(jsonb_build_object('id',x.id,'listingId',x.listing_id,'title',x.title,'locality',x.locality,'category',x.category,'price',x.live->>'price','currency',x.live->>'currency','availability',x.live->>'availability','capacity',x.live->>'capacity','feedback',x.feedback,'request',x.request_excerpt,'date',to_char(x.created_at,'YYYY-MM-DD')) order by x.score desc,x.created_at desc) from (select r.id,r.listing_id,l.title,l.locality,l.category,r.request_excerpt,r.created_at,agency.recommendation_live_quote(r.tenant_id,l.id,i.start_date,i.end_date,coalesce(i.guests,2)) live,coalesce(f.choice,'') feedback,(case when i.region<>'' and lower(l.locality) like '%'||lower(i.region)||'%' then 4 else 0 end+case when i.category<>'' and l.category=i.category then 3 else 0 end+case when i.budget_minor is not null and l.price_minor<=i.budget_minor then 2 else 0 end+case when f.choice='more_like' then 2 when f.choice='not_interested' then -10 else 0 end) score from agency.customer_chat_recommendations r join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id and l.status='published' left join agency.customer_travel_intents i on i.tenant_id=r.tenant_id and i.user_id=r.user_id left join agency.customer_recommendation_feedback f on f.tenant_id=r.tenant_id and f.user_id=r.user_id and f.listing_id=r.listing_id where r.tenant_id=$1::uuid and r.user_id=$2::uuid order by r.created_at desc limit 30) x where x.live->>'availability'<>'unavailable'),'[]'::jsonb),",
+              "'sent',coalesce((select jsonb_agg(jsonb_build_object('id',n.id,'listingId',l.id,'title',l.title,'locality',l.locality,'category',l.category,'price',q.live->>'price','currency',q.live->>'currency','availability',q.live->>'availability','capacity',q.live->>'capacity','feedback',coalesce(f.choice,''),'channel',n.channel,'delivery',n.delivery_status,'date',to_char(n.sent_at,'YYYY-MM-DD')) order by n.sent_at desc) from agency.notifications n join agency.listings l on l.id::text=n.payload->>'listing_id' and l.tenant_id=n.tenant_id and l.status='published' left join agency.customer_travel_intents i on i.tenant_id=n.tenant_id and i.user_id=n.user_id left join agency.customer_recommendation_feedback f on f.tenant_id=n.tenant_id and f.user_id=n.user_id and f.listing_id=l.id cross join lateral agency.recommendation_live_quote(n.tenant_id,l.id,i.start_date,i.end_date,coalesce(i.guests,2)) q(live) where n.tenant_id=$1::uuid and n.user_id=$2::uuid and n.template='travel.recommendation' and n.channel in ('email','whatsapp') and n.status in ('sent','accepted','delivered','read') and n.sent_at is not null),'[]'::jsonb)",
+              ")::text"
+            >>,
+            Q0 = pog:'query'(Sql),
+            Q1 = pog:parameter(Q0, pog_ffi:coerce(erlang:element(2, Session))),
+            Q2 = pog:parameter(Q1, pog_ffi:coerce(erlang:element(3, Session))),
+            Q3 = pog:returning(Q2, gleam@dynamic@decode:at([0], {decoder, fun gleam@dynamic@decode:decode_string/1})),
+            case pog:execute(Q3, Db) of
+                {ok, Rows} -> case gleam@list:first(erlang:element(3, Rows)) of
+                    {ok, Data} -> wisp:json_body(wisp:ok(), Data);
+                    _ -> wisp:response(404)
+                end;
+                {error, _} -> wisp:response(503)
+            end;
+        error -> wisp:response(401)
+    end.
+
+whatsapp_webhook_verify(Req) ->
+    case {os:getenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN"),gleam@http@request:get_query(Req)} of
+        {Secret,{ok, Params}} when erlang:is_list(Secret), Secret =/= [] ->
+            Mode = proplists:get_value(~"hub.mode",Params,~""),
+            Token = proplists:get_value(~"hub.verify_token",Params,~""),
+            Challenge = proplists:get_value(~"hub.challenge",Params,~""),
+            case Mode =:= ~"subscribe" andalso Challenge =/= ~"" andalso
+                 crypto:hash_equals(crypto:hash(sha256,erlang:list_to_binary(Secret)),crypto:hash(sha256,Token)) of
+                true -> wisp:string_body(wisp:ok(),Challenge);
+                false -> wisp:response(403)
+            end;
+        _ -> wisp:response(503)
+    end.
+
+whatsapp_webhook_status(Req, Db) ->
+    case {os:getenv("WHATSAPP_APP_SECRET"),gleam@http@request:get_header(Req,~"x-hub-signature-256")} of
+        {Secret,{ok, <<"sha256=",Hex/binary>>}} when erlang:is_list(Secret), Secret =/= [] ->
+            wisp:require_bit_array_body(Req, fun(Body) ->
+                Valid = try crypto:hash_equals(crypto:mac(hmac,sha256,erlang:list_to_binary(Secret),Body),binary:decode_hex(Hex))
+                        catch _:_ -> false end,
+                case Valid of
+                    false -> wisp:response(401);
+                    true ->
+                        try
+                            Payload = json:decode(Body),
+                            Entries = maps:get(<<"entry">>,Payload,[]),
+                            lists:foreach(fun(Entry) ->
+                                lists:foreach(fun(Change) ->
+                                    Value = maps:get(<<"value">>,Change,#{}),
+                                    lists:foreach(fun(Status) ->
+                                        Id = maps:get(<<"id">>,Status,<<>>),
+                                        State = maps:get(<<"status">>,Status,<<>>),
+                                        case erlang:byte_size(Id)>0 andalso lists:member(State,[<<"sent">>,<<"delivered">>,<<"read">>,<<"failed">>]) of
+                                            true ->
+                                                Q0 = pog:'query'(~"select agency.record_whatsapp_delivery($1,$2)"),
+                                                Q1 = pog:parameter(Q0,pog_ffi:coerce(Id)),
+                                                Q2 = pog:parameter(Q1,pog_ffi:coerce(State)),
+                                                _ = pog:execute(Q2,Db), ok;
+                                            false -> ok
+                                        end
+                                    end,maps:get(<<"statuses">>,Value,[]))
+                                end,maps:get(<<"changes">>,Entry,[]))
+                            end,Entries),
+                            wisp:string_body(wisp:ok(),~"ok")
+                        catch _:_ -> wisp:response(400) end
+                end
+            end);
+        _ -> wisp:response(401)
+    end.
+
+public_customer_portal_save(Req, Db, Resource) ->
+    case {public_customer_account_session(Req, Db), wisp:get_cookie(Req, ~"agency_session", signed)} of
+        {{ok, Session}, {ok, Session_token}} ->
+            wisp:require_form(Req, fun(Form) ->
+                Values = erlang:element(2, Form),
+                Csrf = form_value(Values, ~"csrf"),
+                case nexus_agency@csrf:verify(Csrf, Session_token) of
+                    false -> wisp:response(403);
+                    true ->
+                        Tenant_id = erlang:element(2, Session),
+                        User_id = erlang:element(3, Session),
+                        case customer_portal_command(Resource, Values, Tenant_id, User_id) of
+                            error -> wisp:json_body(wisp:response(422), ~"{\"error\":\"Bilgileri kontrol edin.\"}");
+                            {Sql, Params} ->
+                                Q0 = pog:'query'(Sql),
+                                Q1 = lists:foldl(fun(Value, Query) -> pog:parameter(Query, pog_ffi:coerce(Value)) end, Q0, Params),
+                                Q2 = pog:returning(Q1, gleam@dynamic@decode:at([0], {decoder, fun gleam@dynamic@decode:decode_string/1})),
+                                case pog:execute(Q2, Db) of
+                                    {ok, Rows} ->
+                                        case gleam@list:first(erlang:element(3, Rows)) of
+                                            {ok, Saved_value} -> wisp:json_body(wisp:ok(),
+                                                gleam@json:to_string(gleam@json:object([
+                                                    {~"ok",gleam@json:bool(true)},
+                                                    {~"value",gleam@json:string(Saved_value)}])));
+                                            _ -> wisp:json_body(wisp:response(404), ~"{\"error\":\"Kayıt bulunamadı.\"}")
+                                        end;
+                                    {error, Error} ->
+                                        gleam_stdlib:println(<<"Customer portal save failed: "/utf8, (query_error_message(Error))/binary>>),
+                                        wisp:json_body(wisp:response(422), ~"{\"error\":\"Kayıt kaydedilemedi.\"}")
+                                end
+                        end
+                end
+            end);
+        _ -> wisp:response(401)
+    end.
+
+customer_portal_command(Resource, Values, Tenant, User) ->
+    Action = form_value(Values, ~"action"),
+    Id = form_value(Values, ~"id"),
+    case {Action, customer_portal_uuid(Id)} of
+        {~"delete", true} -> customer_portal_delete(Resource, Tenant, User, Id);
+        _ -> customer_portal_create(Resource, Values, Tenant, User)
+    end.
+
+customer_portal_uuid(Value) ->
+    case re:run(Value, ~"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", [{capture, none}]) of
+        match -> true;
+        _ -> false
+    end.
+
+customer_portal_length(Value, Min, Max) ->
+    Size = string:length(string:trim(Value)),
+    Size >= Min andalso Size =< Max.
+
+customer_portal_delete(Resource, Tenant, User, Id) ->
+    Table = case Resource of
+        ~"travelers" -> ~"customer_travelers";
+        ~"documents" -> ~"customer_travel_documents";
+        ~"billing" -> ~"customer_billing_details";
+        ~"alerts" -> ~"customer_price_alerts";
+        _ -> ~""
+    end,
+    case Table of
+        ~"" -> error;
+        _ ->
+            Sql = <<"delete from agency.", Table/binary, " where tenant_id=$1::uuid and user_id=$2::uuid and id=$3::uuid returning id::text">>,
+            {Sql, [Tenant, User, Id]}
+    end.
+
+customer_portal_create(~"travelers", Values, Tenant, User) ->
+    Name = string:trim(form_value(Values, ~"full_name")),
+    Birth = string:trim(form_value(Values, ~"birth_date")),
+    Nationality = string:uppercase(string:trim(form_value(Values, ~"nationality"))),
+    case customer_portal_length(Name, 2, 120) andalso
+         (Birth =:= ~"" orelse (re:run(Birth, ~"^\\d{4}-\\d{2}-\\d{2}$", [{capture,none}]) =:= match)) andalso
+         re:run(Nationality, ~"^[A-Z]{2}$", [{capture,none}]) =:= match of
+        true ->
+            {~"insert into agency.customer_travelers(tenant_id,user_id,full_name,birth_date,nationality) values($1::uuid,$2::uuid,$3,nullif($4,'')::date,$5) returning id::text",
+             [Tenant,User,Name,Birth,Nationality]};
+        false -> error
+    end;
+customer_portal_create(~"documents", Values, Tenant, User) ->
+    Kind = form_value(Values, ~"kind"),
+    Title = string:trim(form_value(Values, ~"title")),
+    Url = string:trim(form_value(Values, ~"url")),
+    case lists:member(Kind,[~"ticket",~"voucher",~"insurance",~"other"]) andalso
+         customer_portal_length(Title,2,160) andalso customer_portal_length(Url,12,2000) andalso
+         re:run(Url, ~"^https://[^\\s]+$", [{capture,none}]) =:= match of
+        true ->
+            {~"insert into agency.customer_travel_documents(tenant_id,user_id,kind,title,document_url) values($1::uuid,$2::uuid,$3,$4,$5) returning id::text",
+             [Tenant,User,Kind,Title,Url]};
+        false -> error
+    end;
+customer_portal_create(~"billing", Values, Tenant, User) ->
+    Label = string:trim(form_value(Values, ~"label")),
+    Legal = string:trim(form_value(Values, ~"legal_name")),
+    Tax = string:trim(form_value(Values, ~"tax_number")),
+    Office = string:trim(form_value(Values, ~"tax_office")),
+    Address = string:trim(form_value(Values, ~"address")),
+    Country = string:uppercase(string:trim(form_value(Values, ~"country_code"))),
+    case customer_portal_length(Label,2,80) andalso customer_portal_length(Legal,2,160) andalso
+         customer_portal_length(Tax,0,32) andalso customer_portal_length(Office,0,120) andalso
+         customer_portal_length(Address,5,500) andalso
+         re:run(Country, ~"^[A-Z]{2}$", [{capture,none}]) =:= match of
+        true ->
+            {~"insert into agency.customer_billing_details(tenant_id,user_id,label,legal_name,tax_number,tax_office,address,country_code) values($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8) returning id::text",
+             [Tenant,User,Label,Legal,Tax,Office,Address,Country]};
+        false -> error
+    end;
+customer_portal_create(~"requests", Values, Tenant, User) ->
+    Reservation = form_value(Values, ~"reservation_id"),
+    Kind = form_value(Values, ~"kind"),
+    Message = string:trim(form_value(Values, ~"message")),
+    case customer_portal_uuid(Reservation) andalso lists:member(Kind,[~"change",~"cancel",~"refund"]) andalso
+         customer_portal_length(Message,10,2000) of
+        true ->
+            {~"insert into agency.customer_reservation_requests(tenant_id,user_id,reservation_id,kind,message) select $1::uuid,$2::uuid,r.id,$4,$5 from agency.reservations r join agency.customers c on c.id=r.customer_id and c.tenant_id=$1::uuid join agency.users u on u.id=$2::uuid and u.tenant_id=$1::uuid and lower(u.email)=lower(c.email) where r.id=$3::uuid and r.tenant_id=$1::uuid and r.status not in ('cancelled','completed') returning id::text",
+             [Tenant,User,Reservation,Kind,Message]};
+        false -> error
+    end;
+customer_portal_create(~"preferences", Values, Tenant, User) ->
+    Booking = form_value(Values, ~"booking_email"),
+    Price = form_value(Values, ~"price_email"),
+    Marketing = form_value(Values, ~"marketing_email"),
+    Whatsapp = form_value(Values, ~"marketing_whatsapp"),
+    case lists:all(fun(V) -> lists:member(V,[~"true",~"false"]) end,[Booking,Price,Marketing,Whatsapp]) of
+        true ->
+            {~"insert into agency.customer_notification_preferences(tenant_id,user_id,booking_email,price_email,marketing_email,marketing_whatsapp) values($1::uuid,$2::uuid,$3::text::boolean,$4::text::boolean,$5::text::boolean,$6::text::boolean) on conflict(tenant_id,user_id) do update set booking_email=excluded.booking_email,price_email=excluded.price_email,marketing_email=excluded.marketing_email,marketing_whatsapp=excluded.marketing_whatsapp,updated_at=now() returning user_id::text",
+             [Tenant,User,Booking,Price,Marketing,Whatsapp]};
+        false -> error
+    end;
+customer_portal_create(~"recommendation-feedback", Values, Tenant, User) ->
+    Listing = form_value(Values, ~"listing_id"),
+    Choice = form_value(Values, ~"choice"),
+    case customer_portal_uuid(Listing) andalso lists:member(Choice,[~"interested",~"not_interested",~"more_like"]) of
+        true -> {~"select case when agency.save_recommendation_feedback($1::uuid,$2::uuid,$3::uuid,$4) then 'ok' else null end",[Tenant,User,Listing,Choice]};
+        false -> error
+    end;
+customer_portal_create(~"journey-answer", Values, Tenant, User) ->
+    Reservation = form_value(Values, ~"reservation_id"),
+    Category = form_value(Values, ~"target_category"),
+    Answer = form_value(Values, ~"answer"),
+    case customer_portal_uuid(Reservation) andalso
+         lists:member(Category,[~"hotel",~"holiday_home",~"yacht",~"tour",~"activity",~"flight",~"car",~"cruise",~"pilgrimage",~"visa",~"ferry",~"transfer",~"beach",~"cinema",~"event",~"restaurant",~"bus"]) andalso
+         lists:member(Answer,[~"yes",~"no",~"later"]) of
+        true -> {~"select case when agency.answer_journey_question($1::uuid,$2::uuid,$3::uuid,$4,$5) then 'ok' else null end",[Tenant,User,Reservation,Category,Answer]};
+        false -> error
+    end;
+customer_portal_create(~"journey-offer", Values, Tenant, User) ->
+    Reservation = form_value(Values, ~"reservation_id"),
+    Listing = form_value(Values, ~"listing_id"),
+    case customer_portal_uuid(Reservation) andalso customer_portal_uuid(Listing) of
+        true -> {~"select agency.claim_customer_journey_discount($1::uuid,$2::uuid,$3::uuid,$4::uuid)",[Tenant,User,Reservation,Listing]};
+        false -> error
+    end;
+customer_portal_create(~"travel-intent", Values, Tenant, User) ->
+    Region = string:trim(form_value(Values, ~"region")),
+    Category = string:trim(form_value(Values, ~"category")),
+    Start = form_value(Values, ~"start_date"),
+    End = form_value(Values, ~"end_date"),
+    Guests = form_value(Values, ~"guests"),
+    Budget = form_value(Values, ~"budget_minor"),
+    case customer_portal_length(Region,0,120) andalso
+         lists:member(Category,[~"",~"hotel",~"holiday_home",~"yacht",~"tour",~"activity",~"flight",~"car",~"cruise",~"pilgrimage",~"visa",~"ferry",~"transfer",~"beach",~"cinema",~"event",~"restaurant",~"bus"]) andalso
+         re:run(Guests, ~"^[1-9][0-9]?$", [{capture,none}]) =:= match andalso
+         (Budget =:= ~"" orelse re:run(Budget, ~"^[1-9][0-9]{0,11}$", [{capture,none}]) =:= match) andalso
+         (Start =:= ~"" orelse iso_date_valid(Start)) andalso
+         (End =:= ~"" orelse iso_date_valid(End)) andalso
+         (Start =:= ~"" orelse End =:= ~"" orelse End > Start) of
+        true -> {~"insert into agency.customer_travel_intents(tenant_id,user_id,region,category,start_date,end_date,guests,budget_minor) values($1::uuid,$2::uuid,$3,$4,nullif($5,'')::date,nullif($6,'')::date,$7::integer,nullif($8,'')::bigint) on conflict(tenant_id,user_id) do update set region=excluded.region,category=excluded.category,start_date=excluded.start_date,end_date=excluded.end_date,guests=excluded.guests,budget_minor=excluded.budget_minor,updated_at=now() returning user_id::text",[Tenant,User,Region,Category,Start,End,Guests,Budget]};
+        false -> error
+    end;
+customer_portal_create(~"claim-conversation", Values, Tenant, User) ->
+    Conversation = form_value(Values, ~"conversation_id"),
+    case customer_portal_uuid(Conversation) of
+        true -> {~"select case when agency.claim_chat_conversation($1::uuid,$2::uuid,$3::uuid)>=0 then 'ok' else null end",[Tenant,User,Conversation]};
+        false -> error
+    end;
+customer_portal_create(~"alerts", Values, Tenant, User) ->
+    Listing = form_value(Values, ~"listing_id"),
+    Target = form_value(Values, ~"target_minor"),
+    case customer_portal_uuid(Listing) andalso
+         re:run(Target, ~"^[1-9][0-9]{0,12}$", [{capture,none}]) =:= match of
+        true ->
+            {~"insert into agency.customer_price_alerts(tenant_id,user_id,listing_id,target_price_minor,currency) select $1::uuid,$2::uuid,l.id,$4::text::bigint,l.currency from agency.listings l where l.id=$3::uuid and l.tenant_id=$1::uuid and l.status='published' on conflict(tenant_id,user_id,listing_id) do update set target_price_minor=excluded.target_price_minor,currency=excluded.currency,active=true,last_notified_price_minor=null returning id::text",
+             [Tenant,User,Listing,Target]};
+        false -> error
+    end;
+customer_portal_create(~"tickets", Values, Tenant, User) ->
+    Subject = string:trim(form_value(Values, ~"subject")),
+    Message = string:trim(form_value(Values, ~"message")),
+    case customer_portal_length(Subject,3,160) andalso customer_portal_length(Message,2,4000) of
+        true ->
+            {~"with t as (insert into agency.customer_support_tickets(tenant_id,user_id,subject) values($1::uuid,$2::uuid,$3) returning id), m as (insert into agency.customer_support_messages(ticket_id,author_type,message) select id,'customer',$4 from t returning ticket_id) select ticket_id::text from m",
+             [Tenant,User,Subject,Message]};
+        false -> error
+    end;
+customer_portal_create(~"ticket-replies", Values, Tenant, User) ->
+    Ticket = form_value(Values, ~"ticket_id"),
+    Message = string:trim(form_value(Values, ~"message")),
+    case customer_portal_uuid(Ticket) andalso customer_portal_length(Message,2,4000) of
+        true ->
+            {~"with t as (select id from agency.customer_support_tickets where id=$3::uuid and tenant_id=$1::uuid and user_id=$2::uuid and status<>'closed'), m as (insert into agency.customer_support_messages(ticket_id,author_type,message) select id,'customer',$4 from t returning ticket_id) update agency.customer_support_tickets set updated_at=now() where id in (select ticket_id from m) returning id::text",
+             [Tenant,User,Ticket,Message]};
+        false -> error
+    end;
+customer_portal_create(~"notifications", Values, Tenant, User) ->
+    Id = form_value(Values, ~"id"),
+    case customer_portal_uuid(Id) of
+        true ->
+            {~"update agency.customer_notifications set read_at=coalesce(read_at,now()) where id=$3::uuid and tenant_id=$1::uuid and user_id=$2::uuid returning id::text",
+             [Tenant,User,Id]};
+        false -> error
+    end;
+customer_portal_create(~"reservation-messages", Values, Tenant, User) ->
+    Reservation = form_value(Values, ~"reservation_id"),
+    Message = string:trim(form_value(Values, ~"message")),
+    case customer_portal_uuid(Reservation) andalso customer_portal_length(Message,2,4000) of
+        true -> {~"select agency.send_reservation_message($1::uuid,$2::uuid,$3::uuid,'customer',$4)::text",
+            [Tenant,User,Reservation,Message]};
+        false -> error
+    end;
+customer_portal_create(_, _, _, _) -> error.
+
+panel_dashboard_data(Db, Token) ->
+    require_session(Db, Token, fun(Session) ->
+        Role = erlang:element(5, Session),
+        case Role of
+            ~"customer" -> wisp:response(403);
+            _ ->
+                Sql = <<
+                  "select jsonb_build_object(",
+                  "'published',(select count(*) from agency.listings l where l.tenant_id=$1::uuid and l.status='published' and ($3::text not in ('supplier','sub_agency') or ($3::text='supplier' and l.owner_user_id=$2::uuid))),",
+                  "'pending',case when $3::text='supplier' then (select count(*) from agency.reservations r join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id where r.tenant_id=$1::uuid and l.owner_user_id=$2::uuid and r.status in ('inquiry','option')) when $3::text='sub_agency' then (select count(*) from agency.reservations r where r.tenant_id=$1::uuid and agency.partner_can_access($1::uuid,$2::uuid,r.partner_organization_id) and r.status in ('inquiry','option')) else (select count(*) from agency.contact_requests c where c.tenant_id=$1::uuid and c.status in ('new','in_progress')) end,",
+                  "'upcoming',(select count(*) from agency.reservations r left join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id where r.tenant_id=$1::uuid and r.check_in>=current_date and r.status='confirmed' and ($3::text not in ('supplier','sub_agency') or ($3::text='supplier' and l.owner_user_id=$2::uuid) or ($3::text='sub_agency' and agency.partner_can_access($1::uuid,$2::uuid,r.partner_organization_id)))),",
+                  "'nexus',(select case when nexus_connected then 'Aktif' else 'Yok' end from agency.tenants where id=$1::uuid),",
+                  "'queues',jsonb_build_object(",
+                  "'draftListings',(select count(*) from agency.listings l where l.tenant_id=$1::uuid and l.status='draft' and ($3::text not in ('supplier','sub_agency') or ($3::text='supplier' and l.owner_user_id=$2::uuid))),",
+                  "'reviewListings',(select count(*) from agency.listings l where l.tenant_id=$1::uuid and l.status='pending_review' and ($3::text not in ('supplier','sub_agency') or ($3::text='supplier' and l.owner_user_id=$2::uuid))),",
+                  "'pendingReservations',(select count(*) from agency.reservations r left join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id where r.tenant_id=$1::uuid and r.status in ('inquiry','option') and ($3::text not in ('supplier','sub_agency') or ($3::text='supplier' and l.owner_user_id=$2::uuid) or ($3::text='sub_agency' and agency.partner_can_access($1::uuid,$2::uuid,r.partner_organization_id)))),",
+                  "'serviceDue',(select count(*) from agency.reservation_service_tasks t join agency.reservations r on r.id=t.reservation_id and r.tenant_id=t.tenant_id join agency.listings l on l.id=t.listing_id and l.tenant_id=t.tenant_id where t.tenant_id=$1::uuid and t.status='open' and r.status in ('confirmed','completed') and (case when t.stage='after' then coalesce(r.check_out,r.check_in) else r.check_in end)<current_date and ($3::text='admin' or ($3::text='supplier' and l.owner_user_id=$2::uuid))),",
+                  "'serviceUnstarted',(select count(*) from agency.reservations r join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id where r.tenant_id=$1::uuid and r.status in ('confirmed','completed') and ($3::text='admin' or ($3::text='supplier' and l.owner_user_id=$2::uuid)) and not exists(select 1 from agency.reservation_service_tasks t where t.tenant_id=r.tenant_id and t.reservation_id=r.id)),",
+                  "'openContacts',(select count(*) from agency.contact_requests c where c.tenant_id=$1::uuid and c.status='new' and ($3::text not in ('supplier','sub_agency') or ($3::text='supplier' and exists(select 1 from agency.listings l where l.id=c.listing_id and l.owner_user_id=$2::uuid)) or ($3::text='sub_agency' and agency.partner_can_access($1::uuid,$2::uuid,c.partner_organization_id)))),",
+                  "'openSupport',(select count(*) from agency.customer_support_tickets t where t.tenant_id=$1::uuid and t.status='open' and $3::text not in ('supplier','sub_agency')),",
+                  "'openRequests',(select count(*) from agency.customer_reservation_requests q where q.tenant_id=$1::uuid and q.status in ('open','reviewing') and $3::text not in ('supplier','sub_agency')),",
+                  "'failedPayments',(select count(*) from agency.payments p join agency.orders o on o.id=p.order_id where o.tenant_id=$1::uuid and p.status='failed' and $3::text not in ('supplier','sub_agency')),",
+                  "'syncErrors',(select count(*) from agency.sync_jobs j where j.tenant_id=$1::uuid and j.status='failed' and $3::text not in ('supplier','sub_agency'))",
+                  ")",
+                  ")::text"
+                >>,
+                panel_dashboard_query(Db, Sql, [erlang:element(2, Session),erlang:element(3, Session),Role])
+        end
+    end).
+
+panel_dashboard_series(Req, Db, Token) ->
+    require_session(Db, Token, fun(Session) ->
+        Role = erlang:element(5, Session),
+        case Role of
+            ~"customer" -> wisp:response(403);
+            _ ->
+                Days = case lists:keyfind(~"days", 1, wisp:get_query(Req)) of
+                    {_, ~"7"} -> ~"7";
+                    {_, ~"30"} -> ~"30";
+                    _ -> ~"14"
+                end,
+                Sql = <<
+                  "with days as (select generate_series(current_date-($4::text::int-1),current_date,interval '1 day')::date as day), counts as (select d.day,",
+                  "(select count(*) from agency.listings l where l.tenant_id=$1::uuid and l.created_at::date=d.day and l.status='published' and ($3::text not in ('supplier','sub_agency') or ($3::text='supplier' and l.owner_user_id=$2::uuid))) published,",
+                  "(select count(*) from agency.reservations r left join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id where r.tenant_id=$1::uuid and r.created_at::date=d.day and r.status in ('inquiry','option') and ($3::text not in ('supplier','sub_agency') or ($3::text='supplier' and l.owner_user_id=$2::uuid) or ($3::text='sub_agency' and agency.partner_can_access($1::uuid,$2::uuid,r.partner_organization_id)))) pending,",
+                  "(select count(*) from agency.reservations r left join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id where r.tenant_id=$1::uuid and r.created_at::date=d.day and r.status='confirmed' and ($3::text not in ('supplier','sub_agency') or ($3::text='supplier' and l.owner_user_id=$2::uuid) or ($3::text='sub_agency' and agency.partner_can_access($1::uuid,$2::uuid,r.partner_organization_id)))) upcoming,",
+                  "(select count(*) from agency.contact_requests c where c.tenant_id=$1::uuid and c.created_at::date=d.day and ($3::text not in ('supplier','sub_agency') or ($3::text='supplier' and exists(select 1 from agency.listings l where l.id=c.listing_id and l.owner_user_id=$2::uuid)) or ($3::text='sub_agency' and agency.partner_can_access($1::uuid,$2::uuid,c.partner_organization_id)))) contacts from days d) ",
+                  "select jsonb_build_object('labels',jsonb_agg(to_char(day,'DD.MM') order by day),'published',jsonb_agg(published order by day),'pending',jsonb_agg(pending order by day),'upcoming',jsonb_agg(upcoming order by day),'contacts',jsonb_agg(contacts order by day))::text from counts"
+                >>,
+                panel_dashboard_query(Db, Sql, [erlang:element(2, Session),erlang:element(3, Session),Role,Days])
+        end
+    end).
+
+panel_dashboard_query(Db, Sql, Params) ->
+    Q0 = pog:'query'(Sql),
+    Q1 = lists:foldl(fun(P, Q) -> pog:parameter(Q, pog_ffi:coerce(P)) end, Q0, Params),
+    Q2 = pog:returning(Q1, gleam@dynamic@decode:at([0], {decoder, fun gleam@dynamic@decode:decode_string/1})),
+    case pog:execute(Q2, Db) of
+        {ok, Rows} ->
+            case gleam@list:first(erlang:element(3, Rows)) of
+                {ok, Data} -> wisp:json_body(wisp:ok(), Data);
+                _ -> wisp:response(503)
+            end;
+        {error, _} -> wisp:response(503)
+    end.
+
+panel_role_context_page(Db, Token, Lang, Active_cat) ->
+    require_role_context_session(Db, Token, fun(Session) ->
+        wisp:html_body(wisp:ok(), nexus_agency@panel:section(Session, ~"role-context", ~"Hesabınıza atanmış görev alanları arasında geçiş yapın.", [], Lang, Active_cat))
+    end).
+
+record_customer_chat_recommendations(Req, Db, Tenant_id, Conversation_id, Listing_key, Message, Email) ->
+    case public_customer_account_session(Req, Db) of
+        {ok, Session} when erlang:element(2, Session) =:= Tenant_id ->
+            User_id = erlang:element(3, Session),
+            Intent_sql = ~"select agency.capture_chat_travel_intent($1::uuid,$2::uuid,$3) from agency.users u where u.id=$2::uuid and u.tenant_id=$1::uuid and ($4='' or lower(u.email)=lower($4))",
+            I0 = pog:'query'(Intent_sql),
+            I1 = pog:parameter(I0, pog_ffi:coerce(Tenant_id)),
+            I2 = pog:parameter(I1, pog_ffi:coerce(User_id)),
+            I3 = pog:parameter(I2, pog_ffi:coerce(Message)),
+            I4 = pog:parameter(I3, pog_ffi:coerce(Email)),
+            _ = pog:execute(I4, Db),
+            Sql = ~"select agency.record_chat_recommendations($1::uuid,$2::uuid,$3::uuid,$4,nullif($5,'')::uuid) from agency.users u where u.id=$2::uuid and u.tenant_id=$1::uuid and ($6='' or lower(u.email)=lower($6))",
+            Q0 = pog:'query'(Sql),
+            Q1 = pog:parameter(Q0, pog_ffi:coerce(Tenant_id)),
+            Q2 = pog:parameter(Q1, pog_ffi:coerce(User_id)),
+            Q3 = pog:parameter(Q2, pog_ffi:coerce(Conversation_id)),
+            Q4 = pog:parameter(Q3, pog_ffi:coerce(Message)),
+            Q5 = pog:parameter(Q4, pog_ffi:coerce(Listing_key)),
+            Q6 = pog:parameter(Q5, pog_ffi:coerce(Email)),
+            _ = pog:execute(Q6, Db),
+            nil;
+        _ -> nil
+    end.
+
+panel_role_context_data(Db, Token) ->
+    require_role_context_session(Db, Token, fun(Session) ->
+        Sql = <<
+          "select jsonb_build_object('activeRole',$3::text,",
+          "'roles',coalesce((select jsonb_agg(distinct available.code) from (select r.code from agency.user_roles ur join agency.roles r on r.id=ur.role_id where ur.user_id=$2::uuid and r.tenant_id=$1::uuid and r.code in ('admin','staff','supplier','sub_agency','customer') union select u.membership_type from agency.users u where u.id=$2::uuid and u.tenant_id=$1::uuid) available),'[]'::jsonb),",
+          "'users',case when $3::text='admin' then coalesce((select jsonb_agg(jsonb_build_object('id',u.id,'name',u.display_name,'email',u.email,'baseRole',u.membership_type,'extraRoles',coalesce((select jsonb_agg(r.code order by r.code) from agency.user_roles ur join agency.roles r on r.id=ur.role_id where ur.user_id=u.id and r.tenant_id=$1::uuid and r.code<>u.membership_type),'[]'::jsonb)) order by u.display_name) from agency.users u where u.tenant_id=$1::uuid and u.active),'[]'::jsonb) else '[]'::jsonb end",
+          ")::text"
+        >>,
+        panel_dashboard_query(Db, Sql, [erlang:element(2,Session),erlang:element(3,Session),erlang:element(5,Session)])
+    end).
+
+panel_role_context_switch(Req, Db, Token) ->
+    require_role_context_session(Db, Token, fun(_) ->
+        wisp:require_form(Req, fun(Form) ->
+            Role = form_value(erlang:element(2,Form), ~"role"),
+            case Token of
+                {ok, Value} -> panel_operation_execute(Db, ~"select case when auth.switch_role($1,$2) then 'ok' else null end", [Value,Role], ~"/admin/role-context");
+                _ -> wisp:response(401)
+            end
+        end)
+    end).
+
+%% Role selection is available to customers who have also been granted a panel role.
+%% Other admin routes continue to reject customer sessions.
+require_role_context_session(Db, Token, Body) ->
+    case Token of
+        {ok, Value} ->
+            case nexus_agency@auth:session(Db, Value) of
+                {ok, Session} -> Body(Session);
+                {error, _} -> wisp:redirect(~"/login")
+            end;
+        {error, _} -> wisp:redirect(~"/login")
+    end.
+
+panel_role_context_grant(Req, Db, Token) ->
+    require_admin(Db, Token, fun(Session) ->
+        wisp:require_form(Req, fun(Form) ->
+            Values = erlang:element(2,Form),
+            panel_operation_execute(Db, ~"select case when agency.grant_user_role($1::uuid,$2::uuid,$3::uuid,$4) then 'ok' else null end", [erlang:element(2,Session),erlang:element(3,Session),form_value(Values,~"user_id"),form_value(Values,~"role")], ~"/admin/role-context")
+        end)
+    end).
+
+panel_role_context_revoke(Req, Db, Token) ->
+    require_admin(Db, Token, fun(Session) ->
+        wisp:require_form(Req, fun(Form) ->
+            Values = erlang:element(2,Form),
+            panel_operation_execute(Db, ~"select case when agency.revoke_user_role($1::uuid,$2::uuid,$3::uuid,$4) then 'ok' else null end", [erlang:element(2,Session),erlang:element(3,Session),form_value(Values,~"user_id"),form_value(Values,~"role")], ~"/admin/role-context")
+        end)
+    end).
+
+panel_supplier_operations_page(Db, Token, Lang, Active_cat) ->
+    require_session(Db, Token, fun(Session) ->
+        case erlang:element(5,Session) of
+            ~"supplier" -> wisp:html_body(wisp:ok(), nexus_agency@panel:section(Session, ~"supplier-operations", ~"Belgelerinizi, hakedişlerinizi ve performansınızı izleyin.", [], Lang, Active_cat));
+            ~"admin" -> wisp:html_body(wisp:ok(), nexus_agency@panel:section(Session, ~"supplier-operations", ~"Tedarikçi belgelerini ve hakedişlerini yönetin.", [], Lang, Active_cat));
+            _ -> wisp:response(403)
+        end
+    end).
+
+panel_supplier_operations_data(Db, Token) ->
+    require_session(Db, Token, fun(Session) ->
+        Role = erlang:element(5,Session),
+        case Role of
+            ~"supplier" -> panel_supplier_operations_query(Db,Session,Role);
+            ~"admin" -> panel_supplier_operations_query(Db,Session,Role);
+            _ -> wisp:response(403)
+        end
+    end).
+
+panel_supplier_operations_query(Db, Session, Role) ->
+    Sql = <<
+      "select jsonb_build_object('role',$3::text,",
+      "'documentTypes',coalesce((select jsonb_agg(code order by position) from agency.supplier_onboarding_contract_items where kind='required_document'),'[]'::jsonb),",
+      "'documents',coalesce((select jsonb_agg(jsonb_build_object('id',d.id,'supplier',u.display_name,'type',d.document_type,'url',d.document_url,'expiresOn',coalesce(d.expires_on::text,''),'status',d.status,'note',d.review_note,'submittedAt',to_char(d.submitted_at,'YYYY-MM-DD')) order by d.submitted_at desc) from agency.supplier_documents d join agency.users u on u.id=d.supplier_user_id and u.tenant_id=d.tenant_id where d.tenant_id=$1::uuid and ($3::text='admin' or d.supplier_user_id=$2::uuid)),'[]'::jsonb),",
+      "'settlements',coalesce((select jsonb_agg(jsonb_build_object('id',s.id,'reference',r.reference_code,'supplier',u.display_name,'gross',s.gross_minor,'commission',s.commission_minor,'net',s.net_minor,'currency',s.currency,'status',s.status,'dueOn',s.due_on,'externalReference',s.external_reference) order by s.due_on desc) from agency.supplier_settlements s join agency.reservations r on r.id=s.reservation_id and r.tenant_id=s.tenant_id join agency.users u on u.id=s.supplier_user_id and u.tenant_id=s.tenant_id where s.tenant_id=$1::uuid and ($3::text='admin' or s.supplier_user_id=$2::uuid)),'[]'::jsonb),",
+      "'settlementPolicy',case when $3::text='admin' then coalesce((select jsonb_build_object('enabled',p.enabled,'daysAfterCheckout',p.days_after_checkout) from agency.supplier_settlement_policies p where p.tenant_id=$1::uuid),jsonb_build_object('enabled',false,'daysAfterCheckout',7)) else '{}'::jsonb end,",
+      "'eligibleReservations',case when $3::text='admin' then coalesce((select jsonb_agg(jsonb_build_object('id',r.id,'reference',r.reference_code,'supplier',u.display_name,'amount',r.total_minor,'currency',r.currency) order by r.created_at desc) from agency.reservations r join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id join agency.users u on u.id=l.owner_user_id and u.tenant_id=r.tenant_id where r.tenant_id=$1::uuid and r.status in ('confirmed','completed') and r.payment_status='paid' and r.total_minor>0 and not exists(select 1 from agency.supplier_settlements s where s.reservation_id=r.id)),'[]'::jsonb) else '[]'::jsonb end,",
+      "'performance',jsonb_build_object('bookings',(select count(*) from agency.reservations r join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id where r.tenant_id=$1::uuid and ($3::text='admin' or l.owner_user_id=$2::uuid)),'confirmed',(select count(*) from agency.reservations r join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id where r.tenant_id=$1::uuid and r.status in ('confirmed','completed') and ($3::text='admin' or l.owner_user_id=$2::uuid)),'cancelled',(select count(*) from agency.reservations r join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id where r.tenant_id=$1::uuid and r.status='cancelled' and ($3::text='admin' or l.owner_user_id=$2::uuid)),'inquiries',(select count(*) from agency.contact_requests q join agency.listings l on l.id=q.listing_id and l.tenant_id=q.tenant_id where q.tenant_id=$1::uuid and ($3::text='admin' or l.owner_user_id=$2::uuid)),'replied',(select count(distinct q.id) from agency.contact_requests q join agency.listings l on l.id=q.listing_id and l.tenant_id=q.tenant_id join agency.supplier_lead_replies x on x.contact_request_id=q.id and x.tenant_id=q.tenant_id where q.tenant_id=$1::uuid and ($3::text='admin' or l.owner_user_id=$2::uuid)))",
+      ")::text"
+    >>,
+    panel_dashboard_query(Db,Sql,[erlang:element(2,Session),erlang:element(3,Session),Role]).
+
+panel_supplier_operations_document(Req, Db, Token) ->
+    require_session(Db, Token, fun(Session) ->
+        case erlang:element(5,Session) of
+            ~"supplier" -> wisp:require_form(Req, fun(Form) ->
+                Values = erlang:element(2,Form),
+                panel_operation_execute(Db, ~"select agency.submit_supplier_document($1::uuid,$2::uuid,$3,$4,nullif($5,'')::date)::text", [erlang:element(2,Session),erlang:element(3,Session),form_value(Values,~"document_type"),form_value(Values,~"document_url"),form_value(Values,~"expires_on")], ~"/admin/supplier-operations")
+            end);
+            _ -> wisp:response(403)
+        end
+    end).
+
+panel_supplier_operations_document_review(Req, Db, Token) ->
+    require_admin(Db, Token, fun(Session) -> wisp:require_form(Req, fun(Form) ->
+        Values = erlang:element(2,Form),
+        panel_operation_execute(Db, ~"select agency.review_supplier_document($1::uuid,$2::uuid,$3::uuid,$4,$5)::text", [erlang:element(2,Session),erlang:element(3,Session),form_value(Values,~"document_id"),form_value(Values,~"decision"),form_value(Values,~"note")], ~"/admin/supplier-operations")
+    end) end).
+
+panel_supplier_operations_settlement(Req, Db, Token) ->
+    require_admin(Db, Token, fun(Session) -> wisp:require_form(Req, fun(Form) ->
+        Values = erlang:element(2,Form),
+        panel_operation_execute(Db, ~"select agency.propose_supplier_settlement($1::uuid,$2::uuid,$3::uuid,$4::date)::text", [erlang:element(2,Session),erlang:element(3,Session),form_value(Values,~"reservation_id"),form_value(Values,~"due_on")], ~"/admin/supplier-operations")
+    end) end).
+
+panel_supplier_operations_settlement_action(Req, Db, Token) ->
+    require_admin(Db, Token, fun(Session) -> wisp:require_form(Req, fun(Form) ->
+        Values = erlang:element(2,Form),
+        panel_operation_execute(Db, ~"select agency.advance_supplier_settlement($1::uuid,$2::uuid,$3::uuid,$4,$5)::text", [erlang:element(2,Session),erlang:element(3,Session),form_value(Values,~"settlement_id"),form_value(Values,~"action"),form_value(Values,~"external_reference")], ~"/admin/supplier-operations")
+    end) end).
+
+panel_supplier_operations_settlement_policy(Req, Db, Token) ->
+    require_admin(Db, Token, fun(Session) -> wisp:require_form(Req, fun(Form) ->
+        Values = erlang:element(2,Form),
+        panel_operation_execute(Db,~"select agency.set_supplier_settlement_policy($1::uuid,$2::uuid,$3::boolean,$4::integer)::text",
+            [erlang:element(2,Session),erlang:element(3,Session),form_value(Values,~"enabled"),form_value(Values,~"days_after_checkout")],
+            ~"/admin/supplier-operations")
+    end) end).
+
+panel_supplier_operations_settlement_generate(Db, Token) ->
+    require_admin(Db, Token, fun(Session) ->
+        panel_operation_execute(Db,~"select agency.generate_scheduled_supplier_settlements($1::uuid,$2::uuid)::text",
+            [erlang:element(2,Session),erlang:element(3,Session)],~"/admin/supplier-operations")
+    end).
+
+panel_supplier_bookings_page(Db, Token, Lang, Active_cat) ->
+    require_session(Db, Token, fun(Session) ->
+        case erlang:element(5, Session) of
+            ~"supplier" -> wisp:html_body(wisp:ok(), nexus_agency@panel:section(Session, ~"supplier-bookings", ~"Kendi ilanlarınızın rezervasyonlarını takip edin.", [], Lang, Active_cat));
+            ~"admin" -> wisp:html_body(wisp:ok(), nexus_agency@panel:section(Session, ~"supplier-bookings", ~"Tedarikçi rezervasyonlarını takip edin.", [], Lang, Active_cat));
+            _ -> wisp:response(403)
+        end
+    end).
+
+panel_supplier_bookings_data(Db, Token) ->
+    require_session(Db, Token, fun(Session) ->
+        Role = erlang:element(5, Session),
+        case Role of
+            ~"supplier" -> panel_supplier_bookings_query(Db, Session, Role);
+            ~"admin" -> panel_supplier_bookings_query(Db, Session, Role);
+            _ -> wisp:response(403)
+        end
+    end).
+
+panel_supplier_bookings_query(Db, Session, Role) ->
+    Sql = <<
+      "select coalesce(jsonb_agg(jsonb_build_object('id',r.id,'reference',r.reference_code,'listing',l.title,'category',l.category,'customer',coalesce(c.full_name,''),'checkIn',coalesce(r.check_in::text,''),'checkOut',coalesce(r.check_out::text,''),'guests',r.guest_count,'amount',r.total_minor,'currency',r.currency,'status',r.status,'paymentStatus',r.payment_status,'decision',coalesce(d.decision,''),'decisionNote',coalesce(d.note,''),'createdAt',to_char(r.created_at,'YYYY-MM-DD HH24:MI'),'serviceTasks',coalesce((select jsonb_agg(jsonb_build_object('id',t.id,'title',t.title_tr,'stage',t.stage,'status',t.status,'ownerRole',t.owner_role,'note',t.note) order by t.position) from agency.reservation_service_tasks t where t.tenant_id=r.tenant_id and t.reservation_id=r.id),'[]'::jsonb),'messages',coalesce((select jsonb_agg(jsonb_build_object('author',m.author_role,'message',m.message,'createdAt',to_char(m.created_at,'YYYY-MM-DD HH24:MI')) order by m.created_at) from agency.reservation_messages m where m.tenant_id=r.tenant_id and m.reservation_id=r.id),'[]'::jsonb)) order by r.created_at desc),'[]'::jsonb)::text ",
+      "from agency.reservations r join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id left join agency.customers c on c.id=r.customer_id and c.tenant_id=r.tenant_id left join agency.supplier_booking_decisions d on d.reservation_id=r.id and d.tenant_id=r.tenant_id ",
+      "where r.tenant_id=$1::uuid and ($3::text='admin' or l.owner_user_id=$2::uuid)"
+    >>,
+    panel_dashboard_query(Db, Sql, [erlang:element(2, Session),erlang:element(3, Session),Role]).
+
+panel_supplier_inquiries_page(Db, Token, Lang, Active_cat) ->
+    require_session(Db, Token, fun(Session) ->
+        case erlang:element(5, Session) of
+            ~"supplier" -> wisp:html_body(wisp:ok(), nexus_agency@panel:section(Session, ~"supplier-inquiries", ~"Kendi ilanlarınıza gelen talepleri takip edin.", [], Lang, Active_cat));
+            ~"admin" -> wisp:html_body(wisp:ok(), nexus_agency@panel:section(Session, ~"supplier-inquiries", ~"İlanlara gelen talepleri takip edin.", [], Lang, Active_cat));
+            _ -> wisp:response(403)
+        end
+    end).
+
+panel_supplier_inquiries_data(Db, Token) ->
+    require_session(Db, Token, fun(Session) ->
+        Role = erlang:element(5, Session),
+        case Role of
+            ~"supplier" -> panel_supplier_inquiries_query(Db, Session, Role);
+            ~"admin" -> panel_supplier_inquiries_query(Db, Session, Role);
+            _ -> wisp:response(403)
+        end
+    end).
+
+panel_supplier_inquiries_query(Db, Session, Role) ->
+    Sql = <<
+      "select coalesce(jsonb_agg(jsonb_build_object('id',c.id,'listing',l.title,'name',c.name,'email',c.email,'phone',c.phone,'message',c.message,'channel',c.preferred_channel,'status',c.status,'lastReply',coalesce((select x.message from agency.supplier_lead_replies x where x.tenant_id=c.tenant_id and x.contact_request_id=c.id order by x.created_at desc limit 1),''),'createdAt',to_char(c.created_at,'YYYY-MM-DD HH24:MI')) order by c.created_at desc),'[]'::jsonb)::text ",
+      "from agency.contact_requests c join agency.listings l on l.id=c.listing_id and l.tenant_id=c.tenant_id ",
+      "where c.tenant_id=$1::uuid and ($3::text='admin' or l.owner_user_id=$2::uuid)"
+    >>,
+    panel_dashboard_query(Db, Sql, [erlang:element(2, Session),erlang:element(3, Session),Role]).
+
+panel_supplier_booking_decision(Req, Db, Token) ->
+    require_session(Db, Token, fun(Session) ->
+        case erlang:element(5, Session) of
+            ~"supplier" ->
+                wisp:require_form(Req, fun(Form) ->
+                    Values = erlang:element(2, Form),
+                    Decision = form_value(Values, ~"decision"),
+                    Note = string:trim(form_value(Values, ~"note")),
+                    case (Decision =:= ~"accepted" orelse Decision =:= ~"rejected") andalso string:length(Note) =< 1000 of
+                        false -> wisp:response(400);
+                        true ->
+                            Sql = <<"with eligible as (select r.id from agency.reservations r join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id where r.tenant_id=$1::uuid and r.id=$3::uuid and r.status='inquiry' and l.owner_user_id=$2::uuid), changed as (insert into agency.supplier_booking_decisions(tenant_id,reservation_id,supplier_user_id,decision,note) select $1::uuid,id,$2::uuid,$4,$5 from eligible on conflict(reservation_id) do update set decision=excluded.decision,note=excluded.note,decided_at=now() where agency.supplier_booking_decisions.tenant_id=$1::uuid and agency.supplier_booking_decisions.supplier_user_id=$2::uuid and agency.supplier_booking_decisions.applied_at is null returning reservation_id), audit as (insert into agency.audit_logs(tenant_id,user_id,action,entity_type,entity_id,metadata) select $1::uuid,$2::uuid,'supplier.booking_decision','reservation',reservation_id,jsonb_build_object('decision',$4) from changed) select reservation_id::text from changed">>,
+                            panel_operation_execute(Db,Sql,[erlang:element(2,Session),erlang:element(3,Session),form_value(Values,~"reservation_id"),Decision,Note],~"/admin/supplier-bookings")
+                    end
+                end);
+            _ -> wisp:response(403)
+        end
+    end).
+
+panel_supplier_booking_message(Req, Db, Token) ->
+    require_session(Db, Token, fun(Session) ->
+        Role = erlang:element(5,Session),
+        case Role of
+            ~"supplier" -> panel_supplier_booking_message_form(Req,Db,Session,Role);
+            ~"admin" -> panel_supplier_booking_message_form(Req,Db,Session,Role);
+            _ -> wisp:response(403)
+        end
+    end).
+
+panel_supplier_booking_message_form(Req, Db, Session, Role) ->
+    wisp:require_form(Req, fun(Form) ->
+        Values = erlang:element(2,Form),
+        Reservation = form_value(Values,~"reservation_id"),
+        Message = string:trim(form_value(Values,~"message")),
+        case customer_portal_uuid(Reservation) andalso customer_portal_length(Message,2,4000) of
+            true -> panel_operation_execute(Db,
+                ~"select agency.send_reservation_message($1::uuid,$2::uuid,$3::uuid,$4,$5)::text",
+                [erlang:element(2,Session),erlang:element(3,Session),Reservation,Role,Message],
+                ~"/admin/supplier-bookings");
+            false -> wisp:response(400)
+        end
+    end).
+
+panel_supplier_lead_reply(Req, Db, Token) ->
+    require_session(Db, Token, fun(Session) ->
+        case erlang:element(5, Session) of
+            ~"supplier" ->
+                wisp:require_form(Req, fun(Form) ->
+                    Values = erlang:element(2, Form),
+                    Message = string:trim(form_value(Values,~"message")),
+                    case string:length(Message) >= 2 andalso string:length(Message) =< 4000 of
+                        false -> wisp:response(400);
+                        true ->
+                            Sql = <<"with eligible as (select q.id from agency.contact_requests q join agency.listings l on l.id=q.listing_id and l.tenant_id=q.tenant_id where q.tenant_id=$1::uuid and q.id=$3::uuid and q.status in ('new','in_progress') and l.owner_user_id=$2::uuid), inserted as (insert into agency.supplier_lead_replies(tenant_id,contact_request_id,supplier_user_id,message) select $1::uuid,id,$2::uuid,$4 from eligible returning id,contact_request_id), updated as (update agency.contact_requests q set status='in_progress' where q.id in (select contact_request_id from inserted) and q.tenant_id=$1::uuid returning q.id), audit as (insert into agency.audit_logs(tenant_id,user_id,action,entity_type,entity_id) select $1::uuid,$2::uuid,'supplier.lead_reply','contact_request',id from updated) select id::text from inserted">>,
+                            panel_operation_execute(Db,Sql,[erlang:element(2,Session),erlang:element(3,Session),form_value(Values,~"contact_request_id"),Message],~"/admin/supplier-inquiries")
+                    end
+                end);
+            _ -> wisp:response(403)
+        end
+    end).
+
+panel_supplier_booking_service_start(Req, Db, Token) ->
+    require_session(Db, Token, fun(Session) ->
+        case erlang:element(5,Session) of
+            ~"admin" -> panel_supplier_booking_service_start_form(Req,Db,Session);
+            ~"supplier" -> panel_supplier_booking_service_start_form(Req,Db,Session);
+            _ -> wisp:response(403)
+        end
+    end).
+
+panel_supplier_booking_service_start_form(Req, Db, Session) ->
+    wisp:require_form(Req, fun(Form) ->
+        Reservation = form_value(erlang:element(2,Form),~"reservation_id"),
+        case customer_portal_uuid(Reservation) of
+            true -> panel_operation_execute(Db,
+                ~"select agency.start_reservation_service($1::uuid,$2::uuid,$3::uuid)::text",
+                [erlang:element(2,Session),erlang:element(3,Session),Reservation],
+                ~"/admin/supplier-bookings");
+            false -> wisp:response(400)
+        end
+    end).
+
+panel_supplier_booking_service_task(Req, Db, Token) ->
+    require_session(Db, Token, fun(Session) ->
+        case erlang:element(5,Session) of
+            ~"admin" -> panel_supplier_booking_service_task_form(Req,Db,Session);
+            ~"supplier" -> panel_supplier_booking_service_task_form(Req,Db,Session);
+            _ -> wisp:response(403)
+        end
+    end).
+
+panel_supplier_booking_service_task_form(Req, Db, Session) ->
+    wisp:require_form(Req, fun(Form) ->
+        Values = erlang:element(2,Form),
+        Task = form_value(Values,~"task_id"),
+        Status = form_value(Values,~"status"),
+        Note = string:trim(form_value(Values,~"note")),
+        case customer_portal_uuid(Task) andalso
+          (Status =:= ~"done" orelse Status =:= ~"waived") andalso
+          string:length(Note) =< 2000 of
+            true -> panel_operation_execute(Db,
+                ~"select agency.finish_reservation_service_task($1::uuid,$2::uuid,$3::uuid,$4,$5)::text",
+                [erlang:element(2,Session),erlang:element(3,Session),Task,Status,Note],
+                ~"/admin/supplier-bookings");
+            false -> wisp:response(400)
+        end
+    end).
+
+panel_review_center_page(Db, Token, Lang, Active_cat) ->
+    require_admin(Db, Token, fun(Session) ->
+        wisp:html_body(wisp:ok(), nexus_agency@panel:section(Session,~"review-center",~"Tedarikçi yanıtlarını ve yayın incelemelerini yönetin.",[],Lang,Active_cat))
+    end).
+
+panel_review_center_data(Db, Token) ->
+    require_admin(Db, Token, fun(Session) ->
+        Sql = <<
+          "select jsonb_build_object(",
+          "'bookingDecisions',coalesce((select jsonb_agg(jsonb_build_object('reservationId',r.id,'reference',r.reference_code,'listing',l.title,'supplier',u.display_name,'decision',d.decision,'note',d.note,'date',to_char(d.decided_at,'YYYY-MM-DD HH24:MI')) order by d.decided_at desc) from agency.supplier_booking_decisions d join agency.reservations r on r.id=d.reservation_id and r.tenant_id=d.tenant_id join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id join agency.users u on u.id=d.supplier_user_id and u.tenant_id=d.tenant_id where d.tenant_id=$1::uuid and d.applied_at is null),'[]'::jsonb),",
+          "'listings',coalesce((select jsonb_agg(jsonb_build_object('id',l.id,'title',l.title,'category',l.category,'owner',coalesce(u.display_name,''),'createdAt',to_char(l.created_at,'YYYY-MM-DD HH24:MI')) order by l.created_at) from agency.listings l left join agency.users u on u.id=l.owner_user_id and u.tenant_id=l.tenant_id where l.tenant_id=$1::uuid and l.status='pending_review'),'[]'::jsonb),",
+          "'applications',coalesce((select jsonb_agg(jsonb_build_object('id',a.id,'name',u.display_name,'type',a.type,'status',a.status,'submittedAt',to_char(a.submitted_at,'YYYY-MM-DD HH24:MI')) order by a.submitted_at) from agency.applications a join agency.users u on u.id=a.user_id and u.tenant_id=a.tenant_id where a.tenant_id=$1::uuid and a.status in ('pending','in_review')),'[]'::jsonb),",
+          "'assignments',coalesce((select jsonb_agg(jsonb_build_object('entityType',a.entity_type,'entityId',a.entity_id,'assignee',u.display_name,'dueAt',to_char(a.due_at,'YYYY-MM-DD HH24:MI'),'overdue',a.due_at<now(),'notifiable',a.due_at<now() and u.active and nullif(trim(u.email),'') is not null and (a.last_overdue_notified_at is null or a.last_overdue_notified_at<now()-interval '24 hours'))) from agency.review_assignments a join agency.users u on u.id=a.assignee_user_id and u.tenant_id=a.tenant_id where a.tenant_id=$1::uuid and a.status='open'),'[]'::jsonb),",
+          "'reviewers',coalesce((select jsonb_agg(jsonb_build_object('id',u.id,'name',u.display_name) order by u.display_name) from agency.users u where u.tenant_id=$1::uuid and u.active and (u.membership_type in ('admin','staff') or exists(select 1 from agency.user_roles ur join agency.roles role on role.id=ur.role_id where ur.user_id=u.id and role.tenant_id=u.tenant_id and role.code in ('admin','staff')))),'[]'::jsonb),",
+          "'expiringDocuments',coalesce((select jsonb_agg(jsonb_build_object('id',d.id,'supplier',u.display_name,'type',d.document_type,'expiresOn',d.expires_on,'status',d.status) order by d.expires_on) from agency.supplier_documents d join agency.users u on u.id=d.supplier_user_id and u.tenant_id=d.tenant_id where d.tenant_id=$1::uuid and d.status='approved' and d.expires_on<=current_date+30),'[]'::jsonb)",
+          ")::text"
+        >>,
+        panel_dashboard_query(Db,Sql,[erlang:element(2,Session)])
+    end).
+
+panel_review_booking_decision(Req, Db, Token) ->
+    require_admin(Db, Token, fun(Session) ->
+        wisp:require_form(Req, fun(Form) ->
+            Values = erlang:element(2,Form),
+            Action = form_value(Values,~"action"),
+            case Action of
+                ~"apply" ->
+                    Sql = <<"with chosen as (select d.reservation_id,d.decision from agency.supplier_booking_decisions d join agency.reservations r on r.id=d.reservation_id and r.tenant_id=d.tenant_id where d.tenant_id=$1::uuid and d.reservation_id=$3::uuid and d.applied_at is null and r.status='inquiry'), changed as (update agency.reservations r set status=case when c.decision='accepted' then 'option' else 'cancelled' end from chosen c where r.id=c.reservation_id and r.tenant_id=$1::uuid returning r.id), marked as (update agency.supplier_booking_decisions d set applied_at=now(),applied_by=$2::uuid where d.tenant_id=$1::uuid and d.reservation_id in (select id from changed) returning d.reservation_id,d.decision), closed as (update agency.review_assignments a set status='closed',updated_at=now() where a.tenant_id=$1::uuid and a.entity_type='booking_decision' and a.entity_id in (select reservation_id from marked) and a.status='open' returning a.id), audit as (insert into agency.audit_logs(tenant_id,user_id,action,entity_type,entity_id,metadata) select $1::uuid,$2::uuid,'supplier.booking_decision_applied','reservation',reservation_id,jsonb_build_object('decision',decision) from marked) select reservation_id::text from marked">>,
+                    panel_operation_execute(Db,Sql,[erlang:element(2,Session),erlang:element(3,Session),form_value(Values,~"reservation_id")],~"/admin/review-center");
+                _ -> wisp:response(400)
+            end
+        end)
+    end).
+
+panel_review_booking_decisions_bulk(Req, Db, Token) ->
+    require_admin(Db, Token, fun(Session) ->
+        wisp:require_form(Req, fun(Form) ->
+            Ids = form_value(erlang:element(2,Form),~"reservation_ids"),
+            Pattern = ~"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(,[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}){0,49}$",
+            case re:run(Ids,Pattern,[{capture,none}]) of
+                match -> panel_operation_execute(Db,~"select agency.apply_supplier_booking_decisions_bulk($1::uuid,$2::uuid,string_to_array($3,',')::uuid[])::text",[erlang:element(2,Session),erlang:element(3,Session),Ids],~"/admin/review-center");
+                _ -> wisp:response(400)
+            end
+        end)
+    end).
+
+panel_review_notify_overdue(Db, Token) ->
+    require_admin(Db, Token, fun(Session) ->
+        panel_operation_execute(Db,
+            ~"select agency.queue_overdue_review_notifications($1::uuid,$2::uuid)::text",
+            [erlang:element(2,Session),erlang:element(3,Session)],
+            ~"/admin/review-center")
+    end).
+
+panel_review_assign(Req, Db, Token) ->
+    require_admin(Db, Token, fun(Session) ->
+        wisp:require_form(Req, fun(Form) ->
+            Values = erlang:element(2,Form),
+            panel_operation_execute(Db,~"select agency.assign_review($1::uuid,$2::uuid,$3,$4::uuid,$5::uuid,$6::timestamptz)::text",[erlang:element(2,Session),erlang:element(3,Session),form_value(Values,~"entity_type"),form_value(Values,~"entity_id"),form_value(Values,~"assignee_user_id"),form_value(Values,~"due_at")],~"/admin/review-center")
+        end)
+    end).
+
+panel_operation_execute(Db,Sql,Params,Redirect) ->
+    Q0 = pog:'query'(Sql),
+    Q1 = lists:foldl(fun(P,Q) -> pog:parameter(Q,pog_ffi:coerce(P)) end,Q0,Params),
+    Q2 = pog:returning(Q1,id_decoder()),
+    case pog:execute(Q2,Db) of
+        {ok,Result} -> case gleam@list:is_empty(erlang:element(3,Result)) of true -> wisp:response(422); false -> wisp:redirect(Redirect) end;
+        {error,_} -> wisp:response(422)
+    end.
+
+panel_finance_overview_page(Db, Token, Lang, Active_cat) ->
+    require_admin(Db, Token, fun(Session) ->
+        wisp:html_body(wisp:ok(), nexus_agency@panel:section(Session, ~"finance-overview", ~"Sipariş, ödeme, iade ve faturaları izleyin.", [], Lang, Active_cat))
+    end).
+
+panel_finance_overview_data(Db, Token) ->
+    require_admin(Db, Token, fun(Session) ->
+        Sql = <<
+          "select jsonb_build_object(",
+          "'orders',coalesce((select jsonb_agg(x.item order by x.created_at desc) from (select o.created_at,jsonb_build_object('number',o.number,'customer',coalesce(c.full_name,''),'status',o.status,'total',o.total_minor,'currency',o.currency,'createdAt',to_char(o.created_at,'YYYY-MM-DD HH24:MI')) item from agency.orders o left join agency.customers c on c.id=o.customer_id and c.tenant_id=o.tenant_id where o.tenant_id=$1::uuid order by o.created_at desc limit 100) x),'[]'::jsonb),",
+          "'payments',coalesce((select jsonb_agg(x.item order by x.created_at desc) from (select p.created_at,jsonb_build_object('id',p.id,'order',o.number,'provider',p.provider,'status',p.status,'amount',p.amount_minor,'refundable',greatest(0,p.amount_minor-coalesce((select sum(f.amount_minor) from agency.refunds f where f.payment_id=p.id and f.status in ('pending','processed')),0)),'reconciliation',coalesce((select pr.external_reference from agency.payment_reconciliations pr where pr.tenant_id=o.tenant_id and pr.payment_id=p.id),''),'currency',p.currency,'createdAt',to_char(p.created_at,'YYYY-MM-DD HH24:MI')) item from agency.payments p join agency.orders o on o.id=p.order_id where o.tenant_id=$1::uuid order by p.created_at desc limit 100) x),'[]'::jsonb),",
+          "'refunds',coalesce((select jsonb_agg(x.item order by x.created_at desc) from (select f.created_at,jsonb_build_object('order',o.number,'status',f.status,'amount',f.amount_minor,'currency',p.currency,'reason',f.reason,'createdAt',to_char(f.created_at,'YYYY-MM-DD HH24:MI')) item from agency.refunds f join agency.payments p on p.id=f.payment_id join agency.orders o on o.id=p.order_id where o.tenant_id=$1::uuid order by f.created_at desc limit 100) x),'[]'::jsonb),",
+          "'invoices',coalesce((select jsonb_agg(x.item order by x.created_at desc) from (select coalesce(i.issued_at,now()) created_at,jsonb_build_object('number',i.number,'order',coalesce(o.number,''),'type',i.invoice_type,'status',i.status,'total',i.total_minor,'currency',i.currency,'createdAt',coalesce(to_char(i.issued_at,'YYYY-MM-DD HH24:MI'),'')) item from agency.invoices i left join agency.orders o on o.id=i.order_id and o.tenant_id=i.tenant_id where i.tenant_id=$1::uuid order by i.issued_at desc nulls last limit 100) x),'[]'::jsonb),",
+          "'reconciliations',coalesce((select jsonb_agg(jsonb_build_object('order',o.number,'reference',pr.external_reference,'amount',pr.amount_minor,'currency',p.currency,'createdAt',to_char(pr.recorded_at,'YYYY-MM-DD HH24:MI')) order by pr.recorded_at desc) from agency.payment_reconciliations pr join agency.payments p on p.id=pr.payment_id join agency.orders o on o.id=p.order_id where pr.tenant_id=$1::uuid and o.tenant_id=$1::uuid),'[]'::jsonb),",
+          "'providerSettings',coalesce((select jsonb_build_object('ecosystem',s.ecosystem,'paymentProvider',s.payment_provider,'documentProvider',s.document_provider,'paymentStatus',s.payment_status,'documentStatus',s.document_status) from agency.finance_provider_settings s where s.tenant_id=$1::uuid),'{}'::jsonb)",
+          ")::text"
+        >>,
+        panel_dashboard_query(Db, Sql, [erlang:element(2, Session)])
+    end).
+
+public_customer_care_page(Db, Token) ->
+    require_panel_session(Db, Token, ~"inquiries", fun(_) ->
+        Csrf = case Token of {ok, Value} -> nexus_agency@csrf:token_for(Value); _ -> ~"" end,
+        Html = <<"<!doctype html><html lang='tr'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><meta name='csrf-token' content='", Csrf/binary, "'><title>M&#252;&#351;teri hizmetleri | NEXUS</title><link rel='stylesheet' href='/static/account-care.css?v=20260927-1'></head><body><main id='customer-care'><header><a href='/admin/inquiries'>&larr; Y&#246;netim paneli</a><h1>M&#252;&#351;teri hizmetleri</h1><p>M&#252;&#351;teri destek g&#246;r&#252;&#351;meleri ve rezervasyon i&#351;lem talepleri</p></header><div id='care-content'>Y&#252;kleniyor&#8230;</div></main><script src='/static/account-care.js?v=20260927-1' defer></script></body></html>">>,
+        wisp:html_body(wisp:ok(), Html)
+    end).
+
+panel_commercial_page(Db, Token, Lang, Active_cat) ->
+    require_admin(Db, Token, fun(Session) ->
+        wisp:html_body(wisp:ok(), nexus_agency@panel:section(Session,
+            ~"commercial-operations",~"Kategori hizmet akışları ve ticari satış kurallarını yönetin.",[],Lang,Active_cat))
+    end).
+
+panel_commercial_data(Db, Token) ->
+    require_admin(Db, Token, fun(Session) ->
+        panel_dashboard_query(Db,
+            ~"select (agency.commercial_workspace($1::uuid,$2::uuid) || jsonb_build_object('channelDelivery',agency.channel_delivery_summary($1::uuid,$2::uuid),'journeyCampaigns',coalesce((select jsonb_agg(jsonb_build_object('id',id,'name',name,'source',source_category,'target',target_category,'rate',discount_percent,'startsOn',starts_on,'endsOn',ends_on,'status',status) order by created_at desc) from agency.customer_cross_sell_campaigns where tenant_id=$1::uuid),'[]'::jsonb),'journeyLeads',agency.customer_journey_leads($1::uuid,$2::uuid),'journeyRules',coalesce((select jsonb_agg(jsonb_build_object('source',source_category,'target',target_category)) from agency.journey_question_rules),'[]'::jsonb)))::text",
+            [erlang:element(2,Session),erlang:element(3,Session)])
+    end).
+
+panel_commercial_options(Db, Token) ->
+    require_admin(Db, Token, fun(Session) ->
+        Sql = <<"select jsonb_build_object(",
+          "'listings',coalesce((select jsonb_agg(jsonb_build_object('id',id,'title',title,'category',category,'status',status,'price',price_minor,'currency',currency) order by title) from agency.listings where tenant_id=$1::uuid and source<>'nexus'),'[]'::jsonb),",
+          "'organizations',coalesce((select jsonb_agg(jsonb_build_object('id',id,'name',name) order by name) from agency.partner_organizations where tenant_id=$1::uuid and status='active'),'[]'::jsonb),",
+          "'channels',coalesce((select jsonb_agg(jsonb_build_object('id',id,'label',label) order by label) from agency.sales_channels where tenant_id=$1::uuid),'[]'::jsonb),",
+          "'contracts',coalesce((select jsonb_agg(jsonb_build_object('id',id,'code',code) order by code) from agency.partner_sales_contracts where tenant_id=$1::uuid and status='draft'),'[]'::jsonb),",
+          "'contractProducts',coalesce((select jsonb_agg(jsonb_build_object('id',p.id,'label',c.code||' - '||l.title) order by c.code,l.title) from agency.partner_contract_products p join agency.partner_sales_contracts c on c.id=p.contract_id and c.tenant_id=p.tenant_id join agency.listings l on l.id=p.listing_id and l.tenant_id=p.tenant_id where p.tenant_id=$1::uuid and c.status='active' and not p.stop_sale),'[]'::jsonb),",
+          "'partnerReservations',coalesce((select jsonb_agg(jsonb_build_object('id',r.id,'label',r.reference_code||' - '||l.title) order by r.created_at desc) from agency.reservations r join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id where r.tenant_id=$1::uuid and r.partner_organization_id is not null and r.status in ('inquiry','option','confirmed') and not exists(select 1 from agency.partner_reservation_allocations a where a.tenant_id=r.tenant_id and a.reservation_id=r.id)),'[]'::jsonb),",
+          "'allocatedReservations',coalesce((select jsonb_agg(jsonb_build_object('id',r.id,'label',r.reference_code||' - '||l.title) order by r.created_at desc) from agency.reservations r join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id join agency.partner_reservation_allocations a on a.reservation_id=r.id and a.tenant_id=r.tenant_id where r.tenant_id=$1::uuid and r.status in ('option','confirmed','completed')),'[]'::jsonb)",
+          ")::text">>,
+        panel_dashboard_query(Db,Sql,[erlang:element(2,Session)])
+    end).
+
+panel_commercial_action(Req, Db, Token, Action) ->
+    require_admin(Db, Token, fun(Session) ->
+        wisp:require_form(Req, fun(Form) ->
+            V = erlang:element(2,Form),
+            T = erlang:element(2,Session),
+            U = erlang:element(3,Session),
+            Redirect = ~"/admin/commercial-operations",
+            case Action of
+                ~"channel" -> panel_operation_execute(Db,
+                    ~"select agency.save_sales_channel($1::uuid,$2::uuid,$3,$4,$5)::text",
+                    [T,U,form_value(V,~"key"),form_value(V,~"label"),form_value(V,~"mode")],Redirect);
+                ~"channel-map" -> panel_operation_execute(Db,
+                    ~"select agency.map_sales_channel_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6='on')::text",
+                    [T,U,form_value(V,~"channel_id"),form_value(V,~"listing_id"),form_value(V,~"external_key"),form_value(V,~"enabled")],Redirect);
+                ~"contract" -> panel_operation_execute(Db,
+                    ~"select agency.create_partner_sales_contract($1::uuid,$2::uuid,$3::uuid,$4,$5::date,$6::date,$7::char(3),$8::numeric)::text",
+                    [T,U,form_value(V,~"organization_id"),form_value(V,~"code"),form_value(V,~"starts_on"),form_value(V,~"ends_on"),form_value(V,~"currency"),form_value(V,~"commission")],Redirect);
+                ~"contract-product" -> panel_operation_execute(Db,
+                    ~"select agency.add_partner_contract_product($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::bigint,$6::integer,$7::integer)::text",
+                    [T,U,form_value(V,~"contract_id"),form_value(V,~"listing_id"),form_value(V,~"price_minor"),form_value(V,~"units"),form_value(V,~"release_days")],Redirect);
+                ~"contract-activate" -> panel_operation_execute(Db,
+                    ~"select agency.activate_partner_sales_contract($1::uuid,$2::uuid,$3::uuid)::text",
+                    [T,U,form_value(V,~"contract_id")],Redirect);
+                ~"allotment" -> panel_operation_execute(Db,
+                    ~"select agency.allocate_partner_reservation($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::integer)::text",
+                    [T,U,form_value(V,~"contract_product_id"),form_value(V,~"reservation_id"),form_value(V,~"units")],Redirect);
+                ~"voucher" -> panel_operation_execute(Db,
+                    ~"select agency.register_partner_voucher($1::uuid,$2::uuid,$3::uuid,$4,$5)::text",
+                    [T,U,form_value(V,~"reservation_id"),form_value(V,~"voucher_code"),form_value(V,~"supplier_reference")],Redirect);
+                ~"bonus" -> panel_operation_execute(Db,
+                    ~"select agency.create_partner_bonus_campaign($1::uuid,$2::uuid,$3,nullif($4,''),$5::date,$6::date,$7::numeric,nullif($8,'')::bigint,$9::char(3))::text",
+                    [T,U,form_value(V,~"name"),form_value(V,~"category"),form_value(V,~"starts_on"),form_value(V,~"ends_on"),form_value(V,~"rate"),form_value(V,~"cap_minor"),form_value(V,~"currency")],Redirect);
+                ~"bonus-activate" -> panel_operation_execute(Db,
+                    ~"select agency.activate_partner_bonus_campaign($1::uuid,$2::uuid,$3::uuid)::text",
+                    [T,U,form_value(V,~"campaign_id")],Redirect);
+                ~"journey-campaign" -> panel_operation_execute(Db,
+                    ~"select agency.save_customer_cross_sell_campaign($1::uuid,$2::uuid,$3,nullif($4,''),$5,$6::numeric,$7::date,$8::date)::text",
+                    [T,U,form_value(V,~"name"),form_value(V,~"source_category"),form_value(V,~"target_category"),form_value(V,~"rate"),form_value(V,~"starts_on"),form_value(V,~"ends_on")],Redirect);
+                ~"journey-campaign-activate" -> panel_operation_execute(Db,
+                    ~"select agency.activate_customer_cross_sell_campaign($1::uuid,$2::uuid,$3::uuid)::text",
+                    [T,U,form_value(V,~"campaign_id")],Redirect);
+                ~"journey-campaign-status" -> panel_operation_execute(Db,
+                    ~"select agency.set_customer_cross_sell_campaign_status($1::uuid,$2::uuid,$3::uuid,$4)::text",
+                    [T,U,form_value(V,~"campaign_id"),form_value(V,~"status")],Redirect);
+                ~"journey-lead" -> panel_operation_execute(Db,
+                    ~"select case when agency.save_customer_journey_lead_followup($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6,$7) then 'ok' else null end",
+                    [T,U,form_value(V,~"user_id"),form_value(V,~"reservation_id"),form_value(V,~"target_category"),form_value(V,~"status"),form_value(V,~"note")],Redirect);
+                ~"price-propose" -> panel_operation_execute(Db,
+                    ~"select agency.propose_listing_price($1::uuid,$2::uuid,$3::uuid,$4::bigint,$5,'{}'::jsonb)::text",
+                    [T,U,form_value(V,~"listing_id"),form_value(V,~"price_minor"),form_value(V,~"reason")],Redirect);
+                ~"price-review" -> panel_operation_execute(Db,
+                    ~"select agency.review_listing_price($1::uuid,$2::uuid,$3::uuid,$4)::text",
+                    [T,U,form_value(V,~"proposal_id"),form_value(V,~"decision")],Redirect);
+                _ -> wisp:response(404)
+            end
+        end)
+    end).
+
+panel_finance_action(Req, Db, Token, Action) ->
+    require_admin(Db, Token, fun(Session) ->
+        wisp:require_form(Req, fun(Form) ->
+            Values = erlang:element(2,Form),
+            Tenant = erlang:element(2,Session),
+            User = erlang:element(3,Session),
+            Payment = form_value(Values,~"payment_id"),
+            case Action of
+                ~"refund" ->
+                    Amount = form_int(Values,~"amount_minor"),
+                    Reason = string:trim(form_value(Values,~"reason")),
+                    case Amount > 0 andalso string:length(Reason) >= 3 andalso string:length(Reason) =< 1000 of
+                        true -> panel_operation_execute(Db,~"select agency.request_refund_review($1::uuid,$2::uuid,$3::uuid,$4::bigint,$5)::text",[Tenant,User,Payment,Amount,Reason],~"/admin/finance-overview");
+                        false -> wisp:response(400)
+                    end;
+                ~"reconcile" ->
+                    Reference = string:trim(form_value(Values,~"external_reference")),
+                    Note = string:trim(form_value(Values,~"note")),
+                    case string:length(Reference) >= 3 andalso string:length(Reference) =< 160 andalso string:length(Note) =< 1000 of
+                        true -> panel_operation_execute(Db,~"select agency.record_payment_reconciliation($1::uuid,$2::uuid,$3::uuid,$4,$5)::text",[Tenant,User,Payment,Reference,Note],~"/admin/finance-overview");
+                        false -> wisp:response(400)
+                    end;
+                _ -> wisp:response(400)
+            end
+        end)
+    end).
+
+panel_partner_network_data(Db, Token) ->
+    require_admin(Db, Token, fun(Session) ->
+        Sql = <<
+          "select jsonb_build_object(",
+          "'organizations',coalesce((select jsonb_agg(jsonb_build_object('id',o.id,'name',o.name,'status',o.status,'members',coalesce((select jsonb_agg(jsonb_build_object('id',u.id,'name',u.display_name,'email',u.email,'role',m.member_role) order by u.display_name) from agency.partner_organization_members m join agency.users u on u.id=m.user_id and u.tenant_id=m.tenant_id where m.tenant_id=o.tenant_id and m.organization_id=o.id),'[]'::jsonb),'customers',(select count(*) from agency.customers c where c.tenant_id=o.tenant_id and c.partner_organization_id=o.id),'reservations',(select count(*) from agency.reservations r where r.tenant_id=o.tenant_id and r.partner_organization_id=o.id),'offers',(select count(*) from agency.offers f where f.tenant_id=o.tenant_id and f.partner_organization_id=o.id),'leads',(select count(*) from agency.contact_requests q where q.tenant_id=o.tenant_id and q.partner_organization_id=o.id)) order by o.name) from agency.partner_organizations o where o.tenant_id=$1::uuid),'[]'::jsonb),",
+          "'users',coalesce((select jsonb_agg(jsonb_build_object('id',u.id,'name',u.display_name,'email',u.email,'organizationId',m.organization_id) order by u.display_name) from agency.users u left join agency.partner_organization_members m on m.tenant_id=u.tenant_id and m.user_id=u.id where u.tenant_id=$1::uuid and u.membership_type='sub_agency' and u.active),'[]'::jsonb),",
+          "'leads',coalesce((select jsonb_agg(x.item order by x.created_at desc) from (select q.created_at,jsonb_build_object('id',q.id,'name',q.name,'email',q.email,'status',q.status,'listing',coalesce(l.title,''),'organizationId',q.partner_organization_id,'createdAt',to_char(q.created_at,'YYYY-MM-DD HH24:MI')) item from agency.contact_requests q left join agency.listings l on l.id=q.listing_id and l.tenant_id=q.tenant_id where q.tenant_id=$1::uuid and q.status in ('new','in_progress') order by q.created_at desc limit 100) x),'[]'::jsonb),",
+          "'legacy',jsonb_build_object('customers',(select count(*) from agency.customers where tenant_id=$1::uuid and partner_organization_id is null),'reservations',(select count(*) from agency.reservations where tenant_id=$1::uuid and partner_organization_id is null),'offers',(select count(*) from agency.offers where tenant_id=$1::uuid and partner_organization_id is null)),",
+          "'legacyRecords',coalesce((select jsonb_agg(jsonb_build_object('id',z.id,'type',z.kind,'label',z.label) order by z.kind,z.label) from (select id,kind,label from (select id,'customer' kind,full_name label from agency.customers where tenant_id=$1::uuid and partner_organization_id is null union all select id,'reservation',reference_code from agency.reservations where tenant_id=$1::uuid and partner_organization_id is null union all select id,'offer',reference_code from agency.offers where tenant_id=$1::uuid and partner_organization_id is null) all_records order by kind,label limit 100) z),'[]'::jsonb)",
+          ")::text"
+        >>,
+        panel_dashboard_query(Db, Sql, [erlang:element(2, Session)])
+    end).
+
+panel_partner_network_action(Req, Db, Token) ->
+    require_admin(Db, Token, fun(Session) ->
+        wisp:require_form(Req, fun(Form) ->
+            Values = erlang:element(2, Form),
+            Tenant = erlang:element(2, Session),
+            User = erlang:element(3, Session),
+            Org = form_value(Values, ~"organization_id"),
+            Record = form_value(Values, ~"record_id"),
+            Action = form_value(Values, ~"action"),
+            Mutation = case Action of
+                ~"create" ->
+                    Name = string:trim(form_value(Values, ~"name")),
+                    case string:length(Name) >= 2 andalso string:length(Name) =< 160 of
+                        true -> {~"with changed as (insert into agency.partner_organizations(tenant_id,name) values($1::uuid,$3) returning id), audit as (insert into agency.audit_logs(tenant_id,user_id,action,entity_type,entity_id) select $1::uuid,$2::uuid,'partner.create','partner_organization',id from changed) select id::text from changed",[Tenant,User,Name]};
+                        false -> error
+                    end;
+                ~"member" ->
+                    Member = form_value(Values, ~"user_id"),
+                    {~"with eligible as (select u.id from agency.users u join agency.partner_organizations o on o.tenant_id=u.tenant_id and o.id=$3::uuid and o.status='active' where u.tenant_id=$1::uuid and u.id=$4::uuid and u.membership_type='sub_agency'), changed as (insert into agency.partner_organization_members(tenant_id,organization_id,user_id,member_role) select $1::uuid,$3::uuid,id,'agent' from eligible on conflict(tenant_id,user_id) do update set organization_id=excluded.organization_id,member_role='agent' returning user_id), audit as (insert into agency.audit_logs(tenant_id,user_id,action,entity_type,entity_id) select $1::uuid,$2::uuid,'partner.member_assign','user',user_id from changed) select user_id::text from changed",[Tenant,User,Org,Member]};
+                ~"lead" ->
+                    {~"with changed as (update agency.contact_requests q set partner_organization_id=nullif($3,'')::uuid where q.tenant_id=$1::uuid and q.id=$4::uuid and ($3='' or exists(select 1 from agency.partner_organizations o where o.tenant_id=$1::uuid and o.id=$3::uuid and o.status='active')) returning q.id), audit as (insert into agency.audit_logs(tenant_id,user_id,action,entity_type,entity_id,metadata) select $1::uuid,$2::uuid,'partner.lead_assign','contact_request',id,jsonb_build_object('organizationId',$3) from changed) select id::text from changed",[Tenant,User,Org,Record]};
+                ~"status" ->
+                    Status = form_value(Values, ~"status"),
+                    case Status of
+                        ~"active" -> partner_status_mutation(Tenant,User,Org,Status);
+                        ~"suspended" -> partner_status_mutation(Tenant,User,Org,Status);
+                        _ -> error
+                    end;
+                ~"transfer" ->
+                    case form_value(Values, ~"record_type") of
+                        ~"customer" -> partner_record_transfer(~"customers",Tenant,User,Org,Record);
+                        ~"reservation" -> partner_record_transfer(~"reservations",Tenant,User,Org,Record);
+                        ~"offer" -> partner_record_transfer(~"offers",Tenant,User,Org,Record);
+                        _ -> error
+                    end;
+                _ -> error
+            end,
+            case Mutation of
+                {Sql, Params} ->
+                    Q0 = pog:'query'(Sql),
+                    Q1 = lists:foldl(fun(P,Q) -> pog:parameter(Q,pog_ffi:coerce(P)) end,Q0,Params),
+                    Q2 = pog:returning(Q1,id_decoder()),
+                    case pog:execute(Q2,Db) of
+                        {ok, Result} ->
+                            case gleam@list:is_empty(erlang:element(3,Result)) of
+                                true -> wisp:response(422);
+                                false -> wisp:redirect(~"/admin/sub-agencies#sub-agencies-workspace")
+                            end;
+                        {error, _} -> wisp:response(422)
+                    end;
+                error -> wisp:response(400)
+            end
+        end)
+    end).
+
+partner_status_mutation(Tenant,User,Org,Status) ->
+    {~"with changed as (update agency.partner_organizations set status=$4 where tenant_id=$1::uuid and id=$3::uuid and status<>$4 returning id), audit as (insert into agency.audit_logs(tenant_id,user_id,action,entity_type,entity_id,metadata) select $1::uuid,$2::uuid,'partner.status','partner_organization',id,jsonb_build_object('status',$4) from changed) select id::text from changed",[Tenant,User,Org,Status]}.
+
+partner_record_transfer(Table,Tenant,User,Org,Record) ->
+    Sql = <<"with changed as (update agency.",Table/binary," set partner_organization_id=$3::uuid where tenant_id=$1::uuid and id=$4::uuid and exists(select 1 from agency.partner_organizations o where o.tenant_id=$1::uuid and o.id=$3::uuid and o.status='active') returning id), audit as (insert into agency.audit_logs(tenant_id,user_id,action,entity_type,entity_id,metadata) select $1::uuid,$2::uuid,'partner.record_transfer','",Table/binary,"',id,jsonb_build_object('organizationId',$3) from changed) select id::text from changed">>,
+    {Sql,[Tenant,User,Org,Record]}.
+
+panel_assigned_inquiries_data(Db, Token) ->
+    require_session(Db, Token, fun(Session) ->
+        case erlang:element(5, Session) of
+            ~"sub_agency" ->
+                Sql = <<"select coalesce(jsonb_agg(jsonb_build_object('id',q.id,'listing',coalesce(l.title,''),'name',q.name,'email',q.email,'phone',q.phone,'message',q.message,'status',q.status,'createdAt',to_char(q.created_at,'YYYY-MM-DD HH24:MI')) order by q.created_at desc),'[]'::jsonb)::text from agency.contact_requests q left join agency.listings l on l.id=q.listing_id and l.tenant_id=q.tenant_id where q.tenant_id=$1::uuid and agency.partner_can_access($1::uuid,$2::uuid,q.partner_organization_id)">>,
+                panel_dashboard_query(Db,Sql,[erlang:element(2,Session),erlang:element(3,Session)]);
+            _ -> wisp:response(403)
+        end
+    end).
+
+public_customer_care_data(Db, Token) ->
+    require_panel_session(Db, Token, ~"inquiries", fun(Session) ->
+        Tenant = erlang:element(2, Session),
+        Sql = <<
+          "select jsonb_build_object(",
+          "'tickets',coalesce((select jsonb_agg(jsonb_build_object('id',t.id,'customer',u.display_name,'email',u.email,'subject',t.subject,'status',t.status,'createdAt',to_char(t.created_at,'YYYY-MM-DD HH24:MI'),'messages',coalesce((select jsonb_agg(jsonb_build_object('author',m.author_type,'message',m.message,'createdAt',to_char(m.created_at,'YYYY-MM-DD HH24:MI')) order by m.created_at) from agency.customer_support_messages m where m.ticket_id=t.id),'[]'::jsonb)) order by t.created_at desc) from agency.customer_support_tickets t join agency.users u on u.id=t.user_id and u.tenant_id=t.tenant_id where t.tenant_id=$1::uuid),'[]'::jsonb),",
+          "'requests',coalesce((select jsonb_agg(jsonb_build_object('id',q.id,'customer',u.display_name,'email',u.email,'reference',r.reference_code,'kind',q.kind,'message',q.message,'status',q.status,'createdAt',to_char(q.created_at,'YYYY-MM-DD HH24:MI')) order by q.created_at desc) from agency.customer_reservation_requests q join agency.users u on u.id=q.user_id and u.tenant_id=q.tenant_id join agency.reservations r on r.id=q.reservation_id and r.tenant_id=q.tenant_id where q.tenant_id=$1::uuid),'[]'::jsonb)",
+          ")::text"
+        >>,
+        Q0 = pog:'query'(Sql),
+        Q1 = pog:parameter(Q0, pog_ffi:coerce(Tenant)),
+        Q2 = pog:returning(Q1, gleam@dynamic@decode:at([0], {decoder, fun gleam@dynamic@decode:decode_string/1})),
+        case pog:execute(Q2, Db) of
+            {ok, Rows} ->
+                case gleam@list:first(erlang:element(3, Rows)) of
+                    {ok, Data} -> wisp:json_body(wisp:ok(), Data);
+                    _ -> wisp:response(404)
+                end;
+            {error, _} -> wisp:response(503)
+        end
+    end).
+
+public_customer_care_save(Req, Db, Token, Resource) ->
+    require_panel_session(Db, Token, ~"inquiries", fun(Session) ->
+        wisp:require_form(Req, fun(Form) ->
+            Values = erlang:element(2, Form),
+            %% The outer router validates and removes the CSRF form field on
+            %% every /admin POST before dispatching here.
+            Id = form_value(Values, ~"id"),
+            Message = string:trim(form_value(Values, ~"message")),
+            Status = form_value(Values, ~"status"),
+            Tenant = erlang:element(2, Session),
+            Command = case Resource of
+                ~"reply" when erlang:byte_size(Message) >= 2, erlang:byte_size(Message) =< 4000 ->
+                    {~"with t as (select id,user_id from agency.customer_support_tickets where id=$2::uuid and tenant_id=$1::uuid and status<>'closed'), m as (insert into agency.customer_support_messages(ticket_id,author_type,message) select id,'staff',$3 from t returning ticket_id), n as (insert into agency.customer_notifications(tenant_id,user_id,kind,title,message,target_url) select $1::uuid,t.user_id,'support','Destek talebinize yanıt geldi','Destek görüşmenizde yeni bir yanıt var.','/hesap#support' from t join m on m.ticket_id=t.id returning id) update agency.customer_support_tickets set status='responded',updated_at=now() where id in (select ticket_id from m) returning id::text", [Tenant,Id,Message]};
+                ~"ticket-status" when Status =:= ~"closed"; Status =:= ~"open" ->
+                    {~"update agency.customer_support_tickets set status=$3,updated_at=now() where id=$2::uuid and tenant_id=$1::uuid returning id::text", [Tenant,Id,Status]};
+                ~"request-status" when Status =:= ~"reviewing"; Status =:= ~"approved"; Status =:= ~"rejected"; Status =:= ~"closed" ->
+                    {~"with changed as (update agency.customer_reservation_requests set status=$3,updated_at=now() where id=$2::uuid and tenant_id=$1::uuid and status<>$3 returning id,user_id), n as (insert into agency.customer_notifications(tenant_id,user_id,kind,title,message,target_url) select $1::uuid,user_id,'reservation_request','Rezervasyon talebiniz güncellendi','Rezervasyon işlem talebinizin durumu değişti.','/hesap#requests' from changed returning id) select id::text from changed", [Tenant,Id,Status]};
+                _ -> error
+            end,
+            case {customer_portal_uuid(Id), Command} of
+                {true, {Sql, Params}} ->
+                    Q0 = pog:'query'(Sql),
+                    Q1 = lists:foldl(fun(P, Q) -> pog:parameter(Q, pog_ffi:coerce(P)) end, Q0, Params),
+                    Q2 = pog:returning(Q1, gleam@dynamic@decode:at([0], {decoder, fun gleam@dynamic@decode:decode_string/1})),
+                    case pog:execute(Q2, Db) of
+                        {ok, Rows} ->
+                            case gleam@list:first(erlang:element(3, Rows)) of
+                                {ok, _} -> wisp:json_body(wisp:ok(), ~"{\"ok\":true}");
+                                _ -> wisp:response(404)
+                            end;
+                        {error, _} -> wisp:response(422)
+                    end;
+                _ -> wisp:response(422)
+            end
+        end)
+    end).
+
+
+-file("src\\nexus_agency\\router.gleam", 5764).

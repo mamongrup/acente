@@ -47,7 +47,7 @@
         categories.forEach(function (category) {
           var option = document.createElement('option');
           option.value = category.id;
-          option.textContent = category.name + ' · ' + category.code;
+          option.textContent = (category.parent ? category.parent + ' › ' : '') + category.name + ' · ' + category.code;
           parentSelect.appendChild(option);
         });
       }
@@ -70,7 +70,7 @@
         filterChooseOption.value = '';
         filterChooseOption.textContent = 'Kategori seçin';
         filterCategorySelect.appendChild(filterChooseOption);
-        categories.forEach(function (category) {
+        categories.filter(function (category) { return !category.parent; }).forEach(function (category) {
           var filterOption = document.createElement('option');
           filterOption.value = category.code;
           filterOption.textContent = category.name + ' · ' + category.code;
@@ -87,11 +87,19 @@
         table.appendChild(empty);
         return;
       }
-      categories.forEach(function (category) {
+      categories.sort(function (left, right) {
+        var leftGroup = left.parent || left.name;
+        var rightGroup = right.parent || right.name;
+        var groupOrder = leftGroup.localeCompare(rightGroup, 'tr');
+        if (groupOrder) return groupOrder;
+        if (!left.parent && right.parent) return -1;
+        if (left.parent && !right.parent) return 1;
+        return Number(left.sortOrder) - Number(right.sortOrder);
+      }).forEach(function (category) {
         var row = document.createElement('tr');
         row.appendChild(cell(category.parent));
         row.appendChild(cell(category.code));
-        row.appendChild(cell(category.name));
+        row.appendChild(cell((category.parent ? '↳ ' : '') + category.name));
         row.appendChild(cell(category.slug));
         row.appendChild(cell(category.status));
         row.appendChild(cell(category.sortOrder));

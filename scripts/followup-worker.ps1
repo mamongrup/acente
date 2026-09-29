@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Continue'
 $root = Split-Path $PSScriptRoot -Parent
 Get-Content (Join-Path $root '.env') | ForEach-Object { $line=$_.Trim();$i=$line.IndexOf('=');if($i -gt 0){Set-Item "Env:$($line.Substring(0,$i).Trim())" $line.Substring($i+1).Trim()} }
-$psql='C:/laragon/bin/postgresql/postgresql/bin/psql.exe'
+$psql=(Get-Command psql -ErrorAction Stop).Source
 function Sql([string]$q){$a=@('-X','-w','-v','ON_ERROR_STOP=1','-h',$env:PGHOST,'-p',$env:PGPORT,'-U',$env:PGUSER,'-d',$env:PGDATABASE,'-c',$q);$o=& $psql @a;if($LASTEXITCODE -ne 0){throw "PostgreSQL command failed: $LASTEXITCODE"};$o}
 while($true){
  try {

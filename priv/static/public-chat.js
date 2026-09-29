@@ -1,121 +1,42 @@
 (function () {
   'use strict';
   if (document.getElementById('nexus-chat')) return;
-
   var box = document.createElement('aside');
-  box.id = 'nexus-chat';
-  box.className = 'nexus-chat';
-  box.innerHTML = '<button class="nexus-chat-toggle" aria-label="AI seyahat danışmanı">✦</button>' +
-    '<div class="nexus-chat-panel" role="dialog" aria-label="Seyahat danışmanı"><strong>AI Seyahat Danışmanı</strong>' +
-    '<p class="nexus-chat-status">Size uygun konaklama ve deneyimleri birlikte bulalım.</p>' +
-    '<div class="nexus-chat-messages" aria-live="polite"></div>' +
-    '<div class="nexus-chat-suggestions"><button type="button">Otel bul</button><button type="button">Transfer ve uçuş</button><button type="button">Bölge öner</button></div>' +
-    '<label>Adınız<input class="nexus-chat-name" autocomplete="name" placeholder="Adınız" aria-label="Adınız"></label>' +
-    '<label>E-posta veya telefon<input class="nexus-chat-contact" autocomplete="email" placeholder="E-posta veya telefon" aria-label="E-posta veya telefon"></label>' +
-    '<label>Mesajınız<textarea class="nexus-chat-message" rows="2" placeholder="Nereye gitmek istiyorsunuz?" aria-label="Mesajınız"></textarea></label>' +
-    '<button type="button" class="primary nexus-chat-submit">Mesaj gönder →</button></div>';
+  box.id = 'nexus-chat'; box.className = 'nexus-chat';
+  box.innerHTML = '<button type="button" class="nexus-chat-toggle" aria-label="Müşteri hizmetleri" aria-expanded="false"><i class="hgi-stroke hgi-headset" aria-hidden="true"></i></button>' +
+    '<div class="nexus-chat-choices" role="dialog" aria-label="Müşteri hizmetleri" hidden><span class="nexus-chat-kicker">NASIL YARDIMCI OLABİLİRİM?</span>' +
+    '<a class="nexus-chat-choice" data-channel="phone" href="tel:+905323977957"><span class="nexus-chat-choice-icon phone"><i class="hgi-stroke hgi-call-02"></i></span><span class="nexus-chat-phone">+905323977957</span></a>' +
+    '<a class="nexus-chat-choice" data-channel="whatsapp" href="https://wa.me/905323977957" target="_blank" rel="noopener noreferrer"><span class="nexus-chat-choice-icon whatsapp"><i class="hgi-stroke hgi-whatsapp"></i></span><span>WhatsApp</span></a>' +
+    '<a class="nexus-chat-choice" data-channel="live" href="/iletisim?kanal=canli-destek"><span class="nexus-chat-choice-icon live"><i class="hgi-stroke hgi-headset"></i></span><span>Canlı Destek</span></a>' +
+    '<button type="button" class="nexus-chat-choice" data-channel="assistant"><span class="nexus-chat-choice-icon assistant"><i class="hgi-stroke hgi-magic-wand-01"></i></span><span>Seyahat Asistanı</span></button></div>' +
+    '<div class="nexus-chat-panel" role="dialog" aria-label="Seyahat Asistanı" hidden><div class="nexus-chat-header"><span class="nexus-chat-header-icon"><i class="hgi-stroke hgi-magic-wand-01"></i></span><span><strong>Seyahat Asistanı</strong><small>Size nasıl yardımcı olabilirim?</small></span><button type="button" class="nexus-chat-close" aria-label="Kapat">×</button></div>' +
+    '<div class="nexus-chat-body"><p class="nexus-chat-status">Size uygun seçenekleri göndermemizi isterseniz iletişim bilgilerinizi paylaşın.</p><div class="nexus-chat-messages" aria-live="polite"></div>' +
+    '<label class="nexus-chat-field">Ad-soyad<input class="nexus-chat-name" autocomplete="name" placeholder="Ad-soyad" required></label>' +
+    '<div class="nexus-chat-contact-row"><label class="nexus-chat-field">E-posta<input class="nexus-chat-email" type="email" autocomplete="email" placeholder="E-posta"></label><label class="nexus-chat-field">WhatsApp<input class="nexus-chat-phone-input" type="tel" autocomplete="tel" placeholder="WhatsApp"></label></div>' +
+    '<label class="nexus-chat-consent"><input type="checkbox" class="nexus-chat-consent-input"> İletişim bilgilerimi bu görüşme için kaydet</label>' +
+    '<label class="nexus-chat-field">Mesajınız<textarea class="nexus-chat-message" rows="2" placeholder="Mesajınız..."></textarea></label><button type="button" class="nexus-chat-submit">Gönder</button></div></div>';
   document.body.appendChild(box);
-
-  var toggle = box.querySelector('.nexus-chat-toggle');
-  var status = box.querySelector('.nexus-chat-status');
-  var submit = box.querySelector('.nexus-chat-submit');
-  var nameInput = box.querySelector('.nexus-chat-name');
-  var contactInput = box.querySelector('.nexus-chat-contact');
-  var messageInput = box.querySelector('.nexus-chat-message');
-  var messages = box.querySelector('.nexus-chat-messages');
-  var selectedNeed = '';
-  var conversationId = '';
-
-  toggle.addEventListener('click', function () {
-    box.classList.toggle('open');
-    if (box.classList.contains('open')) nameInput.focus();
-  });
-
-  box.querySelectorAll('.nexus-chat-suggestions button').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      selectedNeed = btn.textContent;
-      status.textContent = 'Harika seçim. ' + selectedNeed + ' için en uygun seçenekleri hazırlıyorum.';
-      if (messageInput && !messageInput.value) messageInput.value = selectedNeed + ' hakkında seçenekleri gösterir misiniz?';
-    });
-  });
-
-  function cookie(name) {
-    var prefix = name + '=';
-    var parts = document.cookie.split(';');
-    for (var i = 0; i < parts.length; i++) {
-      var part = parts[i].trim();
-      if (part.indexOf(prefix) === 0) return decodeURIComponent(part.slice(prefix.length));
-    }
-    return '';
-  }
-
-  function csrfToken() {
-    var meta = document.querySelector('meta[name="csrf-token"]');
-    return (meta && meta.content) || cookie('agency_csrf');
-  }
-
-  function currentListingId() {
-    var match = window.location.pathname.match(/^\/urunler\/([^/]+)/);
-    return match ? decodeURIComponent(match[1]) : '';
-  }
-
-  function addMessage(text, direction) {
-    if (!messages || !text) return;
-    var item = document.createElement('div');
-    item.className = 'nexus-chat-message-item ' + (direction || 'outbound');
-    item.textContent = text;
-    messages.appendChild(item);
-    messages.scrollTop = messages.scrollHeight;
-  }
-
-  submit.addEventListener('click', function () {
-    var name = nameInput.value.trim();
-    var contact = contactInput.value.trim();
-    var message = messageInput.value.trim() || selectedNeed;
-    if (name.length < 2 || message.length < 2) {
-      status.textContent = 'Lütfen adınızı ve seyahat isteğinizi yazın.';
-      return;
-    }
-    var fd = new FormData();
-    fd.append('name', name);
-    if (contact.indexOf('@') > 1) fd.append('email', contact);
-    else fd.append('phone', contact);
-    fd.append('message', message);
-    fd.append('listing_id', currentListingId());
-    var tenant = (document.body && document.body.dataset && document.body.dataset.tenant) || '';
-    if (tenant) fd.append('tenant', tenant);
-    fd.append('conversation_id', conversationId);
-    fd.append('lang', document.documentElement.lang || 'tr');
-    fd.append('csrf_token', csrfToken());
-
-    addMessage(message, 'inbound');
-    submit.disabled = true;
-    submit.textContent = 'Gönderiliyor…';
-    fetch('/api/public/chat', {
-      method: 'POST',
-      body: fd,
-      credentials: 'same-origin',
-      headers: { 'Accept': 'application/json' }
-    }).then(function (response) {
-      return response.text().then(function (body) {
-        var payload = {};
-        try { payload = JSON.parse(body); } catch (e) { payload = {}; }
-        if (!response.ok || payload.ok === false) {
-          throw new Error(payload.error || 'Talep gönderilemedi.');
-        }
-        conversationId = payload.conversationId || conversationId;
-        addMessage(payload.reply || 'Talebinizi aldım. Size uygun seçenekleri hazırlıyorum.', 'outbound');
-        status.textContent = payload.needsContact
-          ? 'Size özel teklif için e-posta veya telefonunuzu paylaşabilirsiniz.'
-          : 'Size uygun seçenekleri birlikte netleştirelim.';
-        messageInput.value = '';
-        submit.textContent = 'Mesaj gönder →';
-        submit.disabled = false;
-      });
-    }).catch(function (error) {
-      status.textContent = error.message || 'Talep gönderilemedi. Lütfen tekrar deneyin.';
-      submit.textContent = 'Tekrar gönder →';
-      submit.disabled = false;
-    });
-  });
+  var toggle = box.querySelector('.nexus-chat-toggle'), choices = box.querySelector('.nexus-chat-choices'), panel = box.querySelector('.nexus-chat-panel');
+  var status = box.querySelector('.nexus-chat-status'), submit = box.querySelector('.nexus-chat-submit');
+  var nameInput = box.querySelector('.nexus-chat-name'), emailInput = box.querySelector('.nexus-chat-email'), phoneInput = box.querySelector('.nexus-chat-phone-input');
+  var messageInput = box.querySelector('.nexus-chat-message'), consentInput = box.querySelector('.nexus-chat-consent-input'), messages = box.querySelector('.nexus-chat-messages');
+  var settings = {}, conversationId = '';
+  function close() { box.classList.remove('open','assistant-open'); choices.hidden = true; panel.hidden = true; toggle.setAttribute('aria-expanded','false'); }
+  function openChoices() { box.classList.add('open'); box.classList.remove('assistant-open'); choices.hidden = false; panel.hidden = true; toggle.setAttribute('aria-expanded','true'); }
+  var accountChecked = false;
+  function openAssistant() { box.classList.add('open','assistant-open'); choices.hidden = true; panel.hidden = false; toggle.setAttribute('aria-expanded','true'); nameInput.focus(); if (!accountChecked) { accountChecked = true; fetch('/api/public/account', {credentials:'same-origin',headers:{Accept:'application/json'}}).then(function(r){return r.ok?r.json():null;}).then(function(account){if(account){nameInput.value=account.name||nameInput.value;emailInput.value=account.email||emailInput.value;phoneInput.value=account.phone||phoneInput.value;}}).catch(function(){}); } }
+  window.NEXUS_OPEN_TRAVEL_ASSISTANT = openAssistant;
+  toggle.addEventListener('click', function () { box.classList.contains('open') ? close() : openChoices(); });
+  box.querySelector('[data-channel="assistant"]').addEventListener('click', openAssistant);
+  box.querySelector('.nexus-chat-close').addEventListener('click', close);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && box.classList.contains('open')) close(); });
+  document.addEventListener('pointerdown', function (e) { if (box.classList.contains('open') && !box.contains(e.target)) close(); });
+  function digits(value) { var d = String(value || '').replace(/\D/g,''); return d.length >= 10 && d.length <= 15 ? d : ''; }
+  fetch('/api/public/support-settings',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():{};}).then(function(data){settings=data||{};var phone=settings.contact_phone||'+905323977957';var call=digits(phone)||'905323977957';box.querySelector('[data-channel="phone"]').href='tel:+'+call;box.querySelector('.nexus-chat-phone').textContent=phone;box.querySelector('[data-channel="whatsapp"]').href='https://wa.me/'+(digits(settings.whatsapp)||call);}).catch(function(){});
+  box.querySelector('[data-channel="live"]').addEventListener('click',function(e){var match=String(settings.tawk_embed_code||'').match(/https:\/\/embed\.tawk\.to\/[a-zA-Z0-9]+\/[a-zA-Z0-9]+/);if(!match)return;e.preventDefault();close();window.Tawk_API=window.Tawk_API||{};if(typeof window.Tawk_API.toggle==='function'){window.Tawk_API.toggle();return;}window.Tawk_LoadStart=new Date();window.Tawk_API.onLoad=function(){if(typeof window.Tawk_API.maximize==='function')window.Tawk_API.maximize();};var script=document.createElement('script');script.async=true;script.src=match[0];script.onerror=function(){location.href='/iletisim?kanal=canli-destek';};document.head.appendChild(script);});
+  try { var saved=JSON.parse(localStorage.getItem('nexus_chat_contact')||'null');if(saved&&saved.consent){nameInput.value=saved.name||'';emailInput.value=saved.email||'';phoneInput.value=saved.phone||'';consentInput.checked=true;} } catch (_) {}
+  function cookie(name) { var prefix=name+'=';return document.cookie.split(';').map(function(x){return x.trim();}).filter(function(x){return x.indexOf(prefix)===0;}).map(function(x){return decodeURIComponent(x.slice(prefix.length));})[0]||''; }
+  function csrfToken() { var meta=document.querySelector('meta[name="csrf-token"]');return(meta&&meta.content)||cookie('agency_csrf'); }
+  function addMessage(value,direction){var item=document.createElement('div');item.className='nexus-chat-message-item '+direction;item.textContent=value;messages.appendChild(item);messages.scrollTop=messages.scrollHeight;}
+  submit.addEventListener('click',function(){var name=nameInput.value.trim(),email=emailInput.value.trim(),phone=phoneInput.value.trim(),message=messageInput.value.trim();if(name.split(/\s+/).length<2||name.length<3){status.textContent='Lütfen adınızı ve soyadınızı yazın.';nameInput.focus();return;}if(email&&!emailInput.checkValidity()){status.textContent='Geçerli bir e-posta adresi yazın.';emailInput.focus();return;}if(phone&&!digits(phone)){status.textContent='Geçerli bir WhatsApp numarası yazın.';phoneInput.focus();return;}if(!message){status.textContent='Lütfen mesajınızı yazın.';messageInput.focus();return;}if(consentInput.checked)localStorage.setItem('nexus_chat_contact',JSON.stringify({name:name,email:email,phone:phone,consent:true}));else localStorage.removeItem('nexus_chat_contact');var fd=new FormData();fd.append('name',name);fd.append('email',email);fd.append('phone',phone);fd.append('message',message);fd.append('listing_id',(location.pathname.match(/^\/urunler\/([^/]+)/)||[,''])[1]);fd.append('tenant',document.body.dataset.tenant||'');fd.append('conversation_id',conversationId);fd.append('lang',(window.NEXUS_LOCALE&&window.NEXUS_LOCALE.lang)||document.documentElement.lang||'tr');fd.append('csrf_token',csrfToken());submit.disabled=true;submit.textContent='Gönderiliyor…';fetch('/api/public/chat',{method:'POST',body:fd,credentials:'same-origin',headers:{Accept:'application/json'}}).then(function(r){return r.json().then(function(payload){if(!r.ok||payload.ok===false)throw new Error(payload.error||'Talep gönderilemedi.');return payload;});}).then(function(payload){conversationId=payload.conversationId||conversationId;if(conversationId)localStorage.setItem('nexus_chat_conversation_id',conversationId);addMessage(message,'inbound');addMessage(payload.reply||'Talebinizi aldık.','outbound');messageInput.value='';status.textContent='Size nasıl yardımcı olabilirim?';}).catch(function(error){status.textContent=error.message||'Talep gönderilemedi. Lütfen tekrar deneyin.';}).finally(function(){submit.disabled=false;submit.textContent='Gönder';});});
 })();

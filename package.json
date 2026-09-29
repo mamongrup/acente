@@ -7,6 +7,8 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:anim": "playwright test e2e/animations.spec.js",
+    "test:nexus:local": "node scripts/local-nexus-connection-harness.mjs",
+    "test:contracts": "node scripts/check-shared-contracts.mjs",
     "report": "playwright show-report"
   },
   "devDependencies": {

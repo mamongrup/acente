@@ -83,3 +83,7 @@ Zorunlu kurallar:
 4. Filtre maddeleri `item_key`, başlık, bağlı sözleşme alanı, bağlı değer, sıralama ve aktiflik ile saklanır.
 5. Türkçe kaynak metin girildiğinde sistem aktif dillere çeviri kayıtlarını otomatik oluşturur. Çeviriler hazır değilse Türkçe kaynak metin güvenli geri dönüş olarak kullanılır.
 6. Bu yapı hem bağımsız acente sitesinde hem NEXUS bağlantılı senaryoda aynı anlamı taşımalıdır. Tek tarafa özel filtre başlığı, seçenek anahtarı veya çeviri davranışı eklenemez.
+
+## Codex ve Jev çalışma biçimi
+
+Codex kodu yazar, uygular ve test eder. Jev erişilebilir olduğunda, birden fazla açık seçenek arasından seçim, önceliklendirme, sınıflandırma veya mevcut kanıta dayalı kalite değerlendirmesi gereken adımlarda `jev_judge` aracını kullanır. İlgili proje kurallarını, seçenekleri ve kanıtı Jev'e gönderir; kararın gerekçesini ve sonuçlarını kendi denetler. Jev'in düşük güvenli veya erişilemeyen yanıtında Codex mevcut kanıtlarla ilerler ve gerekli doğrulamayı yapar. Açık proje kurallarını, test sonuçlarını ve kullanıcının talimatlarını Jev kararıyla değiştirmez. Jev kod üretmez; kod yazma ve son karar sorumluluğu Codex'tedir.

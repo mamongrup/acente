@@ -18,21 +18,19 @@
     if (categories) { categories.setAttribute('data-i18n', 'Kategoriler'); categories.childNodes[0].nodeValue = 'Kategoriler '; }
     var locale = root.querySelector('#popover-button-3');
     if (locale && !locale.dataset.sharedIconsReady) {
-      // The exported demo uses inline SVGs here. Keep the shared header
-      // independent of the optional Hugeicons font on every public route.
       locale.dataset.sharedIconsReady = 'true';
       locale.setAttribute('aria-label', 'Dil ve para birimi');
       locale.innerHTML =
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="size-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/></svg>' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="size-5 opacity-60"><path stroke-linecap="round" stroke-linejoin="round" d="m9 20.247 6-16.5"/></svg>' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="size-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z"/></svg>' +
-        '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="ms-1 size-4 group-data-open:rotate-180"><path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd"/></svg>';
+        '<i class="hgi-stroke hgi-globe size-5" aria-hidden="true"></i>' +
+        '<span class="nexus-locale-separator" aria-hidden="true"></span>' +
+        '<i class="hgi-stroke hgi-money-01 size-5" aria-hidden="true"></i>' +
+        '<i class="hgi-stroke hgi-arrow-down-01 ms-1 size-4 group-data-open:rotate-180" aria-hidden="true"></i>';
     }
     var notification = root.querySelector('#popover-button-4');
     if (notification && !notification.dataset.sharedIconReady) {
       notification.dataset.sharedIconReady = 'true';
-      var notificationIcon = notification.querySelector('i.hgi-notification-01');
-      if (notificationIcon) notificationIcon.outerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></svg>';
+      var notificationIcon = notification.querySelector('svg');
+      if (notificationIcon) notificationIcon.outerHTML = '<i class="hgi-stroke hgi-notification-01 size-6" aria-hidden="true"></i>';
     }
     root.querySelectorAll('a[data-i18n="Tesisinizi listeleyin"], a[data-i18n="List your property"], .storefront-property-link').forEach(function (link) {
       link.remove();
@@ -50,50 +48,14 @@
     if (desktopRow && actions && !root.querySelector('#nexus-header-search')) {
       var search = document.createElement('div');
       search.id = 'nexus-header-search';
-      search.innerHTML = '<form action="/urunler" method="get" role="search"><input name="q" type="search" aria-label="Ara" placeholder="Şehir, bölge veya ilan ara"><button type="submit" aria-label="Ara"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m20 20-4.2-4.2m1.2-5.3a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></form><button type="button" id="nexus-header-mic" aria-label="Sesli arama" aria-pressed="false" title="Sesli arama"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3m-3 0h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+      search.innerHTML = '<form action="/urunler" method="get" role="search"><input name="q" type="search" aria-label="Ara" placeholder="Şehir, bölge veya ilan ara"><button type="submit" aria-label="Ara"><i class="hgi-stroke hgi-search-01" aria-hidden="true"></i></button></form>';
       desktopRow.insertBefore(search, actions);
-    }
-    var headerMic = root.querySelector('#nexus-header-mic');
-    if (headerMic && !headerMic.dataset.voiceReady) {
-      headerMic.dataset.voiceReady = 'true';
-      headerMic.addEventListener('click', function () {
-        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-          headerMic.title = 'Sesli arama bu tarayıcıda desteklenmiyor';
-          return;
-        }
-        var recognition = new SpeechRecognition();
-        recognition.lang = document.documentElement.lang === 'en' ? 'en-US' : 'tr-TR';
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
-        recognition.onstart = function () {
-          headerMic.classList.add('is-listening');
-          headerMic.setAttribute('aria-pressed', 'true');
-          headerMic.title = 'Dinleniyor...';
-        };
-        recognition.onend = function () {
-          headerMic.classList.remove('is-listening');
-          headerMic.setAttribute('aria-pressed', 'false');
-          headerMic.title = 'Sesli arama';
-        };
-        recognition.onerror = function () {
-          headerMic.classList.remove('is-listening');
-          headerMic.setAttribute('aria-pressed', 'false');
-          headerMic.title = 'Sesli arama';
-        };
-        recognition.onresult = function (event) {
-          var value = event.results && event.results[0] && event.results[0][0] ? event.results[0][0].transcript.trim() : '';
-          var input = root.querySelector('#nexus-header-search input');
-          if (input && value) { input.value = value; input.focus(); }
-        };
-        recognition.start();
-      });
     }
     if (actions && !root.querySelector('#cart-fab-wrap')) {
       var cart = document.createElement('div');
       cart.id = 'cart-fab-wrap';
       cart.className = 'nexus-header-action';
-      cart.innerHTML = '<button id="cart-fab-btn" type="button" aria-label="Sepet"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 3h1.1c.7 0 1.3.5 1.4 1.2L6.8 14c.1.8.8 1.4 1.6 1.4h8.8c.8 0 1.5-.6 1.6-1.4L20 7H6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="20" r="1.25" fill="currentColor"/><circle cx="17" cy="20" r="1.25" fill="currentColor"/></svg><span id="cart-badge" class="hidden">0</span></button>';
+      cart.innerHTML = '<button id="cart-fab-btn" type="button" aria-label="Sepet"><i class="hgi-stroke hgi-shopping-cart-01" aria-hidden="true"></i><span id="cart-badge" class="hidden">0</span></button>';
       var account = root.querySelector('#popover-button-5');
       var accountSlot = account;
       while (accountSlot && accountSlot.parentElement !== actions) accountSlot = accountSlot.parentElement;
@@ -267,19 +229,12 @@
       var m = /[?&]kategori=([^&]*)/.exec(window.location.search);
       return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : null;
     })();
-    // Kategori sayfasının yolu: `/kategori/<slug>`
-    var pathCategory = (function () {
-      var m = /^\/kategori\/(.+)$/.exec(path);
-      return m ? m[1] : null;
-    })();
+    var pathCategory = window.NEXUS_CATEGORY_CODE(path) || null;
     // Kategori OLMAYAN rotaların liste filtresindeki slug karşılığı:
     // `/arac` sayfası ile `/urunler?kategori=car` aynı vitrini gösterir.
     var DIRECT_SLUGS = { '/arac': 'car', '/ucus': 'flight', '/otobus': 'bus' };
 
-    function categorySlug(href) {
-      var m = /^\/kategori\/(.+)$/.exec(String(href || ''));
-      return m ? m[1] : null;
-    }
+    function categorySlug(href) { return window.NEXUS_CATEGORY_CODE(String(href || '')) || null; }
     function isListing() {
       return LISTING_PATHS.indexOf(path) !== -1;
     }
@@ -917,6 +872,9 @@
   };
   var NEXT_LANG = { tr: 'en', en: 'de', de: 'ru', ru: 'zh', zh: 'fr', fr: 'tr' };
   var DICTS = { tr: TR, en: {}, de: DE, ru: RU, zh: ZH, fr: FR };
+  var TURKISH_SOURCE = {};
+  Object.keys(TR).forEach(function (key) { if (!TURKISH_SOURCE[TR[key]]) TURKISH_SOURCE[TR[key]] = key; });
+  window.NEXUS_SOURCE_KEY = function (text) { return TURKISH_SOURCE[text] || text; };
   var TOGGLE_LABEL = { tr: 'EN', en: 'DE', de: 'RU', ru: 'ZH', zh: 'FR', fr: 'TR' };
   var TOGGLE_TITLE = {
     tr: "Switch to English",
@@ -926,8 +884,8 @@
     zh: 'Passer au français',
     fr: "Passer au turc",
   };
-  var currentLang = 'en';
-  try { currentLang = localStorage.getItem(LANG_KEY) || 'en'; } catch (e) {}
+  var currentLang = 'tr';
+  try { currentLang = localStorage.getItem(LANG_KEY) || 'tr'; } catch (e) {}
 
   /* ---- Sunucu tarafı dil tercihi (girişli kullanıcılar) ----
    * Zincir: cookie(nexus_lang) → localStorage → varsayılan 'en'.
@@ -964,7 +922,7 @@
       var eq = parts[i].indexOf('=');
       if (eq > 0 && parts[i].slice(0, eq) === 'nexus_currency') {
         var v = decodeURIComponent(parts[i].slice(eq + 1));
-        return ['TRY', 'USD', 'EUR', 'GBP', 'SAR'].indexOf(v) !== -1 ? v : null;
+        return ['TRY', 'USD', 'EUR', 'GBP', 'SAR', 'RUB', 'CNY'].indexOf(v) !== -1 ? v : null;
       }
     }
     return null;
@@ -1002,6 +960,8 @@
     } catch (e) {}
   }
   function t(enText) {
+    var homeText = window.NEXUS_HOME_T && window.NEXUS_HOME_T(enText, currentLang);
+    if (homeText) return homeText;
     var dict = DICTS[currentLang];
     return (dict && dict[enText]) || enText;
   }
@@ -1086,6 +1046,7 @@
     // sayfalar arası tutarlılık için çerezi de yazar
     saveLangPref(lang);
     document.cookie = 'nexus_lang=' + encodeURIComponent(lang) + ';path=/;max-age=31536000;samesite=lax';
+    document.cookie = 'agency_lang=' + btoa(lang).replace(/=+$/, '') + ';path=/;max-age=31536000;samesite=lax';
     // update toggle labels (4 dil: tr → de → ru → en → tr döngüsü)
     var cycleLabel = TOGGLE_LABEL[lang] || 'TR';
     var cycleTitle = TOGGLE_TITLE[lang] || "Türkçe'ye geç";
@@ -1100,7 +1061,12 @@
       // Anahtar (data-i18n attr) her zaman İngilizce referanstır — sunucu
       // öğeyi Türkçe basmış olsa bile key üzerinden çevrilir: tr→TR sözlüğü,
       // de→DE, ru→RU, en→anahtarın kendisi (fallback).
-      el.textContent = t(key);
+      var translated = t(key);
+      if (currentLang === 'tr' && translated === key && el.textContent.trim() !== key) return;
+      if (el.children.length && (el.closest('header') || el.closest('footer'))) {
+        var labelNode = Array.prototype.find.call(el.childNodes, function (node) { return node.nodeType === 3 && node.textContent.trim(); });
+        if (labelNode) labelNode.textContent = translated;
+      } else el.textContent = translated;
     });
     // translate data-i18n-placeholder
     $$('[data-i18n-placeholder]').forEach(function (el) {
@@ -1198,10 +1164,11 @@
     ],
     currencies: [
       { code: 'TRY', symbol: '₺' },
-      { code: 'USD', symbol: '$' },
       { code: 'EUR', symbol: '€' },
+      { code: 'USD', symbol: '$' },
       { code: 'GBP', symbol: '£' },
-      { code: 'SAR', symbol: '﷼' },
+      { code: 'RUB', symbol: '₽' },
+      { code: 'CNY', symbol: '¥' },
     ],
     lang: currentLang,
     currency: (function () { try { return localStorage.getItem('chisfis-currency') || 'TRY'; } catch (e) { return 'TRY'; } })(),
@@ -1241,7 +1208,7 @@
     rates: null,       // { USD: {rate, symbol}, ... }
     fetchedAt: 0,
     TTL: 3600 * 1000,
-    symbols: { TRY: '₺', USD: '$', EUR: '€', GBP: '£', SAR: '﷼' },
+    symbols: { TRY: '₺', USD: '$', EUR: '€', GBP: '£', SAR: '﷼', RUB: '₽', CNY: '¥' },
     load: function (force) {
       // cache: sessionStorage 1 saat
       try {
@@ -1664,6 +1631,19 @@
    * §13 URL kurucusu bunu okur → seçim arama URL'sine `guests=` olarak gider).
    */
   var guestRefreshers = [];
+  // Shared demo markup starts with two adults, one child and one infant.
+  // Storefront searches start with two adults across every category.
+  $$('.hero-search-form').forEach(function (heroForm) {
+    [['guestAdults', '2'], ['guestChildren', '0'], ['guestInfants', '0'], ['guests', '2']].forEach(function (entry) {
+      var input = heroForm.querySelector('input[name="' + entry[0] + '"]');
+      if (input) input.value = entry[1];
+    });
+    heroForm.querySelectorAll('.flex.min-w-28').forEach(function (row) {
+      var input = row.querySelector('input[name^="guest"]');
+      var value = row.querySelector(':scope > span');
+      if (input && value) value.textContent = input.value;
+    });
+  });
   function guestCountLabel(n) {
     return t('%s Guests').replace('%s', String(n));
   }
@@ -1744,12 +1724,46 @@
   });
 
   /* ============ 5. card gallery sliders (dots + arrows) ============ */
-  $$('div[class*="group/cardGallerySlider"]').forEach(function (slider) {
+  var demoGalleryPhotos = [
+    ['pexels-photo-6129967.home.webp', 'pexels-photo-261394.home.webp', 'pexels-photo-2861361.home.webp', 'pexels-photo-2677398.home.webp'],
+    ['pexels-photo-261394.home.webp', 'pexels-photo-6129967.home.webp', 'pexels-photo-2677398.home.webp', 'pexels-photo-2861361.home.webp'],
+    ['pexels-photo-2861361.home.webp', 'pexels-photo-2677398.home.webp', 'pexels-photo-6129967.home.webp', 'pexels-photo-261394.home.webp'],
+    ['pexels-photo-2677398.home.webp', 'pexels-photo-2861361.home.webp', 'pexels-photo-261394.home.webp', 'pexels-photo-6129967.home.webp'],
+    ['pexels-photo-1320686.home.webp', 'pexels-photo-7163619.home.webp', 'pexels-photo-6527036.home.webp', 'pexels-photo-6969831.home.webp'],
+    ['pexels-photo-7163619.home.webp', 'pexels-photo-1320686.home.webp', 'pexels-photo-6969831.home.webp', 'pexels-photo-6527036.home.webp'],
+    ['pexels-photo-6527036.home.webp', 'pexels-photo-6969831.home.webp', 'pexels-photo-1320686.home.webp', 'pexels-photo-7163619.home.webp'],
+    ['pexels-photo-6969831.home.webp', 'pexels-photo-6527036.home.webp', 'pexels-photo-7163619.home.webp', 'pexels-photo-1320686.home.webp']
+  ];
+  $$('div[class*="group/cardGallerySlider"]').forEach(function (slider, galleryIndex) {
+    if (slider.dataset.galleryControls) return;
     var host = $('a > div', slider) || slider;
     var slides = $$(':scope > div > img', host);
+    if (slides.length === 1 && demoGalleryPhotos[galleryIndex]) {
+      var firstWrap = slides[0].parentElement;
+      demoGalleryPhotos[galleryIndex].slice(1).forEach(function (photo) {
+        var wrap = firstWrap.cloneNode(true);
+        wrap.style.opacity = '0';
+        wrap.querySelector('img').src = '/static/chisfis/images/' + photo;
+        firstWrap.parentElement.appendChild(wrap);
+      });
+      slides = $$(':scope > div > img', host);
+    }
     var dots = $$('.absolute.bottom-2 button', slider).length
       ? $$('.absolute.bottom-2 button', slider)
       : $$('button.h-1\\.5', slider);
+    var arrowLayer = $(':scope > div[class*="opacity-0"]', slider);
+    if (arrowLayer && !arrowLayer.querySelector('[class*="start-"]')) {
+      var nextWrap = arrowLayer.querySelector('[class*="end-"]');
+      if (nextWrap) {
+        var previousWrap = nextWrap.cloneNode(true);
+        previousWrap.className = 'absolute start-3 top-[calc(50%-1rem)]';
+        var previousButton = previousWrap.querySelector('button');
+        previousButton.setAttribute('aria-label', 'Önceki fotoğraf');
+        var previousIcon = previousButton.querySelector('i');
+        if (previousIcon) previousIcon.className = 'hgi-stroke hgi-arrow-left-01 size-4!';
+        arrowLayer.insertBefore(previousWrap, nextWrap);
+      }
+    }
     var arrows = $$(':scope > div[class*="opacity-0"] button', slider);
     if (slides.length < 2) return;
     var idx = 0;
@@ -1763,11 +1777,38 @@
         d.className = k === idx ? 'h-1.5 w-1.5 rounded-full bg-white' : 'h-1.5 w-1.5 rounded-full bg-white/60';
       });
     }
-    dots.forEach(function (d, k) { d.addEventListener('click', function () { show(k); }); });
-    arrows.forEach(function (a) {
-      a.addEventListener('click', function () {
+    dots.forEach(function (d, k) { d.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); show(k); }); });
+    arrows.forEach(function (a, arrowIndex) {
+      a.classList.add('nx-demo-gallery-arrow');
+      a.classList.add(arrowIndex === 0 && arrows.length > 1 ? 'nx-arrow-previous' : 'nx-arrow-next');
+      a.addEventListener('click', function (event) {
+        event.preventDefault(); event.stopPropagation();
         var isPrev = (a.closest('[class*="start-"]') && !a.closest('[class*="end-"]'));
-        show(isPrev ? idx - 1 : idx + 1);
+        show(isPrev || (arrows.length > 1 && arrowIndex === 0) ? idx - 1 : idx + 1);
+      });
+    });
+    slider.dataset.galleryControls = 'true';
+  });
+  $$('.mySnapItem').forEach(function (item) {
+    var section = item.closest('section');
+    if (!section || section.dataset.destinationCarousel) return;
+    var rail = $('.mySnapItem', section)?.parentElement;
+    var buttons = $$('button', section).filter(function (button) { return button.querySelector('.hgi-arrow-left-01,.hgi-arrow-right-01'); });
+    if (!rail || buttons.length < 2) return;
+    section.dataset.destinationCarousel = 'true';
+    section.classList.add('nx-destination-carousel');
+    buttons.forEach(function (button) {
+      var previous = !!button.querySelector('.hgi-arrow-left-01');
+      button.classList.add('nx-destination-arrow');
+      button.setAttribute('aria-label', previous ? 'Önceki yerler' : 'Sonraki yerler');
+      button.addEventListener('click', function (event) {
+        event.preventDefault(); event.stopPropagation();
+        var step = $('.mySnapItem', rail)?.getBoundingClientRect().width || rail.clientWidth;
+        var end = rail.scrollWidth - rail.clientWidth;
+        var target = rail.scrollLeft + (previous ? -step : step);
+        if (target < 0) target = end;
+        else if (target > end - 1) target = 0;
+        rail.scrollTo({ left: target, behavior: 'smooth' });
       });
     });
   });
@@ -1877,7 +1918,9 @@
     }
 
     var svg = function (paths, cls) {
-      return '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"' + (cls ? ' class="' + cls + '"' : '') + ' aria-hidden="true">' + paths + '</svg>';
+      var names = { close: 'cancel-01', phone: 'call-02', wa: 'whatsapp', globe: 'global', code: 'source-code', chev: 'arrow-down-01', bell: 'notification-01', user: 'user-02', search: 'search-01', building: 'building-02', bulb: 'bulb', car: 'car-01', plane: 'airplane-01', arrow: 'arrow-right-01' };
+      var key = Object.keys(P).find(function (name) { return P[name] === paths; });
+      return '<i class="hgi-stroke hgi-' + (names[key] || 'circle') + (cls ? ' ' + cls : '') + '" aria-hidden="true"></i>';
     };
     var P = {
       close: '<path d="M18 6L6.00081 17.9992M17.9992 18L6 6.00085" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>',
@@ -1905,14 +1948,15 @@
     // header menüsü (§ header-popovers.js) AYNI fonksiyonu çağırır.
     var hrefActive = window.NEXUS_NAV.isActiveHref;
     var accHTML = function (iconKey, labelKey, open, items) {
-      var anyActive = items.some(function (it) { return hrefActive(it[0]); });
+      var anyActive = items.some(function (it) { return it[0].charAt(0) === '/' ? hrefActive(it[0]) : window.NEXUS_NAV.isActiveCategory(it[0]); });
       var body = items.map(function (it) {
-        var active = hrefActive(it[0]);
-        return '<a href="' + it[0] + '"' + (active ? ' aria-current="page" class="mm-acc-link-active"' : '') + '><span data-i18n="' + it[1] + '">' + it[1] + '</span>' + svg(P.arrow) + '</a>';
+        var active = it[0].charAt(0) === '/' ? hrefActive(it[0]) : window.NEXUS_NAV.isActiveCategory(it[0]);
+        var href = it[0].charAt(0) === '/' ? it[0] : window.NEXUS_CATEGORY_URL(it[0]);
+        return '<a href="' + href + '"' + (active ? ' aria-current="page" class="mm-acc-link-active"' : '') + '><span data-i18n="' + it[1] + '">' + it[1] + '</span>' + svg(P.arrow) + '</a>';
       }).join('');
       var isOpen = open || anyActive;
       return '<div class="mm-acc"' + (isOpen ? ' data-open="1"' : '') + '>' +
-        '<button type="button" class="mm-acc-head">' +
+        '<button type="button" class="mm-acc-head" aria-expanded="' + (isOpen ? 'true' : 'false') + '">' +
         '<span class="mm-acc-ico">' + svg(P[iconKey]) + '</span>' +
         '<span data-i18n="' + labelKey + '">' + labelKey + '</span>' +
         '<span class="mm-acc-chev">' + svg(P.chev) + '</span>' +
@@ -1940,7 +1984,7 @@
       '<div class="mm-actions">' +
       '<a class="mm-ico mm-ico--wa" href="https://wa.me/' + WHATSAPP_NUMBER + '?text=' + encodeURIComponent(WHATSAPP_MESSAGE) + '" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">' + svg(P.wa) + '</a>' +
       '<span class="mm-flex"></span>' +
-      '<button type="button" class="mm-pill" aria-label="Site settings">' + svg(P.globe) + '<span class="mm-sep"></span>' + svg(P.code) + svg(P.chev) + '</button>' +
+      '<button type="button" class="mm-pill" aria-label="Site settings" aria-haspopup="true" aria-expanded="false">' + svg(P.globe) + '<span class="mm-sep"></span><i class="hgi-stroke hgi-money-01" aria-hidden="true"></i>' + svg(P.chev) + '</button>' +
       '<button type="button" class="mm-ico" aria-label="Notifications">' + svg(P.bell) + '<i class="mm-dot"></i></button>' +
       '<a class="mm-ico" href="/hesap" aria-label="Account">' + svg(P.user) + '</a>' +
       '</div>' +
@@ -1949,19 +1993,19 @@
       '</form>' +
       '<p class="mm-cats-label" data-i18n="CATEGORIES">CATEGORIES</p>' +
       accHTML('building', 'Stays', true, [
-        ['/kategori/hotel', 'Hotels'],
-        ['/kategori/holiday_home', 'Holiday homes & villas'],
-        ['/kategori/yacht', 'Yacht rental'],
+        ['hotel', 'Hotels'],
+        ['holiday_home', 'Holiday homes & villas'],
+        ['yacht', 'Yacht rental'],
       ]) +
       accHTML('bulb', 'Experiences', false, [
-        ['/kategori/tour', 'Tours'],
-        ['/kategori/activity', 'Activities'],
-        ['/deneyimler', 'All experiences'],
+        ['tour', 'Tours'],
+        ['activity', 'Activities'],
+        ['/urunler?view=list&kategori=tour', 'All experiences'],
         ['/yazarlar', 'Authors'],
       ]) +
-      directHTML('car', 'Cars', '/arac') +
-      directHTML('plane', 'Flights', '/ucus') +
-      directHTML('bus', 'Bus', '/otobus') +
+      directHTML('car', 'Cars', window.NEXUS_CATEGORY_URL('car')) +
+      directHTML('plane', 'Flights', window.NEXUS_CATEGORY_URL('flight')) +
+      directHTML('bus', 'Bus', window.NEXUS_CATEGORY_URL('bus')) +
       '<div class="mm-foot">' +
       '<button type="button" id="theme-toggle" data-role="theme" class="mm-foot-btn" aria-label="Toggle dark mode"><span class="mm-foot-ico">🌙</span> <span>Dark mode</span></button>' +
       '<button type="button" class="lang-toggle mm-foot-btn" aria-label="Toggle language">' + (TOGGLE_LABEL[currentLang] || 'TR') + '</button>' +
@@ -2020,7 +2064,15 @@
     $$('.mm-acc-head', menu).forEach(function (h) {
       h.addEventListener('click', function () {
         var acc = h.parentNode;
-        acc.setAttribute('data-open', acc.getAttribute('data-open') === '1' ? '0' : '1');
+        var opening = acc.getAttribute('data-open') !== '1';
+        $$('.mm-acc', menu).forEach(function (section) {
+          section.setAttribute('data-open', '0');
+          section.querySelector('.mm-acc-head').setAttribute('aria-expanded', 'false');
+        });
+        if (opening) {
+          acc.setAttribute('data-open', '1');
+          h.setAttribute('aria-expanded', 'true');
+        }
       });
     });
 
@@ -2050,8 +2102,11 @@
       function optHTML(kind, val, main, sub) {
         var sel = (kind === 'lang' ? L.lang : cur) === val;
         return '<button type="button" class="mm-pop__opt" role="menuitemradio" aria-checked="' + sel + '" data-kind="' + kind + '" data-val="' + val + '">' +
+          (kind === 'cur' ? '<span class="mm-pop__symbol">' + sub + '</span>' : '') +
+          '<span class="mm-pop__opt-copy">' +
           '<span class="mm-pop__opt-main">' + main + '</span>' +
-          (sub ? '<span class="mm-pop__opt-sub">' + sub + '</span>' : '') +
+          (kind === 'lang' ? '<span class="mm-pop__opt-sub">' + sub + '</span>' : '') +
+          '</span>' +
           '<i class="hgi-stroke hgi-tick-02 mm-pop__tick"></i>' +
           '</button>';
       }
@@ -2059,9 +2114,10 @@
       function renderPane(pane) {
         var kind = pane.getAttribute('data-pane');
         if (kind === 'lang') {
-          pane.innerHTML = L.langs.map(function (l) { return optHTML('lang', l.code, l.main, l.sub); }).join('');
+          var languageNames = { tr: 'Türkçe', en: 'English', de: 'Deutsch', ru: 'Русский', zh: '中文', fr: 'Français' };
+          pane.innerHTML = L.langs.map(function (l) { return optHTML('lang', l.code, languageNames[l.code] || l.main, l.code.toUpperCase()); }).join('');
         } else {
-          pane.innerHTML = L.currencies.map(function (c) { return optHTML('cur', c.code, c.symbol + ' ' + c.code, ''); }).join('');
+          pane.innerHTML = L.currencies.map(function (c) { return optHTML('cur', c.code, c.code, c.symbol); }).join('');
         }
       }
       function renderAll() {
@@ -2118,9 +2174,17 @@
         // bildirimi; refreshChecks nexus:lang dinleyicisiyle tazelenir
         if (kind === 'lang') { dispatchLang(val); refreshChecks(); }
         else { cur = val; L.applyCurrency(val); renderAll(); }
+        closePanel(pop);
+        pill.setAttribute('aria-expanded', 'false');
       });
 
       // Dış tık / menü kapanınca popover'ı kapat (aynı sönme ile)
+      document.addEventListener('click', function (e) {
+        if (isMmPopOpen() && !pop.contains(e.target) && !pill.contains(e.target)) {
+          closePanel(pop);
+          pill.setAttribute('aria-expanded', 'false');
+        }
+      });
       $('.mobile-menu__backdrop', menu).addEventListener('click', function () { closePanel(pop); });
       $('.mobile-menu__close', menu).addEventListener('click', function () { closePanel(pop); });
       document.addEventListener('keydown', function (e) {
@@ -2387,12 +2451,16 @@
          oysa liste sayfası mağaza adlarını okur (`konum`, `check_in`,
          `check_out`, `guests`). Mevcut sorgu (ör. `tenant`) korunur. */
       var params = new URLSearchParams(window.location.search);
+      var activeCategory = window.NEXUS_NAV && window.NEXUS_NAV.pathCategory;
+      if (activeCategory) params.set('kategori', activeCategory);
       var loc = locationInput.value.trim();
       if (loc) params.set('konum', loc);
       var checkin = form.querySelector('input[name="checkin"]');
       var checkout = form.querySelector('input[name="checkout"]');
       if (checkin && checkin.value) params.set('check_in', checkin.value);
       if (checkout && checkout.value) params.set('check_out', checkout.value);
+      var dateFlex = form.querySelector('input[name="date_flex"]');
+      if (dateFlex && dateFlex.value !== '0') params.set('date_flex', dateFlex.value);
       // Toplamı sayaç zaten `input[name="guests"]` alanında tutuyor (§4).
       var totalInput = form.querySelector('input[name="guests"]');
       var totalGuests = totalInput ? parseInt(totalInput.value, 10) || 0 : 0;
@@ -2564,10 +2632,7 @@
           '<button type="submit" aria-label="Search" title="' + t('Search') + '">' +
             '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path d="m20 20-4.2-4.2m1.2-5.3a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
           '</button>' +
-        '</form>' +
-        '<button type="button" id="nexus-header-mic" aria-label="' + t('Voice search') + '" title="' + t('Voice search') + '">' +
-          '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3m-3 0h6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-        '</button>';
+        '</form>';
         if (headerRight) desktopHeader.insertBefore(headerSearch, headerRight);
         else desktopHeader.appendChild(headerSearch);
 
@@ -2581,73 +2646,6 @@
           if (modalInput && query) {
             modalInput.value = query;
             modalInput.dispatchEvent(new Event('input', { bubbles: true }));
-          }
-        });
-        var headerMic = headerSearch.querySelector('#nexus-header-mic');
-        var voiceRecognition = null;
-        headerMic.addEventListener('click', function() {
-          openSearchModal();
-          var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-          if (!SpeechRecognition) {
-            headerMic.title = t('Voice search is not supported in this browser');
-            return;
-          }
-          if (voiceRecognition) {
-            voiceRecognition.stop();
-            return;
-          }
-
-          voiceRecognition = new SpeechRecognition();
-          var voiceLocales = {
-            tr: 'tr-TR',
-            en: 'en-US',
-            de: 'de-DE',
-            ru: 'ru-RU',
-            fr: 'fr-FR',
-            es: 'es-ES',
-            zh: 'zh-CN',
-            it: 'it-IT',
-            ar: 'ar-SA',
-            vi: 'vi-VN',
-            'fr-be': 'fr-FR',
-            'fr-ca': 'fr-CA',
-            'fr-be-2': 'fr-FR',
-            'fr-ca-2': 'fr-CA'
-          };
-          var voiceBaseLang = String(currentLang || '').split('-')[0];
-          voiceRecognition.lang = voiceLocales[currentLang] || voiceLocales[voiceBaseLang] || document.documentElement.lang || 'en-US';
-          voiceRecognition.interimResults = false;
-          voiceRecognition.maxAlternatives = 1;
-          voiceRecognition.onstart = function() {
-            headerMic.classList.add('is-listening');
-            headerMic.setAttribute('aria-pressed', 'true');
-            headerMic.title = t('Listening...');
-          };
-          voiceRecognition.onresult = function(event) {
-            var transcript = event.results && event.results[0] && event.results[0][0]
-              ? event.results[0][0].transcript.trim()
-              : '';
-            if (!transcript) return;
-            headerSearchInput.value = transcript;
-            var modalInput = document.getElementById('site-search');
-            if (modalInput) {
-              modalInput.value = transcript;
-              modalInput.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-          };
-          voiceRecognition.onerror = function() {
-            headerMic.title = t('Voice search');
-          };
-          voiceRecognition.onend = function() {
-            headerMic.classList.remove('is-listening');
-            headerMic.setAttribute('aria-pressed', 'false');
-            headerMic.title = t('Voice search');
-            voiceRecognition = null;
-          };
-          try {
-            voiceRecognition.start();
-          } catch (error) {
-            voiceRecognition = null;
           }
         });
       }
@@ -2949,11 +2947,6 @@
         headerSearchInput.placeholder = t('Search');
         headerSearchInput.setAttribute('aria-label', t('Search'));
       }
-      var mic = document.getElementById('nexus-header-mic');
-      if (mic) {
-        mic.setAttribute('aria-label', t('Voice search'));
-        if (!mic.classList.contains('is-listening')) mic.title = t('Voice search');
-      }
       var modalInput = document.getElementById('site-search');
       if (modalInput && !modalInput.value) modalInput.placeholder = searchT('Search listings...');
     });
@@ -3027,15 +3020,19 @@
           burger.type = 'button';
           burger.className = 'mh-menu-btn';
           burger.setAttribute('aria-label', 'Open menu');
-          burger.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true"><path d="M4 5L20 5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M4 12L20 12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M4 19L20 19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>';
-          burger.addEventListener('click', function (e) { e.stopPropagation(); openMenu(); });
+          burger.innerHTML = '<i class="hgi-stroke hgi-menu-01 size-6" aria-hidden="true"></i>';
           mhBox.appendChild(burger);
+        }
+        var mobileHeaderMenu = mhBox.querySelector('.mh-menu-btn');
+        if (mobileHeaderMenu && !mobileHeaderMenu.dataset.nxMenuBound) {
+          mobileHeaderMenu.dataset.nxMenuBound = 'true';
+          mobileHeaderMenu.addEventListener('click', function (e) { e.stopPropagation(); openMenu(); });
         }
       }
     }
 
     /* ---- B) mobil alt bar: Anasayfa · Arama · [sepet] · Hesap · Menü ---- */
-    var bottomBar = pick(function (c) {
+    var bottomBar = document.querySelector('nav.bnav') || pick(function (c) {
       return c.indexOf('inset-x-0') !== -1 && c.indexOf('bottom-0') !== -1 && c.indexOf('lg:hidden') !== -1;
     });
     if (bottomBar && !bottomBar.querySelector('.bnav-item, .bnav-fab')) {
@@ -3047,7 +3044,12 @@
           cart: "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\" class=\"size-7\" aria-hidden=\"true\"><path d=\"M10.5 20.25C10.5 20.6642 10.1642 21 9.75 21C9.33579 21 9 20.6642 9 20.25C9 19.8358 9.33579 19.5 9.75 19.5C10.1642 19.5 10.5 19.8358 10.5 20.25Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M19 20.25C19 20.6642 18.6642 21 18.25 21C17.8358 21 17.5 20.6642 17.5 20.25C17.5 19.8358 17.8358 19.5 18.25 19.5C18.6642 19.5 19 19.8358 19 20.25Z\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M2 3H2.20664C3.53124 3 4.19354 3 4.6255 3.40221C5.05746 3.80441 5.10464 4.46503 5.19902 5.78626L5.45035 9.30496C5.5924 11.2936 5.66342 12.2879 5.96476 13.0961C6.62531 14.8677 8.08229 16.2244 9.89648 16.757C10.7241 17 11.7267 17 13.7317 17C15.8373 17 16.89 17 17.7417 16.7416C19.6593 16.1599 21.1599 14.6593 21.7416 12.7417C22 11.89 22 10.8433 22 8.75C22 8.05222 22 7.70333 21.9139 7.41943C21.72 6.78023 21.2198 6.28002 20.5806 6.08612C20.2967 6 19.9478 6 19.25 6H5.5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M16 10V13M11 10V13\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/></svg>",
           user: "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\" class=\"size-6\" aria-hidden=\"true\"><path d=\"M20 21.0001C19.713 17.269 16.7289 14.3151 12.995 14.0662L12 13.9999C11.6446 14.0096 11.3134 14.0225 11.0008 14.0378C7.3 14.2192 4.28417 17.3057 4 21.0001\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><circle cx=\"12\" cy=\"6.99988\" r=\"4\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/></svg>",
           menu: "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\" class=\"size-6\" aria-hidden=\"true\"><path d=\"M4 5L20 5\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M4 12L20 12\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/><path d=\"M4 19L20 19\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"/></svg>"
-        };;
+        };
+        IC.home = '<i class="hgi-stroke hgi-home-01 size-6" aria-hidden="true"></i>';
+        IC.search = '<i class="hgi-stroke hgi-search-01 size-6" aria-hidden="true"></i>';
+        IC.cart = '<i class="hgi-stroke hgi-shopping-cart-01 size-7" aria-hidden="true"></i>';
+        IC.user = '<i class="hgi-stroke hgi-user size-6" aria-hidden="true"></i>';
+        IC.menu = '<i class="hgi-stroke hgi-menu-01 size-6" aria-hidden="true"></i>';
         /* Aktif sayfa göstergesi.
          * Öğeler uygulamanın GERÇEK rotalarına bağlanır — şablon kalıntısı
          * index.html / account.html bu uygulamada 404 veriyordu. Vurgu,
@@ -3092,5 +3094,110 @@
       bottomBar.classList.remove('items-center');
       bottomBar.classList.add('bnav-bar');
     }
+    if (bottomBar && bottomBar.querySelector('.nx-mobile-bottom-row')) {
+      var mobileSearch = bottomBar.querySelector('[data-act="search"]');
+      var mobileSupport = bottomBar.querySelector('[data-act="support"]');
+      var mobileCart = bottomBar.querySelector('[data-act="cart"]');
+      if (mobileSearch) mobileSearch.addEventListener('click', function () {
+        var trigger = document.getElementById('search-fab-btn');
+        if (trigger) trigger.click();
+        else document.querySelector('.hero-search-form-trigger')?.click();
+      });
+      if (mobileSupport) mobileSupport.addEventListener('click', function () {
+        document.dispatchEvent(new CustomEvent('nexus:support-chooser'));
+      });
+      if (mobileCart) mobileCart.addEventListener('click', function (event) {
+        event.stopPropagation();
+        openCart();
+      });
+    }
+    if (mobileHeader) {
+      var headerSearch = mobileHeader.querySelector('.nx-mobile-search');
+      if (headerSearch) headerSearch.addEventListener('click', function () {
+        var trigger = document.getElementById('search-fab-btn');
+        if (trigger) trigger.click();
+      });
+    }
   })();
 })();
+// Hero category rail: keep the storefront categories aligned with the agency catalogue.
+function initializeHeroCategoryRail() {
+  var rail = document.querySelector('.chisfis-home .hero-search-form [role="tablist"]');
+  if (!rail || rail.dataset.categoryRailInitialized === 'true') return;
+  rail.dataset.categoryRailInitialized = 'true';
+  rail.classList.add('hero-categories-initializing');
+  var items = [
+    ['Otel', 'hotel', 'hgi-building-03'], ['Villa', 'holiday_home', 'hgi-home-01'],
+    ['Yat', 'yacht', 'hgi-anchor-point'], ['Tur', 'tour', 'hgi-adventure'],
+    ['Aktivite', 'activity', 'hgi-hot-air-balloon'], ['Uçuş', 'flight', 'hgi-airplane-01'],
+    ['Araç', 'car', 'hgi-car-01'], ['Devamı', 'bus', 'hgi-menu-01']
+  ];
+  var tabs = Array.prototype.slice.call(rail.querySelectorAll('[role="tab"]'));
+  function positionMoreMenu(panel, tab) {
+    var parentRect = rail.parentElement.getBoundingClientRect();
+    var railRect = rail.getBoundingClientRect();
+    var tabRect = tab.getBoundingClientRect();
+    panel.style.top = (railRect.bottom - parentRect.top + 8) + 'px';
+    panel.style.left = Math.max(0, Math.min(tabRect.left - parentRect.left, parentRect.width - panel.offsetWidth)) + 'px';
+  }
+  items.forEach(function (item, index) {
+    var tab = tabs[index];
+    if (!tab) {
+      tab = document.createElement('a'); tab.setAttribute('role', 'tab');
+      rail.appendChild(tab);
+    }
+    tab.href = window.NEXUS_CATEGORY_URL(item[1]);
+    tab.setAttribute('aria-label', item[0]);
+    // Replace template copy completely; Hugeicons renders through the icon font.
+    tab.textContent = item[0];
+    var icon = document.createElement('i');
+    icon.className = 'hgi-stroke ' + item[2];
+    icon.setAttribute('aria-hidden', 'true');
+    tab.insertBefore(icon, tab.firstChild);
+    if (index === items.length - 1) {
+      tab.classList.add('hero-more-tab');
+      tab.addEventListener('click', function (event) {
+        event.preventDefault();
+        var panel = rail.parentElement.querySelector('.hero-more-menu');
+        if (panel) {
+          panel.classList.toggle('is-open');
+          if (panel.classList.contains('is-open')) positionMoreMenu(panel, tab);
+          return;
+        }
+        panel = document.createElement('div');
+        panel.className = 'hero-more-menu is-open';
+        var more = [
+          ['Vize','visa','hgi-passport','▣'], ['Feribot','ferry','hgi-ferry-boat','⛴'],
+          ['Transfer','transfer','hgi-bus-01','▤'], ['Şezlong','beach','hgi-beach','⌂'],
+          ['Sinema','cinema','hgi-film-01','▣'], ['Etkinlik','event','hgi-calendar-03','◫'],
+          ['Restoran','restaurant','hgi-restaurant-02','♨'], ['Otobüs','bus','hgi-bus-01','▤']
+        ];
+        more.forEach(function (entry) {
+          var link = document.createElement('a'); link.href = window.NEXUS_CATEGORY_URL(entry[1]);
+          var ico = document.createElement('i'); ico.className = 'hgi-stroke ' + entry[2];
+          link.appendChild(ico); link.appendChild(document.createTextNode(entry[0]));
+          link.addEventListener('click', function () { panel.classList.remove('is-open'); });
+          panel.appendChild(link);
+        });
+        rail.parentElement.appendChild(panel);
+        positionMoreMenu(panel, tab);
+      });
+    }
+  });
+  var currentCategory = window.NEXUS_NAV && window.NEXUS_NAV.pathCategory;
+  if (currentCategory) {
+    Array.prototype.forEach.call(rail.querySelectorAll('[role="tab"]'), function (tab, index) {
+      var active = items[index] && items[index][1] === currentCategory;
+      tab.toggleAttribute('data-selected', active);
+      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+  }
+  document.addEventListener('click', function (event) {
+    var panel = rail.parentElement.querySelector('.hero-more-menu');
+    if (panel && panel.classList.contains('is-open') && !panel.contains(event.target) && !event.target.closest('.hero-more-tab')) panel.classList.remove('is-open');
+  });
+  rail.classList.remove('hero-categories-initializing');
+  rail.classList.add('hero-categories-ready');
+}
+window.initializeHeroCategoryRail = initializeHeroCategoryRail;
+document.addEventListener('DOMContentLoaded', initializeHeroCategoryRail);

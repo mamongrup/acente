@@ -37,6 +37,18 @@ Invoke-ContractCheck -Root $AgencyRoot -ScriptName 'check-local-db-contract.ps1'
 Invoke-ContractCheck -Root $NexusRoot -ScriptName 'check-local-db-contract.ps1' -Label 'NEXUS lokal DB sözleşme kontrolü'
 Invoke-ContractCheck -Root $AgencyRoot -ScriptName 'check-contract-parity.ps1' -Label 'Acente ↔ NEXUS sözleşme eşitliği'
 Invoke-ContractCheck -Root $NexusRoot -ScriptName 'check-contract-parity.ps1' -Label 'NEXUS ↔ Acente sözleşme eşitliği'
+Invoke-ContractCheck -Root $NexusRoot -ScriptName 'check-reservation-status-flow.ps1' -Label 'NEXUS rezervasyon durum kapsamı'
+
+Write-Output ""
+Write-Output '== Tedarikçi rol/izin karar eşitliği =='
+$previousNexusRoot = $env:NEXUS_PROJECT_ROOT
+try {
+  $env:NEXUS_PROJECT_ROOT = $NexusRoot
+  & node (Join-Path $AgencyRoot 'scripts/check-supplier-permission-parity.mjs')
+  if ($LASTEXITCODE -ne 0) { throw 'Tedarikçi rol/izin kararları iki projede farklı.' }
+} finally {
+  $env:NEXUS_PROJECT_ROOT = $previousNexusRoot
+}
 
 Write-Output ""
 Write-Output "İki proje sözleşme kontrolleri tamamlandı."

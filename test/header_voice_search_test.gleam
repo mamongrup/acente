@@ -3,6 +3,7 @@ import gleeunit/should
 import simplifile
 
 const header_js = "priv/static/chisfis/js/main.js"
+const mobile_search_js = "priv/static/mobile-search-form.js"
 
 const header_css = "priv/static/chisfis-bridge.css"
 
@@ -13,25 +14,22 @@ fn read_file(path: String) -> String {
   }
 }
 
-pub fn microphone_uses_a_self_contained_svg_icon_test() {
-  let js = read_file(header_js)
-  js |> string.contains("id=\"nexus-header-mic\"") |> should.be_true
-  js |> string.contains("hgi-mic-01") |> should.be_false
-  js
-  |> string.contains("M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z")
+pub fn microphone_uses_hugeicons_test() {
+  read_file(header_js)
+  |> string.contains("id=\"nexus-header-mic\"")
+  |> should.be_false
+  read_file(mobile_search_js)
+  |> string.contains("hgi-mic-01")
   |> should.be_true
 }
 
 pub fn microphone_exposes_listening_state_test() {
-  let js = read_file(header_js)
+  let js = read_file(mobile_search_js)
   js |> string.contains("SpeechRecognition") |> should.be_true
   js
-  |> string.contains("headerMic.setAttribute('aria-pressed', 'true')")
-  |> should.be_true
-  js
-  |> string.contains("headerMic.setAttribute('aria-pressed', 'false')")
+  |> string.contains("button.setAttribute('aria-pressed', String(listening))")
   |> should.be_true
   read_file(header_css)
-  |> string.contains("#nexus-header-mic.is-listening")
+  |> string.contains(".nx-search-mic.is-listening")
   |> should.be_true
 }

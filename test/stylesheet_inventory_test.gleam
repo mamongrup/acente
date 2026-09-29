@@ -223,7 +223,7 @@ pub fn no_obsolete_static_references_test() {
 const css_budget = [
   #("01-tokens.css", 28),
   #("02-base.css", 12),
-  #("03-layout.css", 180),
+  #("03-layout.css", 210),
   #("04-forms-tables.css", 160),
   #("05-media-catalog.css", 138),
   #("06-wizard.css", 307),

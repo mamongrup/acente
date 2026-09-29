@@ -16,6 +16,7 @@
 //// admin POST yok; böyle bir route eklenirse Origin/Referer kontrolü
 //// (router.handle içinde) tek savunma olarak kalır ve burada genişletilmelidir.
 
+import envoy
 import gleam/bit_array
 import gleam/crypto
 import gleam/http
@@ -27,14 +28,13 @@ import gleam/option
 import gleam/string
 import gleam/uri
 import wisp
-import wisp/internal.{Connection, Chunk, ReadingFinished}
+import wisp/internal.{Chunk, Connection, ReadingFinished}
 
 pub const csrf_field = "csrf"
 
 /// Oturum jetonundan CSRF token üretir (base64url, padding'siz).
 pub fn token_for(session_token token: String) -> String {
-  let mac =
-    crypto.hmac(<<token:utf8>>, crypto.Sha256, <<"nexus:csrf:v1":utf8>>)
+  let mac = crypto.hmac(<<token:utf8>>, crypto.Sha256, <<"nexus:csrf:v1":utf8>>)
   bit_array.base64_url_encode(mac, False)
 }
 
@@ -79,9 +79,7 @@ pub fn require_csrf_form(
                         False -> forbidden()
                         True -> {
                           let filtered =
-                            list.filter(pairs, fn(pair) {
-                              pair.0 != csrf_field
-                            })
+                            list.filter(pairs, fn(pair) { pair.0 != csrf_field })
                           let new_body =
                             filtered
                             |> list.map(pair_to_query)
@@ -117,14 +115,24 @@ pub fn set_js_cookie(
     response,
     js_cookie_name,
     token_for(session_token),
-    cookie.Attributes(..cookie.defaults(http.Http), http_only: False, max_age: option.Some(
-      28_800,
-    )),
+    cookie.Attributes(
+      ..cookie.defaults(http.Http),
+      http_only: False,
+      max_age: option.Some(28_800),
+      secure: production_cookie_secure(),
+    ),
   )
 }
 
 /// JS'in okuduğu çerezin adı (HttpOnly değil).
 pub const js_cookie_name = "nexus_csrf"
+
+fn production_cookie_secure() -> Bool {
+  case envoy.get("APP_ENV") {
+    Ok("production") -> True
+    _ -> False
+  }
+}
 
 fn pair_to_query(pair: #(String, String)) -> String {
   uri.percent_encode(pair.0) <> "=" <> uri.percent_encode(pair.1)
@@ -159,5 +167,7 @@ fn replace_connection_buffer(
 
 fn forbidden() -> wisp.Response {
   wisp.response(403)
-  |> wisp.string_body("CSRF doğrulaması başarısız. Sayfayı yenileyip tekrar deneyin.")
+  |> wisp.string_body(
+    "CSRF doğrulaması başarısız. Sayfayı yenileyip tekrar deneyin.",
+  )
 }

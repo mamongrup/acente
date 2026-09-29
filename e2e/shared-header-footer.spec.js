@@ -11,12 +11,9 @@ for (const path of ['/', '/urunler']) {
     await expect(page.locator('#nexus-header-mic')).toBeVisible();
 
     const locale = page.locator('#popover-button-3');
-    await expect(locale.locator('svg')).toHaveCount(4);
-    await expect(locale.locator('i')).toHaveCount(0);
-    await expect(locale.locator('svg').nth(0).locator('path'))
-      .toHaveAttribute('d', /M12 21a9\.004/);
-    await expect(locale.locator('svg').nth(2).locator('path'))
-      .toHaveAttribute('d', /M2\.25 18\.75a60\.07/);
+    // The shared header now uses the site's icon font rather than inline SVG.
+    await expect(locale.locator('i.hgi-globe')).toHaveCount(1);
+    await expect(locale.locator('i.hgi-money-01')).toHaveCount(1);
     await locale.click();
     await expect(locale).toHaveAttribute('aria-expanded', 'true');
     await expect(page.locator('#popover-panel-3')).toBeVisible();
@@ -32,6 +29,62 @@ for (const path of ['/', '/urunler']) {
     expect(row.gap).toBeGreaterThanOrEqual(0);
   });
 }
+
+test('hero category icons contain only Hugeicons glyphs', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const tabs = page.locator('.hero-search-form [role="tablist"] [role="tab"]');
+  await expect(tabs).toHaveCount(8);
+  for (const tab of await tabs.all()) {
+    const icon = tab.locator(':scope > i.hgi-stroke');
+    await expect(icon).toHaveCount(1);
+    await expect(icon).toHaveText('');
+    expect(await icon.evaluate((el) => getComputedStyle(el, '::before').content)).toMatch(/^".+"$/);
+  }
+  await tabs.last().click();
+  const menuPosition = await page.locator('.hero-more-menu.is-open').evaluate((menu) => ({
+    menuTop: menu.getBoundingClientRect().top,
+    railBottom: menu.parentElement.querySelector('[role="tablist"]').getBoundingClientRect().bottom,
+  }));
+  expect(menuPosition.menuTop).toBeGreaterThan(menuPosition.railBottom);
+  const moreIcons = page.locator('.hero-more-menu.is-open i.hgi-stroke');
+  await expect(moreIcons).toHaveCount(10);
+  for (const icon of await moreIcons.all()) {
+    expect(await icon.evaluate((el) => getComputedStyle(el, '::before').content)).toMatch(/^".+"$/);
+  }
+});
+
+test('location subtitle aligns with its heading', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const alignment = await page.locator('.hero-search-form input[name="location"]').evaluate((input) => ({
+    headingLeft: input.getBoundingClientRect().left,
+    subtitleLeft: input.nextElementSibling.getBoundingClientRect().left,
+  }));
+  expect(Math.abs(alignment.headingLeft - alignment.subtitleLeft)).toBeLessThanOrEqual(1);
+});
+
+test('category navigation uses language-specific clean URLs', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('nexus_lang', 'tr'));
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const holidayHome = page.locator('.hero-search-form [role="tab"][aria-label="Villa"]');
+  await expect(holidayHome).toHaveAttribute('href', '/tatil-evi');
+  const documentRequests = [];
+  page.on('request', (request) => {
+    if (request.isNavigationRequest()) documentRequests.push(new URL(request.url()).pathname + new URL(request.url()).search);
+  });
+  await page.locator('#popover-button-1').click();
+  const catalogueHolidayHome = page.locator('#popover-panel-1 a.nc-travel__item').nth(1);
+  await expect(catalogueHolidayHome).toHaveAttribute('href', '/tatil-evi');
+  await catalogueHolidayHome.click();
+  await expect(page).toHaveURL(/\/tatil-evi$/);
+  expect(documentRequests).toEqual(['/tatil-evi']);
+  const oldRoute = await page.request.get('/kategori/holiday_home');
+  expect(oldRoute.status()).toBe(404);
+  for (const [lang, slug] of [['de', 'ferienhaus'], ['ru', 'dom-otdyha'], ['fr', 'maison-de-vacances'], ['zh', 'dujiawu']]) {
+    expect(await page.evaluate((code) => window.NEXUS_CATEGORY_URL('holiday_home', code), lang)).toBe('/' + slug);
+    expect((await page.request.get('/' + slug)).status()).toBe(200);
+  }
+  expect(await page.evaluate(() => window.NEXUS_CATEGORY_URL('holiday_home', 'en'))).toBe('/holiday-home');
+});
 
 test('home keeps the demo body without a second header or footer', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 });
@@ -106,8 +159,8 @@ for (const path of ['/', '/urunler']) {
           const rect = box(selector);
           return { x: rect.x, right: rect.right, width: rect.width, height: rect.height, y: rect.y };
         }),
-        notificationIcon: box('#popover-button-4 svg').width,
-        cartIcon: box('#cart-fab-btn svg').width,
+        notificationIcon: box('#popover-button-4 i.hgi-stroke').width,
+        cartIcon: box('#cart-fab-btn i.hgi-stroke').width,
       };
     });
     expect(geometry.search.width).toBeGreaterThan(400);

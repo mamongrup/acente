@@ -13,12 +13,9 @@ import gleam/result
 import gleeunit/should
 import nexus_agency/parampos
 import nexus_agency/router
+import nexus_agency/secrets
 import pog
-import simplifile
 import wisp/simulate
-
-@external(erlang, "parampos_test_helpers", "statements")
-fn statements(sql: String) -> List(String)
 
 fn sql(db, query) {
   let assert Ok(rows) =
@@ -65,9 +62,6 @@ pub fn main() {
   let assert Ok(_) = pog.start(config)
   let outcome =
     pog.transaction(pog.named_connection(name), fn(db) {
-      let assert Ok(migration) =
-        simplifile.read("db/migrations/073_parampos_lifecycle.sql")
-      statements(migration) |> list.each(fn(q) { execute(db, q) })
       let tenant =
         sql(
           db,
@@ -76,15 +70,27 @@ pub fn main() {
       let listing =
         sql(
           db,
-          "insert into agency.listings(tenant_id,code,category,title,price_minor,status) values('"
+          "insert into agency.listings(tenant_id,code,category,title,locality,description,currency,price_minor,status,source,metadata,images,owner_info,cancellation_policy) values('"
             <> tenant
-            <> "','test','hotel','Test',12345,'published') returning id::text",
+            <> "','test','hotel','Test','Test locality','ParamPOS HTTP integration listing.','TRY',12345,'published','manual',jsonb_build_object('property_type','Otel','room_types','Standart Oda','board_type','Oda Kahvaltı','check_in_time','14:00','check_out_time','12:00'),jsonb_build_array(jsonb_build_object('url','/static/placeholder.jpg')),jsonb_build_object('provider','ParamPOS integration test'),jsonb_build_object('policy','Test cancellation policy')) returning id::text",
         )
+      let assert Ok(username_sealed) =
+        secrets.seal_for_tenant(tenant, "parampos.username", "test")
+      let assert Ok(password_sealed) =
+        secrets.seal_for_tenant(tenant, "parampos.password", "test")
+      let assert Ok(guid_sealed) =
+        secrets.seal_for_tenant(tenant, "parampos.guid", "ABC")
       execute(
         db,
         "insert into agency.integrations(tenant_id,provider,kind,active,credentials) values('"
           <> tenant
-          <> "','parampos','payment',true,'{\"client_code\":\"test\",\"username\":\"test\",\"password\":\"test\",\"guid\":\"ABC\",\"endpoint\":\"http://127.0.0.1:18089\"}')",
+          <> "','parampos','payment',true,jsonb_build_object('client_code','test','username_sealed','"
+          <> username_sealed
+          <> "','password_sealed','"
+          <> password_sealed
+          <> "','guid_sealed','"
+          <> guid_sealed
+          <> "','endpoint','http://127.0.0.1:18089'))",
       )
       let arrival = sql(db, "select (current_date+1)::text")
       let departure = sql(db, "select (current_date+4)::text")
@@ -101,6 +107,10 @@ pub fn main() {
         #("csrf_token", "test"),
       ]
       let response = post(db, "/api/public/checkout/start", form)
+      case response.status == 200 {
+        True -> Nil
+        False -> io.println("first checkout body: " <> simulate.read_body(response))
+      }
       response.status |> should.equal(200)
       let assert Ok(session) =
         json.parse(
@@ -108,6 +118,10 @@ pub fn main() {
           decode.field("sessionId", decode.string, decode.success),
         )
       let repeat = post(db, "/api/public/checkout/start", form)
+      case repeat.status == 200 {
+        True -> Nil
+        False -> io.println("repeat checkout body: " <> simulate.read_body(repeat))
+      }
       repeat.status |> should.equal(200)
       json.parse(
         simulate.read_body(repeat),
@@ -130,10 +144,10 @@ pub fn main() {
         #("expiryMonth", "12"),
         #("expiryYear", "2030"),
       ]
-      post(db, "/api/public/checkout/parampos/start", card).status
-      |> should.equal(200)
-      post(db, "/api/public/checkout/parampos/start", card).status
-      |> should.equal(409)
+      let parampos_start = post(db, "/api/public/checkout/parampos/start", card)
+      parampos_start.status |> should.equal(200)
+      let duplicate_start = post(db, "/api/public/checkout/parampos/start", card)
+      duplicate_start.status |> should.equal(409)
       callback(
         db,
         order,

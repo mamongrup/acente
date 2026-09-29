@@ -47,8 +47,17 @@ fn get_headers(resp: wisp.Response, name: String) -> List(String) {
 }
 
 pub fn landing_page_renders_test() {
-  get("/")
-  |> should_status(200)
+  // The homepage now reads tenant data during SSR. Exercise it only with a
+  // real connection; the critical browser suite covers it in every local run.
+  case real_db() {
+    Ok(db) -> {
+      let _ = simulate.browser_request(http.Get, "/")
+        |> router.handle(db, origin)
+        |> should_status(200)
+      Nil
+    }
+    Error(_) -> Nil
+  }
 }
 
 pub fn health_endpoint_returns_json_test() {
@@ -129,8 +138,13 @@ pub fn set_lang_redirects_to_referer_test() {
 pub fn set_lang_sets_language_cookie_test() {
   let resp = get("/set-lang/de")
   resp.status |> should.equal(303)
-  let assert Ok(cookie) = header(resp, "set-cookie")
-  string.contains(cookie, "agency_lang") |> should.be_true
+  let cookies = get_headers(resp, "set-cookie")
+  cookies
+  |> list.any(fn(cookie) { string.contains(cookie, "agency_lang=ZGU") })
+  |> should.be_true
+  cookies
+  |> list.any(fn(cookie) { string.contains(cookie, "nexus_lang=de") })
+  |> should.be_true
 }
 
 pub fn set_lang_normalizes_unknown_code_test() {
@@ -258,6 +272,29 @@ pub fn login_and_access_admin_test() {
       body |> string.contains("NEXUS") |> should.be_true
 
       // 4. Cleanup: logout so the token row is removed --------------------------
+      auth.logout(db, session_token)
+    }
+  }
+}
+
+/// Vitrin dili çerezi panelin seçili dilini değiştiremez.
+pub fn storefront_locale_does_not_translate_admin_test() {
+  case real_db() {
+    Error(Nil) -> Nil
+    Ok(db) -> {
+      let session_token = wisp.random_string(48)
+      auth.login(db, "integration-admin@nexus.local", "admin123456", session_token)
+      |> should.be_ok
+      let resp =
+        simulate.browser_request(http.Get, "/admin")
+        |> simulate.cookie("agency_session", session_token, wisp.Signed)
+        |> simulate.cookie("nexus_lang", "ru", wisp.PlainText)
+        |> simulate.cookie("agency_lang", "tr", wisp.PlainText)
+        |> router.handle_localized(db, origin)
+      resp.status |> should.equal(200)
+      let body = simulate.read_body(resp)
+      body |> string.contains("Otel") |> should.be_true
+      body |> string.contains("Отель") |> should.be_false
       auth.logout(db, session_token)
     }
   }

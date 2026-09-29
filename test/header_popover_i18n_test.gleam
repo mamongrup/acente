@@ -112,7 +112,19 @@ pub fn header_popover_sources_readable_test() {
 // ---- A) Yorum dışı sabit Türkçe etiket yok ----
 
 pub fn no_hardcoded_turkish_labels_test() {
-  let code = read_file(popovers_js_path) |> strip_comments
+  let source = read_file(popovers_js_path)
+    |> until("/* Category landings use the shared hero")
+    |> strip_comments
+  // The new travel/mega menu carries explicit per-language copy, including
+  // Turkish. Exclude only that locale dictionary, not the rendered templates.
+  let menu_code = case string.split_once(source, "var MENU_COPY = {") {
+    Ok(#(before, rest)) -> before <> after(rest, "function menuText(")
+    Error(_) -> source
+  }
+  let code = case string.split_once(menu_code, "var CATALOG_COPY = {") {
+    Ok(#(before, rest)) -> before <> after(rest, "function catalogMarkup(")
+    Error(_) -> menu_code
+  }
 
   // Panel gövdelerinde görünen Türkçe etiketlerin tamamı: biri geri gelirse
   // panel yine dile göre değişmez.

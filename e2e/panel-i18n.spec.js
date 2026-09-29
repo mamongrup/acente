@@ -20,7 +20,7 @@ const ORIGIN = `http://127.0.0.1:${PORT}`;
 const CREDS = {
   email: process.env.PANEL_EMAIL || 'acente@nexus.local',
   password: process.env.PANEL_PASSWORD || 'admin123456',
-  tenant_slug: '',
+  tenant_slug: process.env.PANEL_TENANT_SLUG || '',
 };
 
 // Beklenen yerelleştirilmiş metinler (i18n.gleam ile birebir).
@@ -54,11 +54,21 @@ test.beforeEach(async ({ context }) => {
 // Dil tercihini çerezle ver (topbar `/set-lang/<code>` akışıyla aynı yol).
 async function withLang(context, lang) {
   await context.addCookies([
-    { name: 'agency_lang', value: lang, url: ORIGIN },
+    { name: 'agency_lang', value: Buffer.from(lang, 'utf8').toString('base64url'), url: ORIGIN },
   ]);
 }
 
 test.describe('Panel i18n — başlıklar ve menü öğeleri', () => {
+  test('çerezdeki panel dili yenileme sonrasında korunur; vitrin çerezi paneli bozmaz', async ({ page, context }) => {
+    await withLang(context, 'tr');
+    await context.addCookies([{ name: 'nexus_lang', value: 'ru', url: ORIGIN }]);
+    await page.goto('/admin/catalog');
+    await expect(page.locator('h1').first()).toHaveText('Katalog');
+    await expect(page.locator('.sidebar-menu-link').first()).toHaveText('Genel bakış');
+    await page.reload();
+    await expect(page.locator('h1').first()).toHaveText('Katalog');
+  });
+
   test('bölüm başlığı ve kırıntı seçili dilde basılır', async ({ page, context }) => {
     for (const lang of ['tr', 'en', 'de', 'ru']) {
       await withLang(context, lang);

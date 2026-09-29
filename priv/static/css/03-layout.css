@@ -1127,6 +1127,15 @@ body.modal-open { overflow: hidden; }
   margin-bottom: var(--space-10);
 }
 
+#dashboard-work-queue { margin: 0 0 var(--space-6); }
+#dashboard-work-queue h2 { margin: 0; font-size: 18px; }
+.dashboard-queue { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-top: 8px; }
+.dashboard-queue a { display: flex; align-items: center; gap: 11px; min-width: 0; padding: 13px 15px; border: 1px solid var(--border-glass); border-radius: 14px; background: var(--glass-card); color: var(--text-main); text-decoration: none; }
+.dashboard-queue a:hover { border-color: var(--neon-purple); }
+.dashboard-queue strong { font-size: 22px; }
+.dashboard-queue span { flex: 1; font-size: 13px; }
+.dashboard-queue i { font-size: 17px; }
+
 .quick {
   display: flex;
   flex-direction: column;
@@ -1187,6 +1196,14 @@ i[class*="hgi-"] {
   flex-shrink: 0;
 }
 
+.legacy-hgi-icon {
+  display: inline-block;
+  margin-inline: 0.12em;
+  font-size: 1.05em;
+  line-height: 1;
+  vertical-align: -0.1em;
+}
+
 /* Panel theme-seg-btn içindeki ikonlar */
 .theme-seg-btn i[class*="hgi-"] {
   font-size: 18px;
@@ -1219,4 +1236,4 @@ i.size-6 { font-size: 24px; width: 24px; height: 24px; }
   height: 32px;
   border-radius: 50%;
 }
-
+.partner-org-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:16px 0 28px}.partner-org-card{border:1px solid var(--line-soft,#e5e7eb);border-radius:16px;padding:18px;background:var(--glass-card,#fff)}.partner-org-card p{margin:9px 0}.partner-action-form{display:flex;align-items:end;flex-wrap:wrap;gap:10px;margin:12px 0}.partner-action-form label{display:grid;gap:5px;min-width:180px;flex:1}.partner-action-form input,.partner-action-form select{min-height:40px;max-width:300px}.partner-action-form button{min-height:40px}.partner-lead-list,.partner-legacy-list{display:grid;gap:9px;margin:12px 0 24px}.partner-lead-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;border:1px solid var(--line-soft,#e5e7eb);border-radius:14px;padding:11px 15px}.partner-lead-row .partner-action-form{margin:0}

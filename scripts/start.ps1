@@ -9,6 +9,10 @@ Get-Content $envFile | ForEach-Object {
 Set-Location $root
 gleam build
 if ($LASTEXITCODE -ne 0) { throw 'Derleme başarısız.' }
+$routerSource = Join-Path $root 'src/nexus_agency/erl/nexus_agency@router_impl.erl'
+$routerOutput = Join-Path $root 'build/dev/erlang/nexus_agency/ebin'
+& 'C:/laragon/bin/erlang/bin/erlc.exe' -o $routerOutput $routerSource
+if ($LASTEXITCODE -ne 0) { throw 'Router Erlang derlemesi başarısız.' }
 New-Item -ItemType Directory -Force -Path (Join-Path $root '.local') | Out-Null
 # Tek bir yerel API süreci çalıştır. Eski gleam/erl süreçleri portu kilitleyip
 # yeni derlenmiş kodun yerine eski binary'nin cevap vermesine neden olabiliyordu.
@@ -25,8 +29,14 @@ Start-Sleep -Milliseconds 500
 Start-Process -FilePath 'C:/laragon/bin/gleam/gleam.exe' -ArgumentList @('run') -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $root '.local/agency.log') -RedirectStandardError (Join-Path $root '.local/agency-error.log')
 $workerPath = Join-Path $root 'scripts/currency-worker.ps1'
 $supervisorPath = Join-Path $root 'scripts/ai-supervisor-worker.ps1'
+$operationPath = Join-Path $root 'scripts/ai-operation-worker.ps1'
+$feedPath = Join-Path $root 'scripts/commerce-feed-worker.ps1'
+$knowledgePath = Join-Path $root 'scripts/ai-knowledge-worker.ps1'
+$campaignPath = Join-Path $root 'scripts/ai-campaign-worker.ps1'
+$qualityPath = Join-Path $root 'scripts/ai-quality-worker.ps1'
 $followupPath = Join-Path $root 'scripts/followup-worker.ps1'
 $notificationPath = Join-Path $root 'scripts/notification-worker.ps1'
+$panelOperationsPath = Join-Path $root 'scripts/panel-operations-worker.ps1'
 $socialPath = Join-Path $root 'scripts/social-worker.ps1'
 $existingWorker = Get-CimInstance -ClassName Win32_Process -Filter "Name = 'powershell.exe'" |
   Where-Object { $_.CommandLine -and $_.CommandLine.Contains($workerPath) } |
@@ -40,6 +50,29 @@ $existingSupervisor = Get-CimInstance -ClassName Win32_Process -Filter "Name = '
 if (-not $existingSupervisor) {
   Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$supervisorPath) -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $root '.local/ai-supervisor.log') -RedirectStandardError (Join-Path $root '.local/ai-supervisor-error.log')
 }
+$existingOperation = Get-CimInstance -ClassName Win32_Process -Filter "Name = 'powershell.exe'" |
+  Where-Object { $_.CommandLine -and $_.CommandLine.Contains($operationPath) } |
+  Select-Object -First 1
+if (-not $existingOperation) {
+  Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$operationPath) -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $root '.local/ai-operation.log') -RedirectStandardError (Join-Path $root '.local/ai-operation-error.log')
+}
+$existingFeed = Get-CimInstance -ClassName Win32_Process -Filter "Name = 'powershell.exe'" |
+  Where-Object { $_.CommandLine -and $_.CommandLine.Contains($feedPath) } |
+  Select-Object -First 1
+if (-not $existingFeed) {
+  Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$feedPath) -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $root '.local/commerce-feed.log') -RedirectStandardError (Join-Path $root '.local/commerce-feed-error.log')
+}
+$existingKnowledge = Get-CimInstance -ClassName Win32_Process -Filter "Name = 'powershell.exe'" |
+  Where-Object { $_.CommandLine -and $_.CommandLine.Contains($knowledgePath) } |
+  Select-Object -First 1
+if (-not $existingKnowledge) {
+  Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$knowledgePath) -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $root '.local/ai-knowledge.log') -RedirectStandardError (Join-Path $root '.local/ai-knowledge-error.log')
+}
+foreach ($workerSpec in @(@($campaignPath,'.local/ai-campaign.log','.local/ai-campaign-error.log'), @($qualityPath,'.local/ai-quality.log','.local/ai-quality-error.log'))) {
+  $path=$workerSpec[0]
+  $exists=Get-CimInstance -ClassName Win32_Process -Filter "Name = 'powershell.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($path) } | Select-Object -First 1
+  if (-not $exists) { Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$path) -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $root $workerSpec[1]) -RedirectStandardError (Join-Path $root $workerSpec[2]) }
+}
 $existingFollowup = Get-CimInstance -ClassName Win32_Process -Filter "Name = 'powershell.exe'" |
   Where-Object { $_.CommandLine -and $_.CommandLine.Contains($followupPath) } |
   Select-Object -First 1
@@ -51,6 +84,12 @@ $existingNotification = Get-CimInstance -ClassName Win32_Process -Filter "Name =
   Select-Object -First 1
 if (-not $existingNotification) {
   Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$notificationPath) -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $root '.local/notification.log') -RedirectStandardError (Join-Path $root '.local/notification-error.log')
+}
+$existingPanelOperations = Get-CimInstance -ClassName Win32_Process -Filter "Name = 'powershell.exe'" |
+  Where-Object { $_.CommandLine -and $_.CommandLine.Contains($panelOperationsPath) } |
+  Select-Object -First 1
+if (-not $existingPanelOperations) {
+  Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$panelOperationsPath) -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $root '.local/panel-operations.log') -RedirectStandardError (Join-Path $root '.local/panel-operations-error.log')
 }
 $existingSocial = Get-CimInstance -ClassName Win32_Process -Filter "Name = 'powershell.exe'" |
   Where-Object { $_.CommandLine -and $_.CommandLine.Contains($socialPath) } |

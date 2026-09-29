@@ -1,17 +1,17 @@
 -- Keep in-flight/ambiguous attempts active: they must never be retried as a
 -- fresh charge just because the browser session expired.
-ALTER TABLE agency.payment_sessions DROP CONSTRAINT payment_sessions_status_check;
+ALTER TABLE agency.payment_sessions DROP CONSTRAINT IF EXISTS payment_sessions_status_check;
 ALTER TABLE agency.payment_sessions ADD CONSTRAINT payment_sessions_status_check
   CHECK(status IN ('created','starting','initiated','authorized','paid','failed','cancelled','expired'));
-DROP INDEX agency.agency_payment_sessions_active_order_idx;
+DROP INDEX IF EXISTS agency.agency_payment_sessions_active_order_idx;
 CREATE UNIQUE INDEX agency_payment_sessions_active_order_idx
   ON agency.payment_sessions(order_id)
   WHERE status IN ('created','starting','initiated','authorized');
-ALTER TABLE agency.orders ADD COLUMN checkout_fingerprint text;
+ALTER TABLE agency.orders ADD COLUMN IF NOT EXISTS checkout_fingerprint text;
 
 -- Serialize before reading, rather than inserting a reservation before an
 -- order UPSERT (which used to leave orphan reservations on concurrent retries).
-CREATE FUNCTION agency.checkout_order(
+CREATE OR REPLACE FUNCTION agency.checkout_order(
   tenant uuid, customer_name text, customer_email text, customer_phone text,
   listing uuid, reference text, arrival date, departure date, guests int, request_key text
 ) RETURNS TABLE(id uuid, number text, reservation_id uuid, total_minor bigint, currency char(3))
@@ -54,7 +54,7 @@ BEGIN
   RETURNING agency.orders.id,agency.orders.number,agency.orders.reservation_id,agency.orders.total_minor,agency.orders.currency;
 END $$;
 
-CREATE FUNCTION agency.checkout_session(tenant uuid, target_order uuid) RETURNS uuid
+CREATE OR REPLACE FUNCTION agency.checkout_session(tenant uuid, target_order uuid) RETURNS uuid
 LANGUAGE plpgsql AS $$
 DECLARE o agency.orders%ROWTYPE; s agency.payment_sessions%ROWTYPE;
 BEGIN
@@ -75,7 +75,7 @@ END $$;
 REVOKE ALL ON FUNCTION agency.checkout_order(uuid,text,text,text,uuid,text,date,date,int,text), agency.checkout_session(uuid,uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION agency.checkout_order(uuid,text,text,text,uuid,text,date,date,int,text), agency.checkout_session(uuid,uuid) TO agency_app;
 
-CREATE FUNCTION agency.parampos_transition(session uuid, action text, guid text DEFAULT '', receipt text DEFAULT '', response jsonb DEFAULT '{}') RETURNS boolean
+CREATE OR REPLACE FUNCTION agency.parampos_transition(session uuid, action text, guid text DEFAULT '', receipt text DEFAULT '', response jsonb DEFAULT '{}') RETURNS boolean
 LANGUAGE plpgsql AS $$
 DECLARE s agency.payment_sessions%ROWTYPE; o agency.orders%ROWTYPE;
 BEGIN

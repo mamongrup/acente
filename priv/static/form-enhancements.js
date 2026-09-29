@@ -95,6 +95,8 @@
 
   // Tüm input alanlarını tara ve uygun datalist ata
   document.querySelectorAll('input[type="text"], input[type="email"], input[type="tel"], input:not([type])').forEach(function (input) {
+    // E-posta ve giriş alanları konum/oda gibi öneri listelerine bağlanmamalı.
+    if (input.type === 'email' || input.closest('form[action="/login"]')) return;
     var name = (input.name || '').toLowerCase();
     var placeholder = (input.placeholder || '').toLowerCase();
     var label = '';
@@ -269,18 +271,24 @@
 
   // ---- 8. Form gönderim kilidi (çift tıklama engeli) ----
   document.querySelectorAll('form').forEach(function (form) {
-    form.addEventListener('submit', function () {
+    // Giriş formunda tarayıcının doğal POST akışına müdahale etme.
+    if (form.getAttribute('action') === '/login') return;
+    form.addEventListener('submit', function (event) {
       var btn = form.querySelector('button[type="submit"], input[type="submit"]');
-      if (btn && !btn.disabled) {
+      if (!btn || btn.disabled) return;
+      // Submitter'ı senkron olarak kapatmak Chrome'da doğal form gönderimini
+      // iptal edebilir. Varsayılan işlem başladıktan sonra kilitle.
+      setTimeout(function () {
+        if (event.defaultPrevented) return;
         btn.disabled = true;
         btn.dataset.originalText = btn.textContent;
         btn.textContent = 'Kaydediliyor...';
-        // 5 saniye sonra kilidi kaldır (hata durumu için)
+        // Hata durumunda sayfa yerinde kalırsa kilidi kaldır.
         setTimeout(function () {
           btn.disabled = false;
           btn.textContent = btn.dataset.originalText || 'Kaydet';
         }, 5000);
-      }
+      }, 0);
     });
   });
 

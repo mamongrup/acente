@@ -39,7 +39,7 @@ $expectedCategories = @(
 $tenantCategoryQuery = @"
 SELECT t.id::text || '|' || coalesce(string_agg(c.code, ',' ORDER BY c.sort_order, c.code), '')
 FROM agency.tenants t
-LEFT JOIN agency.categories c ON c.tenant_id=t.id AND c.active
+LEFT JOIN agency.categories c ON c.tenant_id=t.id AND c.active AND c.parent_id IS NULL
 GROUP BY t.id
 ORDER BY t.id;
 "@
@@ -241,11 +241,16 @@ BEGIN
   END IF;
 
   answer := agency.decide_supplier_application(tenant, application, reviewer, 'approved', 'approved');
-  IF answer <> 'ok' THEN
-    RAISE EXCEPTION 'supplier application approved decision failed: %', answer;
+  IF answer <> 'requirements_incomplete' THEN
+    RAISE EXCEPTION 'supplier application incomplete approval was not blocked: %', answer;
   END IF;
 
-  answer := agency.decide_supplier_application(tenant, application, reviewer, 'rejected', 'late reject');
+  answer := agency.decide_supplier_application(tenant, application, reviewer, 'rejected', 'incomplete documents');
+  IF answer <> 'ok' THEN
+    RAISE EXCEPTION 'supplier application rejection failed: %', answer;
+  END IF;
+
+  answer := agency.decide_supplier_application(tenant, application, reviewer, 'approved', 'late approve');
   IF answer <> 'invalid_transition' THEN
     RAISE EXCEPTION 'supplier application invalid transition was not blocked: %', answer;
   END IF;
@@ -268,6 +273,7 @@ DECLARE
   supplier uuid;
   application uuid;
   document uuid;
+  source_document uuid;
   answer text;
   visible_count int;
 BEGIN
@@ -283,9 +289,10 @@ BEGIN
   VALUES(tenant,supplier,'supplier','submitted','verified','hotel','contract document test')
   RETURNING id INTO application;
 
-  INSERT INTO agency.application_documents(application_id,document_type,status,note)
-  VALUES(application,'tax_certificate','pending','uploaded')
-  RETURNING id INTO document;
+  source_document := agency.submit_supplier_document(tenant,supplier,'tax_certificate',
+    'https://example.invalid/document/contract-' || application::text,NULL);
+  SELECT id INTO document FROM agency.application_documents
+  WHERE application_id=application AND supplier_document_id=source_document;
 
   SELECT count(*) INTO visible_count
   FROM agency.supplier_application_documents(tenant)
@@ -584,7 +591,7 @@ foreach ($row in $syncContractStateRows) {
 if ($syncContractState['catalog_contract_version'] -ne '1.1.0') {
   throw "Acente DB sync katalog sözleşme sürümü uyumsuz: $($syncContractState['catalog_contract_version'])"
 }
-if ($syncContractState['supplier_listing_contract_version'] -ne '1.1.0') {
+if ($syncContractState['supplier_listing_contract_version'] -ne $contract.contract_version) {
   throw "Acente DB sync ilan sözleşme sürümü uyumsuz: $($syncContractState['supplier_listing_contract_version'])"
 }
 if ([int]$syncContractState['active_category_count'] -ne 17) {
@@ -601,3 +608,24 @@ if (-not $syncContractState['supplier_module_detail_signature'] -or $syncContrac
 }
 
 Write-Output 'Acente DB senkronizasyon sözleşme durumu uyumlu.'
+
+$supplierReviewTest = Join-Path $projectRoot 'test/supplier_review_actor_guard.sql'
+& $pg @common -v ON_ERROR_STOP=1 -f $supplierReviewTest
+if ($LASTEXITCODE -ne 0) {
+  throw 'Tedarikçi inceleme tenant ve yetki testi başarısız.'
+}
+Write-Output 'Tedarikçi inceleme tenant ve yetki testi geçti.'
+
+$supplierCompletionTest = Join-Path $projectRoot 'test/supplier_application_completion.sql'
+& $pg @common -v ON_ERROR_STOP=1 -f $supplierCompletionTest
+if ($LASTEXITCODE -ne 0) {
+  throw 'Tedarikçi başvuru belge ve kimlik onayı testi başarısız.'
+}
+Write-Output 'Tedarikçi başvuru belge ve kimlik onayı testi geçti.'
+
+$supplierListingGateTest = Join-Path $projectRoot 'test/supplier_listing_approval_gate.sql'
+& $pg @common -v ON_ERROR_STOP=1 -f $supplierListingGateTest
+if ($LASTEXITCODE -ne 0) {
+  throw 'Tedarikçi ilan yayın yetkisi testi başarısız.'
+}
+Write-Output 'Tedarikçi ilan yayın yetkisi testi geçti.'

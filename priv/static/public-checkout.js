@@ -2,6 +2,36 @@
   const form = document.querySelector('[data-checkout-form="true"]');
   if (!form) return;
   const errorBox = form.querySelector('.checkout-error');
+  const offerCode = new URLSearchParams(window.location.search).get('offer') || '';
+  if (/^[0-9a-f]{36}$/.test(offerCode)) {
+    const offerInput = document.createElement('input');
+    offerInput.type = 'hidden';
+    offerInput.name = 'offer_code';
+    offerInput.value = offerCode;
+    form.appendChild(offerInput);
+    const requestKey = form.querySelector('[name="idempotency_key"]');
+    if (requestKey) requestKey.value = 'journey-' + offerCode;
+    const note = document.createElement('p');
+    note.className = 'muted checkout-offer-note';
+    note.textContent = 'Kampanya uygunluğu kontrol edilerek indirim ödeme tutarına uygulanır.';
+    form.prepend(note);
+    fetch('/api/public/account', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (response) { if (!response.ok) throw new Error('account'); return response.json(); })
+      .then(function (account) {
+        const name = form.querySelector('[name="name"]');
+        const email = form.querySelector('[name="email"]');
+        const phone = form.querySelector('[name="phone"]');
+        if (name && !name.value) name.value = account.name || '';
+        if (email && account.email) {
+          email.value = account.email;
+          email.readOnly = true;
+          email.title = 'İndirim, giriş yaptığınız müşteri hesabına bağlıdır.';
+        }
+        if (phone && !phone.value) phone.value = account.phone || '';
+      }).catch(function () {
+        if (errorBox) errorBox.textContent = 'İndirimi kullanmak için müşteri hesabınızla giriş yapın.';
+      });
+  }
   form.addEventListener('submit', async function (event) {
     event.preventDefault();
     if (errorBox) errorBox.textContent = '';

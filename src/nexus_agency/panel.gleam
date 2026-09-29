@@ -12,6 +12,19 @@ fn text(value: String) {
   dom.text(value)
 }
 
+/// Paneldeki tum arayuz ikonlari tek bir Hugeicons sozlesmesinden uretilir.
+fn hugeicon(name: String, extra_class: String) {
+  dom.unsafe_raw_html(
+    "",
+    "i",
+    [
+      a.class("hgi-stroke hgi-" <> name <> " " <> extra_class),
+      a.attribute("aria-hidden", "true"),
+    ],
+    "",
+  )
+}
+
 pub type CategoryNav {
   CategoryNav(code: String, key: String)
 }
@@ -72,7 +85,7 @@ fn sidebar_menu_group(
         ],
         [
           dom.element("span", [a.class("sidebar-menu-title")], [text(title)]),
-          dom.element("span", [a.class("sidebar-menu-chevron")], [text("⌄")]),
+          hugeicon("arrow-down-01", "sidebar-menu-chevron"),
         ],
       ),
       dom.element(
@@ -108,7 +121,7 @@ fn catalog_tree(lang: String, active_cat: String) {
                 a.attribute("data-toggle-cat", cat.code),
               ],
               [
-                dom.element("span", [a.class("tree-arrow")], [text("›")]),
+                hugeicon("arrow-right-01", "tree-arrow"),
                 dom.element("span", [a.class("tree-cat-title")], [
                   text(i18n.t(lang, cat.key)),
                 ]),
@@ -295,18 +308,50 @@ fn theme_swatch_button(value: String, label: String) -> dom.Element(Nil) {
 }
 
 fn sidebar_element(lang: String, active_cat: String, membership: String) {
-  let is_admin = membership == "admin"
-  let is_supplier = membership == "supplier"
-  let operation_links = [
+  let is_admin = membership == "admin" || membership == "owner"
+  let all_operation_links = [
+    #("/admin/control-center", "Süper yönetim denetimleri"),
     #("/admin/reservations", i18n.t(lang, "reservations")),
     #("/admin/offers", i18n.t(lang, "offers")),
     #("/admin/inquiries", i18n.t(lang, "inquiries")),
+    #("/admin/customer-care", "Müşteri hizmetleri"),
     #("/admin/notifications", i18n.t(lang, "notification_center")),
     #("/admin/search-analytics", i18n.t(lang, "search_analytics")),
     #("/admin/abandoned-carts", i18n.t(lang, "abandoned_carts")),
     #("/admin/customers", i18n.t(lang, "customers")),
     #("/admin/reports", i18n.t(lang, "reports")),
+    #("/admin/finance-overview", "Finans ve faturalar"),
+    #("/admin/commercial-operations", "Ticari operasyonlar"),
+    #("/admin/supplier-operations", "Tedarikçi operasyonu"),
+    #("/admin/review-center", "İnceleme merkezi"),
+    #("/admin/role-context", "Görev alanım"),
   ]
+  let operation_links = case membership {
+    "admin" | "owner" -> all_operation_links
+    "staff" -> [
+      #("/admin/reservations", i18n.t(lang, "reservations")),
+      #("/admin/offers", i18n.t(lang, "offers")),
+      #("/admin/inquiries", i18n.t(lang, "inquiries")),
+      #("/admin/customer-care", "Müşteri hizmetleri"),
+      #("/admin/customers", i18n.t(lang, "customers")),
+      #("/admin/reports", i18n.t(lang, "reports")),
+      #("/admin/role-context", "Görev alanım"),
+    ]
+    "sub_agency" -> [
+      #("/admin/reservations", i18n.t(lang, "reservations")),
+      #("/admin/offers", i18n.t(lang, "offers")),
+      #("/admin/customers", i18n.t(lang, "customers")),
+      #("/admin/assigned-inquiries", "Atanmış talepler"),
+      #("/admin/role-context", "Görev alanım"),
+    ]
+    "supplier" -> [
+      #("/admin/supplier-bookings", "Rezervasyonlarım"),
+      #("/admin/supplier-inquiries", "İlan talepleri"),
+      #("/admin/supplier-operations", "Belgeler ve hakediş"),
+      #("/admin/role-context", "Görev alanım"),
+    ]
+    _ -> []
+  }
   let content_links = [
     #("/admin/campaigns", i18n.t(lang, "campaigns")),
     #("/admin/cms", i18n.t(lang, "cms")),
@@ -325,7 +370,7 @@ fn sidebar_element(lang: String, active_cat: String, membership: String) {
     #("/admin/currencies", i18n.t(lang, "currencies")),
   ]
   let network_links_for_role = case membership {
-    "admin" -> network_links
+    "admin" | "owner" -> network_links
     "supplier" -> [
       #(
         "/admin/supplier-campaigns?audience=supplier",
@@ -340,7 +385,7 @@ fn sidebar_element(lang: String, active_cat: String, membership: String) {
   ]
   dom.element("aside", [a.class("sidebar")], [
     dom.element("div", [a.class("brand")], [
-      dom.element("span", [a.class("brand-icon")], [text("✦")]),
+      hugeicon("airplane-02", "brand-icon"),
       dom.element("div", [], [
         text("NEXUS"),
         dom.element("small", [], [text(i18n.t(lang, "welcome_eyebrow"))]),
@@ -350,7 +395,9 @@ fn sidebar_element(lang: String, active_cat: String, membership: String) {
       sidebar_menu_link("/admin", i18n.t(lang, "dashboard")),
       // Keep the category tree inside the same top-level accordion as the
       // other catalog links so it is closed on non-catalog screens.
-      dom.element(
+      case membership {
+        "sub_agency" -> dom.element("span", [], [])
+        _ -> dom.element(
         "div",
         [
           a.class(case active_cat != "" {
@@ -374,37 +421,48 @@ fn sidebar_element(lang: String, active_cat: String, membership: String) {
               dom.element("span", [a.class("sidebar-menu-title")], [
                 text(i18n.t(lang, "catalog")),
               ]),
-              dom.element("span", [a.class("sidebar-menu-chevron")], [text("⌄")]),
+              hugeicon("arrow-down-01", "sidebar-menu-chevron"),
             ],
           ),
           dom.element("div", [a.class("sidebar-menu-items")], [
-            catalog_tree(lang, active_cat),
-            sidebar_menu_link(
+            case membership {
+              "admin" -> catalog_tree(lang, active_cat)
+              "staff" -> sidebar_menu_link("/admin/catalog", "İlanlar")
+              "supplier" -> sidebar_menu_link("/admin/catalog", "İlanlarım")
+              _ -> dom.element("span", [], [])
+            },
+            case is_admin {
+              True -> sidebar_menu_link(
               "/admin/settings#contracts",
               i18n.t(lang, "cat_contracts"),
-            ),
-            sidebar_menu_link(
+              )
+              False -> dom.element("span", [], [])
+            },
+            case is_admin {
+              True -> sidebar_menu_link(
               "/admin/categories#subcategories",
               i18n.t(lang, "cat_subcategories"),
-            ),
+              )
+              False -> dom.element("span", [], [])
+            },
           ]),
         ],
-      ),
+        )
+      },
       sidebar_menu_group(
         "operations",
         i18n.t(lang, "operations_header"),
-        case is_supplier {
-          True -> []
-          False -> operation_links
-        },
+        operation_links,
         False,
       ),
       sidebar_menu_group(
         "content",
         i18n.t(lang, "cms"),
-        case is_supplier {
-          True -> []
-          False -> content_links
+        case membership {
+          "admin" -> content_links
+          "staff" -> [#("/admin/media", i18n.t(lang, "media"))]
+          "supplier" -> [#("/admin/media", i18n.t(lang, "media"))]
+          _ -> []
         },
         False,
       ),
@@ -434,26 +492,48 @@ fn sidebar_element(lang: String, active_cat: String, membership: String) {
   ])
 }
 
-fn panel_mobile_tab_bar(lang: String, _membership: String) {
+fn panel_mobile_tab_bar(lang: String, membership: String) {
+  let #(catalog_href, catalog_label, operations_href, last_href, last_label) =
+    case membership {
+      "supplier" -> #("/admin/listings", "İlanlarım", "/admin/supplier-bookings", "/admin/supplier-campaigns?audience=supplier", "Kampanya")
+      "sub_agency" -> #("/admin/offers", "Teklifler", "/admin/reservations", "/admin/customers", "Müşteriler")
+      "staff" -> #("/admin/listings", i18n.t(lang, "catalog"), "/admin/reservations", "/admin/inquiries", "Talepler")
+      _ -> #("/admin/listings", i18n.t(lang, "catalog"), "/admin/reservations", "/admin/cms", i18n.t(lang, "cms"))
+    }
   dom.element(
     "nav",
-    [a.class("panel-tab-bar"), a.attribute("aria-label", i18n.t(lang, "mobile_menu"))],
+    [
+      a.class("panel-tab-bar"),
+      a.attribute("aria-label", i18n.t(lang, "mobile_menu")),
+    ],
     [
       dom.element("a", [a.class("panel-tab-item"), a.href("/admin")], [
-        dom.element("span", [a.class("panel-tab-icon")], [text("📊")]),
-        dom.element("span", [a.class("panel-tab-label")], [text(i18n.t(lang, "dashboard"))]),
+        hugeicon("dashboard-square-01", "panel-tab-icon"),
+        dom.element("span", [a.class("panel-tab-label")], [
+          text(i18n.t(lang, "dashboard")),
+        ]),
       ]),
-      dom.element("a", [a.class("panel-tab-item"), a.href("/admin/listings")], [
-        dom.element("span", [a.class("panel-tab-icon")], [text("📦")]),
-        dom.element("span", [a.class("panel-tab-label")], [text(i18n.t(lang, "catalog"))]),
+      dom.element("a", [a.class("panel-tab-item"), a.href(catalog_href)], [
+        hugeicon("package", "panel-tab-icon"),
+        dom.element("span", [a.class("panel-tab-label")], [
+          text(catalog_label),
+        ]),
       ]),
-      dom.element("a", [a.class("panel-tab-item"), a.href("/admin/reservations")], [
-        dom.element("span", [a.class("panel-tab-icon")], [text("📋")]),
-        dom.element("span", [a.class("panel-tab-label")], [text(i18n.t(lang, "operations_header"))]),
-      ]),
-      dom.element("a", [a.class("panel-tab-item"), a.href("/admin/cms")], [
-        dom.element("span", [a.class("panel-tab-icon")], [text("✏️")]),
-        dom.element("span", [a.class("panel-tab-label")], [text(i18n.t(lang, "cms"))]),
+      dom.element(
+        "a",
+        [a.class("panel-tab-item"), a.href(operations_href)],
+        [
+          hugeicon("invoice-01", "panel-tab-icon"),
+          dom.element("span", [a.class("panel-tab-label")], [
+            text(i18n.t(lang, "operations_header")),
+          ]),
+        ],
+      ),
+      dom.element("a", [a.class("panel-tab-item"), a.href(last_href)], [
+        hugeicon("pencil-edit-01", "panel-tab-icon"),
+        dom.element("span", [a.class("panel-tab-label")], [
+          text(last_label),
+        ]),
       ]),
       dom.element(
         "button",
@@ -463,8 +543,10 @@ fn panel_mobile_tab_bar(lang: String, _membership: String) {
           a.attribute("data-panel-tab-more", ""),
         ],
         [
-          dom.element("span", [a.class("panel-tab-icon")], [text("⋯")]),
-          dom.element("span", [a.class("panel-tab-label")], [text(i18n.t(lang, "settings"))]),
+          hugeicon("more-horizontal", "panel-tab-icon"),
+          dom.element("span", [a.class("panel-tab-label")], [
+            text(i18n.t(lang, "settings")),
+          ]),
         ],
       ),
     ],
@@ -482,7 +564,7 @@ fn topbar_element(title: String, user_name: String, lang: String) {
         a.attribute("aria-label", i18n.t(lang, "menu_open")),
         a.attribute("aria-expanded", "false"),
       ],
-      [text("☰")],
+      [hugeicon("menu-01", "")],
     ),
     dom.element("div", [a.class("crumb-wrap")], [
       text(i18n.t(lang, "welcome_eyebrow") <> " / "),
@@ -565,8 +647,18 @@ fn topbar_element(title: String, user_name: String, lang: String) {
           a.attribute("title", "Koyu/aydınlık tema arasında geçiş"),
         ],
         [
-          dom.unsafe_raw_html("", "i", [a.class("hgi-stroke hgi-moon-02 theme-icon-dark")], ""),
-          dom.unsafe_raw_html("", "i", [a.class("hgi-stroke hgi-sun-01 theme-icon-light")], ""),
+          dom.unsafe_raw_html(
+            "",
+            "i",
+            [a.class("hgi-stroke hgi-moon-02 theme-icon-dark")],
+            "",
+          ),
+          dom.unsafe_raw_html(
+            "",
+            "i",
+            [a.class("hgi-stroke hgi-sun-01 theme-icon-light")],
+            "",
+          ),
         ],
       ),
       dom.element("span", [a.class("user-chip")], [
@@ -582,8 +674,7 @@ fn topbar_element(title: String, user_name: String, lang: String) {
 /// Sunucu saatiyle auto palet çözümü — varsayılan tema belirlenmezse
 /// zaman dilimine göre dark veya light döndürür.
 pub fn auto_theme_at(ts: timestamp.Timestamp) -> String {
-  let #(_, time) =
-    timestamp.to_calendar(ts, tduration.minutes(3 * 60))
+  let #(_, time) = timestamp.to_calendar(ts, tduration.minutes(3 * 60))
   let calendar.TimeOfDay(hours: hour, ..) = time
   // 07–19 arası aydınlık, diğer saatler koyu
   case hour {
@@ -597,10 +688,47 @@ pub fn dashboard(s: Session, lang: String, active_cat: String) -> String {
     "admin" -> "Hazır"
     _ -> "Kapalı"
   }
+  let #(dashboard_intro, actions) = case s.membership {
+    "supplier" -> #("İlanlarınızı, müsaitliğinizi ve size gelen rezervasyonları yönetin.", [
+      #("/admin/catalog#catalog-workspace", "İlanlarım", "Kendi ilanlarınızı oluşturun ve güncelleyin"),
+      #("/admin/catalog#rate-plans", "Fiyat ve müsaitlik", "Fiyat planlarını ve takvimi yönetin"),
+      #("/admin/supplier-bookings", "Rezervasyonlarım", "İlanlarınıza ait rezervasyonları izleyin"),
+      #("/admin/supplier-inquiries", "İlan talepleri", "Kendi ilanlarınıza gelen müşteri taleplerini görün"),
+      #("/admin/supplier-operations", "Belgeler ve hakediş", "Belge yenileme, ödemeler ve performans"),
+      #("/admin/supplier-campaigns?audience=supplier", "Kampanyalarım", "Tedarikçi kampanyalarını yönetin"),
+      #("/admin/media", "Medya", "İlan görsellerini düzenleyin"),
+    ])
+    "sub_agency" -> #("Satışlarınızı ve kendi müşterilerinizi takip edin.", [
+      #("/admin/reservations", "Rezervasyonlar", "Satış ve seyahat durumlarını yönetin"),
+      #("/admin/offers", "Teklifler", "Müşterilere sunulan teklifleri izleyin"),
+      #("/admin/customers", "Müşteriler", "Müşteri kayıtlarını görüntüleyin"),
+      #("/admin/assigned-inquiries", "Atanmış talepler", "Acente ekibinize yönlendirilen talepleri görün"),
+    ])
+    "staff" -> #("Günlük operasyonları ve müşteri taleplerini yönetin.", [
+      #("/admin/reservations", "Rezervasyonlar", "Bekleyen ve yaklaşan işlemleri izleyin"),
+      #("/admin/inquiries", "Gelen talepler", "Yeni müşteri taleplerini yanıtlayın"),
+      #("/admin/customer-care", "Müşteri hizmetleri", "Destek ve işlem taleplerini yönetin"),
+      #("/admin/catalog#catalog-workspace", "İlanlar", "Kataloğu güncelleyin"),
+      #("/admin/reports", "Raporlar", "Operasyon sonuçlarını inceleyin"),
+    ])
+    _ -> #("Acente satışlarını, tedarikçileri, müşteri hizmetlerini ve siteyi tek yerden yönetin.", [
+      #("/admin/reservations", "Rezervasyonlar", "Bekleyen ve yaklaşan işlemleri izleyin"),
+      #("/admin/customer-care", "Müşteri hizmetleri", "Destek ve işlem taleplerini yönetin"),
+      #("/admin/catalog#catalog-workspace", "İlan ve envanter", "17 ana kategoride kendi ilanlarınızı yönetin"),
+      #("/admin/supplier-onboarding", "Tedarikçi başvuruları", "Başvuru ve belge süreçlerini izleyin"),
+      #("/admin/review-center", "İnceleme merkezi", "Tedarikçi yanıtları ve yayın taleplerini karara bağlayın"),
+      #("/admin/sub-agencies", "Acenteler", "Alt acente ağınızı yönetin"),
+      #("/admin/campaigns", "Kampanyalar", "Dönemsel teklifleri yönetin"),
+      #("/admin/reports", "Raporlar", "Satış ve operasyon sonuçlarını inceleyin"),
+      #("/admin/finance-overview", "Finans ve faturalar", "Sipariş, ödeme, iade ve fatura durumlarını izleyin"),
+      #("/admin/integrations", "Entegrasyonlar", "Bağlantıları ve senkronizasyonu denetleyin"),
+      #("/admin/team", "Ekip ve yetkiler", "Kullanıcı erişimini yönetin"),
+    ])
+  }
   layout_with_theme(
     s.theme_pref,
     i18n.t(lang, "dashboard"),
-    dom.element("div", [a.class("dashboard")], [
+    dom.element("div", [a.class("dashboard"), a.attribute("data-panel-role", s.membership)], [
       sidebar_element(lang, active_cat, s.membership),
       panel_mobile_tab_bar(lang, s.membership),
       dom.element("section", [a.class("panel-area")], [
@@ -614,7 +742,7 @@ pub fn dashboard(s: Session, lang: String, active_cat: String) -> String {
               text(s.name <> ", " <> i18n.t(lang, "dashboard")),
             ]),
             dom.element("p", [], [
-              text("Acente operasyonlarınızı ve hizmet kataloğunuzu yönetin."),
+              text(dashboard_intro),
             ]),
           ]),
           // Son güncelleme zaman damgası — JS tarafından canlı güncellenir
@@ -658,6 +786,10 @@ pub fn dashboard(s: Session, lang: String, active_cat: String) -> String {
               ),
             ],
           ),
+          dom.element("section", [a.id("dashboard-work-queue"), a.class("quick")], [
+            dom.element("h2", [], [text("İş bekleyen konular")]),
+            dom.element("p", [a.class("muted")], [text("Güncel operasyon kuyruğu yükleniyor…")]),
+          ]),
           // 14 günlük trend modalı — dashboard-admin.js kart tıklamasıyla açar;
           // serileri /admin/dashboard/series'ten çizer (sparkline'larla aynı veri).
           dom.element(
@@ -740,7 +872,11 @@ pub fn dashboard(s: Session, lang: String, active_cat: String) -> String {
                     ),
                   ],
                 ),
-                dom.element("div", [a.class("chart-host"), a.id("trend-chart-host")], []),
+                dom.element(
+                  "div",
+                  [a.class("chart-host"), a.id("trend-chart-host")],
+                  [],
+                ),
                 dom.element("p", [a.class("chart-modal-foot")], [
                   text(
                     "Noktaların üzerine gelin veya odaklanın; sol-sağ ok tuşlarıyla günler arasında gezinin.",
@@ -749,28 +885,14 @@ pub fn dashboard(s: Session, lang: String, active_cat: String) -> String {
               ]),
             ],
           ),
-          dom.element("div", [a.class("quick-grid")], [
-            quick(
-              "/admin/catalog#catalog-workspace",
-              i18n.t(lang, "catalog_inventory"),
-              "16 sektör kategorisi ve hizmet sihirbazı",
-            ),
-            quick(
-              "/admin/offers",
-              i18n.t(lang, "offers"),
-              "Misafir ve ev sahibine anında iletim",
-            ),
-            quick(
-              "/admin/abandoned-carts",
-              i18n.t(lang, "abandoned_carts"),
-              "Bekleyen sepetleri kurtarma",
-            ),
-          ]),
+          dom.element("div", [a.class("quick-grid")],
+            actions |> list.map(fn(item) { quick(item.0, item.1, item.2) }),
+          ),
         ]),
       ]),
     ]),
     lang,
-    ["/static/dashboard-admin.js?v=20260918-chart4"],
+    ["/static/dashboard-admin.js?v=20260928-service1"],
     [],
     s.wizard_prefs_json,
   )
@@ -791,10 +913,22 @@ pub fn section(
   active_cat: String,
 ) -> String {
   let title = i18n.section_title(lang, section_key)
+  let title = case section_key {
+    "control-center" -> "Süper yönetim denetimleri"
+    "role-context" -> "Görev alanım"
+    "supplier-bookings" -> "Rezervasyonlarım"
+    "supplier-inquiries" -> "İlan talepleri"
+    "supplier-operations" -> "Belgeler ve hakediş"
+    "assigned-inquiries" -> "Atanmış talepler"
+    "review-center" -> "İnceleme merkezi"
+    "finance-overview" -> "Finans ve faturalar"
+    "commercial-operations" -> "Ticari operasyonlar"
+    _ -> title
+  }
   layout_with_theme(
     s.theme_pref,
     title,
-    dom.element("div", [a.class("dashboard")], [
+    dom.element("div", [a.class("dashboard"), a.attribute("data-panel-role", s.membership)], [
       sidebar_element(lang, active_cat, s.membership),
       panel_mobile_tab_bar(lang, s.membership),
       dom.element("section", [a.class("panel-area")], [
@@ -818,11 +952,20 @@ pub fn section(
           // Dispeç SLUG üzerinden: görünen başlık artık dile göre değiştiği
           // için başlıkla eşleştirmek yanlış form/varlık seçerdi.
           case section_key {
+            "control-center" -> control_center_form()
+            "role-context" -> role_context_form()
             "regions" -> region_form()
             "settings" -> settings_form()
             "currencies" -> currency_form()
             "customers" -> customers_form(lang)
             "reservations" -> reservations_form()
+            "supplier-bookings" -> supplier_bookings_form()
+            "supplier-inquiries" -> supplier_inquiries_form()
+            "supplier-operations" -> supplier_operations_form()
+            "assigned-inquiries" -> assigned_inquiries_form()
+            "finance-overview" -> finance_overview_form()
+            "commercial-operations" -> commercial_operations_form()
+            "review-center" -> review_center_form()
             "languages" -> languages_form()
             "catalog" | "listings" -> catalog_form(active_cat)
             "categories" -> categories_form()
@@ -854,6 +997,109 @@ pub fn section(
   )
 }
 
+fn role_context_form() {
+  dom.element("section", [a.class("quick"), a.id("role-context-workspace")], [
+    dom.element("h2", [], [text("Hesap rolleri")]),
+    dom.element("p", [a.class("muted")], [text("Yalnızca hesabınıza açık görev alanına geçebilirsiniz. Her görev alanı kendi kayıt sınırlarını uygular.")]),
+    dom.element("div", [a.id("role-context-content"), a.attribute("aria-live", "polite")], [text("Yükleniyor…")]),
+  ])
+}
+
+fn control_center_form() {
+  dom.element("section", [a.class("quick"), a.id("control-center-workspace")], [
+    dom.element("div", [a.class("section-heading")], [
+      dom.element("div", [], [
+        dom.element("h2", [], [text("Canlı operasyon denetimleri")]),
+        dom.element("p", [a.class("muted")], [text("Sonuçlar yalnızca bu acenteye aittir. Bağımsız çalışma normal durumdur; NEXUS bağlantısı isteğe bağlıdır.")]),
+      ]),
+      dom.element("button", [a.type_("button"), a.class("secondary"), a.id("control-center-refresh")], [text("Kontrolleri yenile")]),
+    ]),
+    dom.element("p", [a.id("control-center-status"), a.attribute("role", "status")], [text("Denetimler yükleniyor…")]),
+    dom.element("div", [a.class("metric-grid"), a.id("control-center-summary")], []),
+    dom.element("div", [a.class("table-card"), a.id("control-center-results")], []),
+  ])
+}
+
+fn supplier_bookings_form() {
+  dom.element("section", [a.class("quick"), a.id("supplier-bookings-workspace")], [
+    dom.element("div", [a.class("section-heading")], [
+      dom.element("div", [], [
+        dom.element("h2", [], [text("Rezervasyon ve hizmet işleri")]),
+        dom.element("p", [a.class("muted")], [text("Yetkiniz olan rezervasyonları ve açık hizmet adımlarını buradan yönetin.")]),
+      ]),
+    ]),
+    dom.element("div", [a.id("supplier-bookings-list"), a.attribute("aria-live", "polite")], [text("Yükleniyor…")]),
+  ])
+}
+
+fn supplier_inquiries_form() {
+  dom.element("section", [a.class("quick"), a.id("supplier-inquiries-workspace")], [
+    dom.element("div", [a.class("section-heading")], [
+      dom.element("div", [], [
+        dom.element("h2", [], [text("İlanlarıma gelen talepler")]),
+        dom.element("p", [a.class("muted")], [text("Yalnızca size ait ilanlara gönderilen talepler burada görünür.")]),
+      ]),
+    ]),
+    dom.element("div", [a.id("supplier-inquiries-list"), a.attribute("aria-live", "polite")], [text("Yükleniyor…")]),
+  ])
+}
+
+fn supplier_operations_form() {
+  dom.element("section", [a.class("quick"), a.id("supplier-operations-workspace")], [
+    dom.element("h2", [], [text("Tedarikçi operasyonu")]),
+    dom.element("p", [a.class("muted")], [text("Belge yenilemelerini, onaylı rezervasyonlardan doğan hakedişleri ve gerçek işlem sayılarını takip edin.")]),
+    dom.element("div", [a.id("supplier-operations-content"), a.attribute("aria-live", "polite")], [text("Yükleniyor…")]),
+  ])
+}
+
+fn assigned_inquiries_form() {
+  dom.element("section", [a.class("quick"), a.id("assigned-inquiries-workspace")], [
+    dom.element("div", [a.class("section-heading")], [
+      dom.element("div", [], [
+        dom.element("h2", [], [text("Acente ekibine atanmış talepler")]),
+        dom.element("p", [a.class("muted")], [text("Yalnızca kuruluşunuza yönlendirilen müşteri talepleri görünür.")]),
+      ]),
+    ]),
+    dom.element("div", [a.id("assigned-inquiries-list"), a.attribute("aria-live", "polite")], [text("Yükleniyor…")]),
+  ])
+}
+
+fn finance_overview_form() {
+  dom.element("section", [a.class("quick"), a.id("finance-overview-workspace")], [
+    dom.element("div", [a.class("section-heading")], [
+      dom.element("div", [], [
+        dom.element("h2", [], [text("Sipariş, ödeme ve fatura takibi")]),
+        dom.element("p", [a.class("muted")], [text("Finans kayıtlarını acente bazında inceleyin; ödeme ve iade kararlarını ilgili işlem ekranında tamamlayın.")]),
+      ]),
+    ]),
+    dom.element("div", [a.id("finance-overview-content"), a.attribute("aria-live", "polite")], [text("Yükleniyor…")]),
+  ])
+}
+
+fn commercial_operations_form() {
+  dom.element("section", [a.class("quick"), a.id("commercial-operations-workspace")], [
+    dom.element("div", [a.class("section-heading")], [
+      dom.element("div", [], [
+        dom.element("h2", [], [text("Kategori ve satış operasyonları")]),
+        dom.element("p", [a.class("muted")], [text("17 kategorinin hizmet adımlarını, kanal eşlemelerini, alt acente sözleşmelerini ve fiyat onaylarını yönetin.")]),
+      ]),
+    ]),
+    dom.element("div", [a.id("commercial-operations-content"), a.attribute("aria-live", "polite")], [text("Yükleniyor…")]),
+  ])
+}
+
+fn review_center_form() {
+  dom.element("section", [a.class("quick"), a.id("review-center-workspace")], [
+    dom.element("div", [a.class("section-heading")], [
+      dom.element("div", [], [
+        dom.element("h2", [], [text("İnceleme ve onay kuyruğu")]),
+        dom.element("p", [a.class("muted")], [text("Tedarikçi rezervasyon yanıtları, ilan incelemeleri ve üyelik başvuruları.")]),
+      ]),
+    ]),
+    dom.element("div", [a.id("review-center-list"), a.attribute("aria-live", "polite")], [text("Yükleniyor…")]),
+  ])
+}
+
 fn bulk_delete_form(
   action: String,
   publish: Bool,
@@ -864,7 +1110,12 @@ fn bulk_delete_form(
   dom.element(
     "form",
     list.flatten([
-      [a.attribute("data-bulk-form", "true"), a.method("post"), a.action(action), a.class("bulk-delete-form")],
+      [
+        a.attribute("data-bulk-form", "true"),
+        a.method("post"),
+        a.action(action),
+        a.class("bulk-delete-form"),
+      ],
       case publish {
         True -> [a.attribute("data-bulk-publish", "true")]
         False -> []
@@ -903,25 +1154,39 @@ fn inquiries_form() {
       ),
     ]),
     dom.element("div", [a.class("table-wrap")], [
-      dom.element("table", [a.class("data-table"), a.attribute("data-bulk-table", "true"), a.attribute("data-bulk-label", "talep")], [
-        dom.element("thead", [], [
-          dom.element("tr", [], [
-            dom.element("th", [], [text("Müşteri")]),
-            dom.element("th", [], [text("İlan")]),
-            dom.element("th", [], [text("İletişim")]),
-            dom.element("th", [], [text("Durum")]),
-          ]),
-        ]),
-        dom.element("tbody", [a.id("inquiries-table-body")], [
-          dom.element("tr", [], [
-            dom.element("td", [a.attribute("colspan", "5")], [
-              text("Yükleniyor…"),
+      dom.element(
+        "table",
+        [
+          a.class("data-table"),
+          a.attribute("data-bulk-table", "true"),
+          a.attribute("data-bulk-label", "talep"),
+        ],
+        [
+          dom.element("thead", [], [
+            dom.element("tr", [], [
+              dom.element("th", [], [text("Müşteri")]),
+              dom.element("th", [], [text("İlan")]),
+              dom.element("th", [], [text("İletişim")]),
+              dom.element("th", [], [text("Durum")]),
             ]),
           ]),
-        ]),
-      ]),
+          dom.element("tbody", [a.id("inquiries-table-body")], [
+            dom.element("tr", [], [
+              dom.element("td", [a.attribute("colspan", "5")], [
+                text("Yükleniyor…"),
+              ]),
+            ]),
+          ]),
+        ],
+      ),
     ]),
-    bulk_delete_form("/admin/inquiries/bulk-delete", False, False, True, "talepler"),
+    bulk_delete_form(
+      "/admin/inquiries/bulk-delete",
+      False,
+      False,
+      True,
+      "talepler",
+    ),
     dom.element(
       "script",
       [
@@ -1093,27 +1358,41 @@ fn customers_form(lang: String) {
       ],
     ),
     dom.element("div", [a.class("table-wrap")], [
-      dom.element("table", [a.class("data-table"), a.attribute("data-bulk-table", "true"), a.attribute("data-bulk-label", "müşteri")], [
-        dom.element("thead", [], [
-          dom.element("tr", [], [
-            dom.element("th", [], [text("Müşteri")]),
-            dom.element("th", [], [text("E-posta")]),
-            dom.element("th", [], [text("Telefon")]),
-            dom.element("th", [], [text("Kayıt tarihi")]),
+      dom.element(
+        "table",
+        [
+          a.class("data-table"),
+          a.attribute("data-bulk-table", "true"),
+          a.attribute("data-bulk-label", "müşteri"),
+        ],
+        [
+          dom.element("thead", [], [
+            dom.element("tr", [], [
+              dom.element("th", [], [text("Müşteri")]),
+              dom.element("th", [], [text("E-posta")]),
+              dom.element("th", [], [text("Telefon")]),
+              dom.element("th", [], [text("Kayıt tarihi")]),
+            ]),
           ]),
-        ]),
-        dom.element("tbody", [a.id("customers-table-body")], [
-          dom.element("tr", [], [
-            dom.element(
-              "td",
-              [a.attribute("colspan", "5"), a.class("empty-state")],
-              [text("Müşteriler yükleniyor…")],
-            ),
+          dom.element("tbody", [a.id("customers-table-body")], [
+            dom.element("tr", [], [
+              dom.element(
+                "td",
+                [a.attribute("colspan", "5"), a.class("empty-state")],
+                [text("Müşteriler yükleniyor…")],
+              ),
+            ]),
           ]),
-        ]),
-      ]),
+        ],
+      ),
     ]),
-    bulk_delete_form("/admin/customers/bulk-delete", False, False, True, "musteriler"),
+    bulk_delete_form(
+      "/admin/customers/bulk-delete",
+      False,
+      False,
+      True,
+      "musteriler",
+    ),
   ])
 }
 
@@ -1235,28 +1514,42 @@ fn reservations_form() {
       ],
     ),
     dom.element("div", [a.class("table-wrap")], [
-      dom.element("table", [a.class("data-table"), a.attribute("data-bulk-table", "true"), a.attribute("data-bulk-label", "rezervasyon")], [
-        dom.element("thead", [], [
-          dom.element("tr", [], [
-            dom.element("th", [], [text("Referans")]),
-            dom.element("th", [], [text("Müşteri / İlan")]),
-            dom.element("th", [], [text("Tarih")]),
-            dom.element("th", [], [text("Tutar")]),
-            dom.element("th", [], [text("Durum")]),
+      dom.element(
+        "table",
+        [
+          a.class("data-table"),
+          a.attribute("data-bulk-table", "true"),
+          a.attribute("data-bulk-label", "rezervasyon"),
+        ],
+        [
+          dom.element("thead", [], [
+            dom.element("tr", [], [
+              dom.element("th", [], [text("Referans")]),
+              dom.element("th", [], [text("Müşteri / İlan")]),
+              dom.element("th", [], [text("Tarih")]),
+              dom.element("th", [], [text("Tutar")]),
+              dom.element("th", [], [text("Durum")]),
+            ]),
           ]),
-        ]),
-        dom.element("tbody", [a.id("reservations-table-body")], [
-          dom.element("tr", [], [
-            dom.element(
-              "td",
-              [a.attribute("colspan", "5"), a.class("empty-state")],
-              [text("Rezervasyonlar yükleniyor…")],
-            ),
+          dom.element("tbody", [a.id("reservations-table-body")], [
+            dom.element("tr", [], [
+              dom.element(
+                "td",
+                [a.attribute("colspan", "5"), a.class("empty-state")],
+                [text("Rezervasyonlar yükleniyor…")],
+              ),
+            ]),
           ]),
-        ]),
-      ]),
+        ],
+      ),
     ]),
-    bulk_delete_form("/admin/reservations/bulk-delete", False, False, True, "rezervasyonlar"),
+    bulk_delete_form(
+      "/admin/reservations/bulk-delete",
+      False,
+      False,
+      True,
+      "rezervasyonlar",
+    ),
   ])
 }
 
@@ -1331,26 +1624,34 @@ fn languages_form() {
       ],
     ),
     dom.element("div", [a.class("table-wrap")], [
-      dom.element("table", [a.class("data-table"), a.attribute("data-bulk-table", "true"), a.attribute("data-bulk-label", "dil")], [
-        dom.element("thead", [], [
-          dom.element("tr", [], [
-            dom.element("th", [], [text("Kod")]),
-            dom.element("th", [], [text("Dil")]),
-            dom.element("th", [], [text("Yerel ad")]),
-            dom.element("th", [], [text("Durum")]),
-            dom.element("th", [], [text("Rol")]),
+      dom.element(
+        "table",
+        [
+          a.class("data-table"),
+          a.attribute("data-bulk-table", "true"),
+          a.attribute("data-bulk-label", "dil"),
+        ],
+        [
+          dom.element("thead", [], [
+            dom.element("tr", [], [
+              dom.element("th", [], [text("Kod")]),
+              dom.element("th", [], [text("Dil")]),
+              dom.element("th", [], [text("Yerel ad")]),
+              dom.element("th", [], [text("Durum")]),
+              dom.element("th", [], [text("Rol")]),
+            ]),
           ]),
-        ]),
-        dom.element("tbody", [a.id("languages-table-body")], [
-          dom.element("tr", [], [
-            dom.element(
-              "td",
-              [a.attribute("colspan", "5"), a.class("empty-state")],
-              [text("Diller yükleniyor…")],
-            ),
+          dom.element("tbody", [a.id("languages-table-body")], [
+            dom.element("tr", [], [
+              dom.element(
+                "td",
+                [a.attribute("colspan", "5"), a.class("empty-state")],
+                [text("Diller yükleniyor…")],
+              ),
+            ]),
           ]),
-        ]),
-      ]),
+        ],
+      ),
     ]),
     bulk_delete_form("/admin/languages/bulk-delete", True, True, True, "diller"),
   ])
@@ -1402,7 +1703,11 @@ fn wizard_step_tab(step: String, num: String, label: String, is_active: Bool) {
     [
       dom.element("span", [a.class("tab-num")], [text(num)]),
       dom.element("span", [a.class("tab-label")], [text(label)]),
-      dom.element("span", [a.class("tab-completion-badge"), a.attribute("aria-hidden", "true")], []),
+      dom.element(
+        "span",
+        [a.class("tab-completion-badge"), a.attribute("aria-hidden", "true")],
+        [],
+      ),
     ],
   )
 }
@@ -1468,7 +1773,11 @@ fn no_post_without_js() {
   ])
 }
 
-fn top_live_preview_card(effective_cat: String, _is_hotel: Bool, cat_name: String) {
+fn top_live_preview_card(
+  effective_cat: String,
+  _is_hotel: Bool,
+  cat_name: String,
+) {
   dom.element(
     "div",
     [
@@ -1655,7 +1964,8 @@ fn top_live_preview_card(effective_cat: String, _is_hotel: Bool, cat_name: Strin
                   dom.element(
                     "span",
                     [a.id("preview-spec-3"), a.class("spec-pill")],
-                    [text("🛡️ Kasko")]),
+                    [text("🛡️ Kasko")],
+                  ),
                 ]
                 "cruise" -> [
                   dom.element(
@@ -1831,8 +2141,12 @@ fn top_live_preview_card(effective_cat: String, _is_hotel: Bool, cat_name: Strin
                       "hotel" -> " / gece / oda"
                       "holiday_home" | "villa" -> " / gece"
                       "yacht" -> " / gün (tekne)"
-                      "tour" | "activity" | "flight" | "bus" | "ferry" | "pilgrimage" ->
-                        " / kişi"
+                      "tour"
+                      | "activity"
+                      | "flight"
+                      | "bus"
+                      | "ferry"
+                      | "pilgrimage" -> " / kişi"
                       "car" -> " / gün (araç)"
                       "transfer" -> " / transfer"
                       "cruise" -> " / kişi / kabin"
@@ -1858,7 +2172,7 @@ fn top_live_preview_card(effective_cat: String, _is_hotel: Bool, cat_name: Strin
   )
 }
 
-fn wizard_amenity_chip(code: String, icon: String, label: String) {
+fn wizard_amenity_chip(code: String, _legacy_icon: String, label: String) {
   dom.element(
     "button",
     [
@@ -1868,10 +2182,27 @@ fn wizard_amenity_chip(code: String, icon: String, label: String) {
       a.attribute("aria-pressed", "false"),
     ],
     [
-      dom.element("span", [a.class("chip-icon")], [text(icon)]),
+      hugeicon(amenity_icon(code), "chip-icon"),
       dom.element("span", [a.class("chip-text")], [text(label)]),
     ],
   )
+}
+
+fn amenity_icon(code: String) -> String {
+  case code {
+    "wifi" -> "wifi-01"
+    "parking" -> "parking-area-square"
+    "open_pool" | "indoor_pool" -> "swimming"
+    "ac" -> "snow"
+    "fuel" -> "gas-stove"
+    "skipper" -> "user-star-01"
+    "tennis_court" -> "tennis-ball"
+    "restaurant" | "breakfast" | "meal" -> "restaurant-01"
+    "spa" | "sauna" -> "hot-tube"
+    "security" | "insurance" -> "shield-01"
+    "transfer" -> "car-01"
+    _ -> "tick-02"
+  }
 }
 
 fn wizard_sample_prompt(prompt: String, label: String) {
@@ -2097,32 +2428,64 @@ fn category_general_step3(cat: String) {
         #("Kalkış Havalimanı (Şehir)", "route_from", "IST (İstanbul)"),
         #("Varış Havalimanı (Şehir)", "route_to", "AYT (Antalya)"),
         #("Uçuş Sınıfı (Fare Class)", "fare_class", "Ekonomi / Business"),
-        #("Bagaj Hakkı Politikası", "baggage_policy", "23 kg kayıtlı + 8 kg kabin"),
-        #("Bilet Kuralları & İade", "ticket_rules", "Değiştirilebilir / 24 saat kala kesintisiz iade"),
+        #(
+          "Bagaj Hakkı Politikası",
+          "baggage_policy",
+          "23 kg kayıtlı + 8 kg kabin",
+        ),
+        #(
+          "Bilet Kuralları & İade",
+          "ticket_rules",
+          "Değiştirilebilir / 24 saat kala kesintisiz iade",
+        ),
       ],
     )
     "cruise" -> #(
       "Kruvaziyer Gemi, Rota & Kabin Bilgileri",
       "Gemi adı, kalkış limanı, seyir rotası, kabin tipleri ve konsepti belirleyin.",
       [
-        #("Gemi / Kruvaziyer Şirketi", "ship_or_provider", "MSC Cruises / Celestyal"),
-        #("Seyir Rotası & Limanlar", "route", "Kuşadası → Mikonos → Santorini → Rodos"),
+        #(
+          "Gemi / Kruvaziyer Şirketi",
+          "ship_or_provider",
+          "MSC Cruises / Celestyal",
+        ),
+        #(
+          "Seyir Rotası & Limanlar",
+          "route",
+          "Kuşadası → Mikonos → Santorini → Rodos",
+        ),
         #("Kalkış Limanı", "departure_port", "Kuşadası Ege Port"),
         #("Kabin Tipleri", "cabin_types", "İç Kabin, Dış Kabin, Balkonlu, Süit"),
         #("Seyir Süresi", "duration", "7 Gece 8 Gün"),
-        #("Pansiyon / Konsept", "board_type", "Tam Pansiyon Plus / Her Şey Dahil"),
+        #(
+          "Pansiyon / Konsept",
+          "board_type",
+          "Tam Pansiyon Plus / Her Şey Dahil",
+        ),
       ],
     )
     "ferry" -> #(
       "Feribot Sefer & Liman Bilgileri",
       "Feribot rotası, limanlar, sefer saatleri, araç kabulü ve bilet kurallarını girin.",
       [
-        #("Feribot İşletmecisi / Operatör", "operator", "Bodrum Express Lines / İDO"),
+        #(
+          "Feribot İşletmecisi / Operatör",
+          "operator",
+          "Bodrum Express Lines / İDO",
+        ),
         #("Kalkış Limanı", "route_from", "Bodrum Kale Limanı"),
         #("Varış Limanı", "route_to", "Kos (İstanköy) Limanı"),
         #("Sefer Tarifesi / Saatleri", "schedule", "Her Gün 09:30 & 17:30"),
-        #("Araç Kabulü & Sınırlamalar", "vehicle_allowed", "Yolcu + Otomobil + Motosiklet"),
-        #("Bilet Kuralları & Pasaport Şartı", "ticket_rules", "Kapıda Vize / Min. 90 Gün Pasaport Geçerliliği"),
+        #(
+          "Araç Kabulü & Sınırlamalar",
+          "vehicle_allowed",
+          "Yolcu + Otomobil + Motosiklet",
+        ),
+        #(
+          "Bilet Kuralları & Pasaport Şartı",
+          "ticket_rules",
+          "Kapıda Vize / Min. 90 Gün Pasaport Geçerliliği",
+        ),
       ],
     )
     "event" -> #(
@@ -2133,7 +2496,11 @@ fn category_general_step3(cat: String) {
         #("Mekân & Sahne", "venue", "Antalya Açıkhava Sahnesi"),
         #("Başlangıç Tarih & Saati", "start_datetime", "2026-07-15 21:00"),
         #("Bitiş Tarih & Saati", "end_datetime", "2026-07-15 23:30"),
-        #("Bilet / Kategori Tipi", "ticket_type", "VIP Protokol / Sahne Önü / Tribün"),
+        #(
+          "Bilet / Kategori Tipi",
+          "ticket_type",
+          "VIP Protokol / Sahne Önü / Tribün",
+        ),
         #("Yaş Sınırı", "age_limit", "18+ / Aileye Uygun"),
       ],
     )
@@ -2141,12 +2508,32 @@ fn category_general_step3(cat: String) {
       "Restoran Masa, Menü & Servis Bilgileri",
       "Mutfak konsepti, mekân bölümü, masa kapasitesi, servis saatleri ve rezervasyon koşullarını belirleyin.",
       [
-        #("Mutfak Konsepti & Türü", "cuisine_type", "Akdeniz & Ege Deniz Ürünleri"),
-        #("Restoran Mekânı / Alan", "venue", "Deniz Manzaralı Teras / Ana Salon"),
-        #("Rezervasyon Türü", "reservation_type", "Ön Ödemeli Masaya Rezervasyon / Fiks Menülü"),
+        #(
+          "Mutfak Konsepti & Türü",
+          "cuisine_type",
+          "Akdeniz & Ege Deniz Ürünleri",
+        ),
+        #(
+          "Restoran Mekânı / Alan",
+          "venue",
+          "Deniz Manzaralı Teras / Ana Salon",
+        ),
+        #(
+          "Rezervasyon Türü",
+          "reservation_type",
+          "Ön Ödemeli Masaya Rezervasyon / Fiks Menülü",
+        ),
         #("Toplam Masa / Kişi Kapasitesi", "capacity", "30 Masa / 120 Kişi"),
-        #("Menü Seçenekleri", "menu_options", "Tadım Menüsü, Vegan/Vejetaryen, Çocuk Menüsü"),
-        #("Servis & Mutfak Saatleri", "service_hours", "Öğle 12:00 – 15:00 / Akşam 18:30 – 23:30"),
+        #(
+          "Menü Seçenekleri",
+          "menu_options",
+          "Tadım Menüsü, Vegan/Vejetaryen, Çocuk Menüsü",
+        ),
+        #(
+          "Servis & Mutfak Saatleri",
+          "service_hours",
+          "Öğle 12:00 – 15:00 / Akşam 18:30 – 23:30",
+        ),
       ],
     )
     "bus" -> #(
@@ -2158,7 +2545,11 @@ fn category_general_step3(cat: String) {
         #("Varış Şehri & Otogarı", "route_to", "Antalya Şehirlerarası Otogarı"),
         #("Koltuk Düzeni & Tipi", "seat_type", "2+1 Rahat Hat Koltuk"),
         #("Bagaj Hakkı", "baggage_policy", "30 kg bagaj hakkı"),
-        #("Bilet Kuralları & İptal", "ticket_rules", "Kalkışa 2 saat kalaya kadar kesintisiz iade/açığa alma"),
+        #(
+          "Bilet Kuralları & İptal",
+          "ticket_rules",
+          "Kalkışa 2 saat kalaya kadar kesintisiz iade/açığa alma",
+        ),
       ],
     )
     "beach" -> #(
@@ -2166,10 +2557,22 @@ fn category_general_step3(cat: String) {
       "Plaj adı, giriş türü, şezlong/loca tipleri, kapasite ve yeme-içme politikasını tanımlayın.",
       [
         #("Plaj / Beach Club Adı", "beach_name", "Lara Private Beach & Club"),
-        #("Giriş Türü", "access_type", "Giriş Ücretli / Özel Üyelik / Harcama Limitli"),
-        #("Ünite / Şezlong Tipi", "seat_type", "Ön Sıra Şezlong / VIP Loca / Cabana"),
+        #(
+          "Giriş Türü",
+          "access_type",
+          "Giriş Ücretli / Özel Üyelik / Harcama Limitli",
+        ),
+        #(
+          "Ünite / Şezlong Tipi",
+          "seat_type",
+          "Ön Sıra Şezlong / VIP Loca / Cabana",
+        ),
         #("Toplam Ünite Kapasitesi", "capacity", "120 Şezlong, 12 VIP Loca"),
-        #("Yeme - İçme Politikası", "food_beverage_policy", "Dışarıdan yiyecek getirilmez, restoranda asgari harcama limiti"),
+        #(
+          "Yeme - İçme Politikası",
+          "food_beverage_policy",
+          "Dışarıdan yiyecek getirilmez, restoranda asgari harcama limiti",
+        ),
         #("Kullanım Saat Aralığı", "time_slot", "08:30 – 19:00"),
       ],
     )
@@ -2180,8 +2583,16 @@ fn category_general_step3(cat: String) {
         #("Hedef Ülke", "destination_country", "Yunanistan / Schengen"),
         #("Vize Türü", "visa_type", "Turistik C Tipi Vize"),
         #("Ortalama İşlem Süresi", "processing_time", "15 iş günü"),
-        #("Zorunlu Başvuru Evrakları", "required_documents", "Pasaport (min. 6 ay geçerli), SGK dökümü, banka hesap dökümü"),
-        #("Konsolosluk Randevusu Gerekli mi?", "appointment_required", "Evet (Parmak izi randevusu dahil)"),
+        #(
+          "Zorunlu Başvuru Evrakları",
+          "required_documents",
+          "Pasaport (min. 6 ay geçerli), SGK dökümü, banka hesap dökümü",
+        ),
+        #(
+          "Konsolosluk Randevusu Gerekli mi?",
+          "appointment_required",
+          "Evet (Parmak izi randevusu dahil)",
+        ),
       ],
     )
     "pilgrimage" -> #(
@@ -2189,22 +2600,50 @@ fn category_general_step3(cat: String) {
       "Organizasyon türü, kalkış şehri, program süresi, otel sınıfı ve dahil hizmetleri tanımlayın.",
       [
         #("Organizasyon Türü", "package_type", "Umre Turu / Hac Organizasyonu"),
-        #("Kalkış Şehri / Havalimanı", "departure_city", "İstanbul (IST) / Ankara (ESB)"),
+        #(
+          "Kalkış Şehri / Havalimanı",
+          "departure_city",
+          "İstanbul (IST) / Ankara (ESB)",
+        ),
         #("Program Süresi", "duration", "14 Gün (7 Gün Mekke + 7 Gün Medine)"),
-        #("Otel Sınıfı & Konum", "hotel_class", "5 Yıldızlı Lüks (Harem'e Yürüme Mesafesi)"),
-        #("Vize Hizmeti Dahil mi?", "visa_included", "Evet, e-vize ve grup vizesi dahil"),
-        #("Dini Rehberlik & Ziyaretler", "guidance_included", "Deneyimli din görevlisi ve Mekke/Medine ziyaretleri dahil"),
+        #(
+          "Otel Sınıfı & Konum",
+          "hotel_class",
+          "5 Yıldızlı Lüks (Harem'e Yürüme Mesafesi)",
+        ),
+        #(
+          "Vize Hizmeti Dahil mi?",
+          "visa_included",
+          "Evet, e-vize ve grup vizesi dahil",
+        ),
+        #(
+          "Dini Rehberlik & Ziyaretler",
+          "guidance_included",
+          "Deneyimli din görevlisi ve Mekke/Medine ziyaretleri dahil",
+        ),
       ],
     )
     "cinema" -> #(
       "Sinema Seans, Salon & Gösterim Bilgileri",
       "Sinema salonu, film adı, seans saatleri, koltuk düzeni ve bilet kurallarını tanımlayın.",
       [
-        #("Sinema / Salon Adı", "venue", "Cinemaximum Mall of Antalya - Salon 4 (IMAX)"),
+        #(
+          "Sinema / Salon Adı",
+          "venue",
+          "Cinemaximum Mall of Antalya - Salon 4 (IMAX)",
+        ),
         #("Film / Gösterim Adı", "movie_or_program", "Gladiator II"),
         #("Seans Saatleri", "session_time", "13:30, 16:45, 20:00"),
-        #("Koltuk Tipi & Salon Düzeni", "seat_type", "Premium VIP Recliner Koltuk"),
-        #("Bilet Kuralları & İndirimler", "ticket_rules", "Öğrenci & Tam Bilet, seansa 30 dk kalaya kadar iade"),
+        #(
+          "Koltuk Tipi & Salon Düzeni",
+          "seat_type",
+          "Premium VIP Recliner Koltuk",
+        ),
+        #(
+          "Bilet Kuralları & İndirimler",
+          "ticket_rules",
+          "Öğrenci & Tam Bilet, seansa 30 dk kalaya kadar iade",
+        ),
       ],
     )
     _ -> #(
@@ -2280,22 +2719,30 @@ fn category_code_prefix_and_hint(cat: String) -> #(String, String) {
 fn category_title_placeholder(cat: String) -> String {
   case cat {
     "hotel" -> "Örn: Bodrum Luxury Resort & Spa (Ultra Her Şey Dahil)"
-    "holiday_home" -> "Örn: Bodrum Yalıkavak Panoramik Deniz Manzaralı Lüks Balayı Villası"
+    "holiday_home" ->
+      "Örn: Bodrum Yalıkavak Panoramik Deniz Manzaralı Lüks Balayı Villası"
     "yacht" -> "Örn: Göcek Koylarında 24 Metre Lüks Ahşap Gulet (Mürettebatlı)"
     "tour" -> "Örn: Kapadokya Gün Doğumu Balon & Vadi Turu (Rehberli)"
     "activity" -> "Örn: Fethiye Ölüdeniz Babadağ Tandem Yamaç Paraşütü"
     "car" -> "Örn: 2026 Mercedes-Benz Vito Tourer VIP Minivan (Otomatik)"
-    "transfer" -> "Örn: Milas-Bodrum Havalimanı → Yalıkavak VIP Havalimanı Transferi"
-    "flight" -> "Örn: Türk Hava Yolları İstanbul (IST) → Antalya (AYT) Direkt Uçuş"
-    "cruise" -> "Örn: 7 Gece Ege & Adriyatik Kruvaziyer Gemi Turu (Kuşadası Çıkışlı)"
+    "transfer" ->
+      "Örn: Milas-Bodrum Havalimanı → Yalıkavak VIP Havalimanı Transferi"
+    "flight" ->
+      "Örn: Türk Hava Yolları İstanbul (IST) → Antalya (AYT) Direkt Uçuş"
+    "cruise" ->
+      "Örn: 7 Gece Ege & Adriyatik Kruvaziyer Gemi Turu (Kuşadası Çıkışlı)"
     "ferry" -> "Örn: Bodrum Kale Limanı → Kos (İstanköy) Hızlı Katamaran Seferi"
     "bus" -> "Örn: İstanbul (Esenler) → Antalya 2+1 Rahat Hat Gece Ekspresi"
     "beach" -> "Örn: Lara Beach Club Ön Sıra VIP Loca & Şezlong Paketi"
     "restaurant" -> "Örn: Sunset Grill & Seafood Alaçatı - Akdeniz Tadım Menüsü"
-    "visa" -> "Örn: Yunanistan & Schengen Turistik Vize Danışmanlık ve Başvuru Paketi"
-    "pilgrimage" -> "Örn: 14 Günlük 5 Yıldızlı Lüks Umre Programı (Harem Yürüme Mesafesi)"
-    "event" -> "Örn: Antalya Açıkhava Yaz Konserleri: Fazıl Say & Serenad Bağcan"
-    "cinema" -> "Örn: IMAX Özel Gösterim: Gladiator II (Mall of Antalya Salon 4)"
+    "visa" ->
+      "Örn: Yunanistan & Schengen Turistik Vize Danışmanlık ve Başvuru Paketi"
+    "pilgrimage" ->
+      "Örn: 14 Günlük 5 Yıldızlı Lüks Umre Programı (Harem Yürüme Mesafesi)"
+    "event" ->
+      "Örn: Antalya Açıkhava Yaz Konserleri: Fazıl Say & Serenad Bağcan"
+    "cinema" ->
+      "Örn: IMAX Özel Gösterim: Gladiator II (Mall of Antalya Salon 4)"
     _ -> "Örn: Hizmet / Ürün Başlığı"
   }
 }
@@ -2310,36 +2757,24 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("hotel_stars"), a.id("input-hotel-stars")],
             [
-              dom.element(
-                "option",
-                [a.attribute("value", "5_star")],
-                [text("5 Yıldızlı Lüks Resort & Spa")],
-              ),
-              dom.element(
-                "option",
-                [a.attribute("value", "4_star")],
-                [text("4 Yıldızlı Otel")],
-              ),
-              dom.element(
-                "option",
-                [a.attribute("value", "boutique")],
-                [text("Özel Kategori / Lüks Butik Otel")],
-              ),
-              dom.element(
-                "option",
-                [a.attribute("value", "thermal")],
-                [text("Termal & Sağlık Oteli")],
-              ),
-              dom.element(
-                "option",
-                [a.attribute("value", "city")],
-                [text("Şehir & İş Oteli")],
-              ),
-              dom.element(
-                "option",
-                [a.attribute("value", "apart")],
-                [text("Apart Otel")],
-              ),
+              dom.element("option", [a.attribute("value", "5_star")], [
+                text("5 Yıldızlı Lüks Resort & Spa"),
+              ]),
+              dom.element("option", [a.attribute("value", "4_star")], [
+                text("4 Yıldızlı Otel"),
+              ]),
+              dom.element("option", [a.attribute("value", "boutique")], [
+                text("Özel Kategori / Lüks Butik Otel"),
+              ]),
+              dom.element("option", [a.attribute("value", "thermal")], [
+                text("Termal & Sağlık Oteli"),
+              ]),
+              dom.element("option", [a.attribute("value", "city")], [
+                text("Şehir & İş Oteli"),
+              ]),
+              dom.element("option", [a.attribute("value", "apart")], [
+                text("Apart Otel"),
+              ]),
             ],
           ),
         ]),
@@ -2349,19 +2784,15 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("board_type"), a.id("input-board-type")],
             [
-              dom.element(
-                "option",
-                [a.attribute("value", "uai")],
-                [text("Ultra Her Şey Dahil (UAI)")],
-              ),
+              dom.element("option", [a.attribute("value", "uai")], [
+                text("Ultra Her Şey Dahil (UAI)"),
+              ]),
               dom.element("option", [a.attribute("value", "ai")], [
                 text("Her Şey Dahil (AI)"),
               ]),
-              dom.element(
-                "option",
-                [a.attribute("value", "fb_plus")],
-                [text("Tam Pansiyon Plus")],
-              ),
+              dom.element("option", [a.attribute("value", "fb_plus")], [
+                text("Tam Pansiyon Plus"),
+              ]),
               dom.element("option", [a.attribute("value", "hb")], [
                 text("Yarım Pansiyon (HB)"),
               ]),
@@ -2387,31 +2818,21 @@ fn step1_category_classification(cat: String) {
             a.attribute("data-managed-filter-key", "property_type"),
           ],
           [
-            dom.element(
-              "option",
-              [a.attribute("value", "Villa")],
-              [text("Villa")],
-            ),
-            dom.element(
-              "option",
-              [a.attribute("value", "Apart")],
-              [text("Apart")],
-            ),
-            dom.element(
-              "option",
-              [a.attribute("value", "Bungalov")],
-              [text("Bungalov")],
-            ),
-            dom.element(
-              "option",
-              [a.attribute("value", "Daire")],
-              [text("Daire")],
-            ),
-            dom.element(
-              "option",
-              [a.attribute("value", "Residence")],
-              [text("Residence")],
-            ),
+            dom.element("option", [a.attribute("value", "Villa")], [
+              text("Villa"),
+            ]),
+            dom.element("option", [a.attribute("value", "Apart")], [
+              text("Apart"),
+            ]),
+            dom.element("option", [a.attribute("value", "Bungalov")], [
+              text("Bungalov"),
+            ]),
+            dom.element("option", [a.attribute("value", "Daire")], [
+              text("Daire"),
+            ]),
+            dom.element("option", [a.attribute("value", "Residence")], [
+              text("Residence"),
+            ]),
           ],
         ),
       ])
@@ -2428,11 +2849,21 @@ fn step1_category_classification(cat: String) {
               a.attribute("data-managed-filter-key", "yacht_type"),
             ],
             [
-              dom.element("option", [a.attribute("value", "Gulet")], [text("Gulet (Geleneksel Ahşap Yat)")]),
-              dom.element("option", [a.attribute("value", "Motoryat")], [text("Motoryat (VIP & Hızlı)")]),
-              dom.element("option", [a.attribute("value", "Yelkenli")], [text("Yelkenli (Monohull)")]),
-              dom.element("option", [a.attribute("value", "Katamaran")], [text("Katamaran (Çift Gövde)")]),
-              dom.element("option", [a.attribute("value", "Tekne")], [text("Tekne / Sürat Motoru")]),
+              dom.element("option", [a.attribute("value", "Gulet")], [
+                text("Gulet (Geleneksel Ahşap Yat)"),
+              ]),
+              dom.element("option", [a.attribute("value", "Motoryat")], [
+                text("Motoryat (VIP & Hızlı)"),
+              ]),
+              dom.element("option", [a.attribute("value", "Yelkenli")], [
+                text("Yelkenli (Monohull)"),
+              ]),
+              dom.element("option", [a.attribute("value", "Katamaran")], [
+                text("Katamaran (Çift Gövde)"),
+              ]),
+              dom.element("option", [a.attribute("value", "Tekne")], [
+                text("Tekne / Sürat Motoru"),
+              ]),
             ],
           ),
         ]),
@@ -2442,9 +2873,15 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("charter_type"), a.id("input-charter-type")],
             [
-              dom.element("option", [a.attribute("value", "private")], [text("Özel Yat Kiralama (Mürettebatlı)")]),
-              dom.element("option", [a.attribute("value", "cabin")], [text("Kabin Kiralama (Mavi Tur)")]),
-              dom.element("option", [a.attribute("value", "bareboat")], [text("Kaptansız Kiralama (Bareboat)")]),
+              dom.element("option", [a.attribute("value", "private")], [
+                text("Özel Yat Kiralama (Mürettebatlı)"),
+              ]),
+              dom.element("option", [a.attribute("value", "cabin")], [
+                text("Kabin Kiralama (Mavi Tur)"),
+              ]),
+              dom.element("option", [a.attribute("value", "bareboat")], [
+                text("Kaptansız Kiralama (Bareboat)"),
+              ]),
             ],
           ),
         ]),
@@ -2457,50 +2894,50 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("vehicle_type"), a.id("input-vehicle-type")],
             [
-              dom.element("option", [a.attribute("value", "suv")], [text("Lüks SUV & 4x4")]),
-              dom.element("option", [a.attribute("value", "vip_minivan")], [text("VIP Mercedes-Benz Vito / Minivan")]),
-              dom.element("option", [a.attribute("value", "sedan")], [text("Sedan (Ekonomik / Orta)")]),
-              dom.element("option", [a.attribute("value", "luxury_sedan")], [text("Premium Lüks Sedan")]),
-              dom.element("option", [a.attribute("value", "cabrio")], [text("Cabrio / Spor Üstü Açık")]),
+              dom.element("option", [a.attribute("value", "suv")], [
+                text("Lüks SUV & 4x4"),
+              ]),
+              dom.element("option", [a.attribute("value", "vip_minivan")], [
+                text("VIP Mercedes-Benz Vito / Minivan"),
+              ]),
+              dom.element("option", [a.attribute("value", "sedan")], [
+                text("Sedan (Ekonomik / Orta)"),
+              ]),
+              dom.element("option", [a.attribute("value", "luxury_sedan")], [
+                text("Premium Lüks Sedan"),
+              ]),
+              dom.element("option", [a.attribute("value", "cabrio")], [
+                text("Cabrio / Spor Üstü Açık"),
+              ]),
             ],
           ),
         ]),
         dom.element("label", [], [
           text("Şanzıman / Vites"),
-          dom.element(
-            "select",
-            [a.name("transmission"), a.id("input-trans")],
-            [
-              dom.element("option", [a.attribute("value", "automatic")], [text("Tam Otomatik Vites")]),
-              dom.element("option", [a.attribute("value", "manual")], [text("Manuel (Düz Vites)")]),
-            ],
-          ),
+          dom.element("select", [a.name("transmission"), a.id("input-trans")], [
+            dom.element("option", [a.attribute("value", "automatic")], [
+              text("Tam Otomatik Vites"),
+            ]),
+            dom.element("option", [a.attribute("value", "manual")], [
+              text("Manuel (Düz Vites)"),
+            ]),
+          ]),
         ]),
       ])
     "tour" ->
       dom.element("div", [a.class("form-grid-2")], [
-        dom.element("label", [], [
-          text("Tur Kategorisi"),
-          dom.element(
-            "select",
-            [a.name("tour_type"), a.id("input-tour-type")],
-            [
-              dom.element("option", [a.attribute("value", "cultural")], [text("Kültür & Tarih Turu")]),
-              dom.element("option", [a.attribute("value", "day_trip")], [text("Günübirlik Gezi & Şehir Turu")]),
-              dom.element("option", [a.attribute("value", "boat_tour")], [text("Günübirlik Tekne Turu")]),
-              dom.element("option", [a.attribute("value", "adventure")], [text("Doğa & Macera Turu")]),
-              dom.element("option", [a.attribute("value", "gastronomy")], [text("Gastronomi & Tadım Turu")]),
-            ],
-          ),
-        ]),
         dom.element("label", [], [
           text("Tur Tipi"),
           dom.element(
             "select",
             [a.name("tour_format"), a.id("input-tour-format")],
             [
-              dom.element("option", [a.attribute("value", "group")], [text("Grup Turu")]),
-              dom.element("option", [a.attribute("value", "private")], [text("Kişiye Özel VIP Tur")]),
+              dom.element("option", [a.attribute("value", "group")], [
+                text("Grup Turu"),
+              ]),
+              dom.element("option", [a.attribute("value", "private")], [
+                text("Kişiye Özel VIP Tur"),
+              ]),
             ],
           ),
         ]),
@@ -2513,25 +2950,37 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("activity_type"), a.id("input-act-type")],
             [
-              dom.element("option", [a.attribute("value", "paragliding")], [text("Yamaç Paraşütü (Tandem)")]),
-              dom.element("option", [a.attribute("value", "diving")], [text("Tüplü Dalış (Scuba Diving)")]),
-              dom.element("option", [a.attribute("value", "rafting")], [text("Rafting & Kanyon Geçişi")]),
-              dom.element("option", [a.attribute("value", "safari")], [text("Jeep / ATV Safari")]),
-              dom.element("option", [a.attribute("value", "watersports")], [text("Su Sporları & Jet Ski")]),
+              dom.element("option", [a.attribute("value", "paragliding")], [
+                text("Yamaç Paraşütü (Tandem)"),
+              ]),
+              dom.element("option", [a.attribute("value", "diving")], [
+                text("Tüplü Dalış (Scuba Diving)"),
+              ]),
+              dom.element("option", [a.attribute("value", "rafting")], [
+                text("Rafting & Kanyon Geçişi"),
+              ]),
+              dom.element("option", [a.attribute("value", "safari")], [
+                text("Jeep / ATV Safari"),
+              ]),
+              dom.element("option", [a.attribute("value", "watersports")], [
+                text("Su Sporları & Jet Ski"),
+              ]),
             ],
           ),
         ]),
         dom.element("label", [], [
           text("Zorluk Seviyesi"),
-          dom.element(
-            "select",
-            [a.name("difficulty"), a.id("input-diff")],
-            [
-              dom.element("option", [a.attribute("value", "easy")], [text("Kolay / Her Yaşa Uygun")]),
-              dom.element("option", [a.attribute("value", "moderate")], [text("Orta Seviye")]),
-              dom.element("option", [a.attribute("value", "hard")], [text("İleri Seviye / Adrenalin")]),
-            ],
-          ),
+          dom.element("select", [a.name("difficulty"), a.id("input-diff")], [
+            dom.element("option", [a.attribute("value", "easy")], [
+              text("Kolay / Her Yaşa Uygun"),
+            ]),
+            dom.element("option", [a.attribute("value", "moderate")], [
+              text("Orta Seviye"),
+            ]),
+            dom.element("option", [a.attribute("value", "hard")], [
+              text("İleri Seviye / Adrenalin"),
+            ]),
+          ]),
         ]),
       ])
     "flight" ->
@@ -2542,9 +2991,15 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("fare_class"), a.id("input-fare-class")],
             [
-              dom.element("option", [a.attribute("value", "economy")], [text("Ekonomi Sınıfı (Economy)")]),
-              dom.element("option", [a.attribute("value", "premium_economy")], [text("Premium Ekonomi")]),
-              dom.element("option", [a.attribute("value", "business")], [text("Business Class")]),
+              dom.element("option", [a.attribute("value", "economy")], [
+                text("Ekonomi Sınıfı (Economy)"),
+              ]),
+              dom.element("option", [a.attribute("value", "premium_economy")], [
+                text("Premium Ekonomi"),
+              ]),
+              dom.element("option", [a.attribute("value", "business")], [
+                text("Business Class"),
+              ]),
             ],
           ),
         ]),
@@ -2554,9 +3009,15 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("flight_type"), a.id("input-flight-type")],
             [
-              dom.element("option", [a.attribute("value", "direct")], [text("Direkt Uçuş")]),
-              dom.element("option", [a.attribute("value", "charter")], [text("Charter Sefer")]),
-              dom.element("option", [a.attribute("value", "connecting")], [text("Aktarmalı Sefer")]),
+              dom.element("option", [a.attribute("value", "direct")], [
+                text("Direkt Uçuş"),
+              ]),
+              dom.element("option", [a.attribute("value", "charter")], [
+                text("Charter Sefer"),
+              ]),
+              dom.element("option", [a.attribute("value", "connecting")], [
+                text("Aktarmalı Sefer"),
+              ]),
             ],
           ),
         ]),
@@ -2569,10 +3030,18 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("cruise_region"), a.id("input-cruise-region")],
             [
-              dom.element("option", [a.attribute("value", "aegean")], [text("Ege & Yunan Adaları")]),
-              dom.element("option", [a.attribute("value", "mediterranean")], [text("Doğu & Batı Akdeniz")]),
-              dom.element("option", [a.attribute("value", "fjords")], [text("Norveç Fiyortları & Kuzey")]),
-              dom.element("option", [a.attribute("value", "caribbean")], [text("Karayipler")]),
+              dom.element("option", [a.attribute("value", "aegean")], [
+                text("Ege & Yunan Adaları"),
+              ]),
+              dom.element("option", [a.attribute("value", "mediterranean")], [
+                text("Doğu & Batı Akdeniz"),
+              ]),
+              dom.element("option", [a.attribute("value", "fjords")], [
+                text("Norveç Fiyortları & Kuzey"),
+              ]),
+              dom.element("option", [a.attribute("value", "caribbean")], [
+                text("Karayipler"),
+              ]),
             ],
           ),
         ]),
@@ -2582,8 +3051,12 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("board_type"), a.id("input-cruise-board")],
             [
-              dom.element("option", [a.attribute("value", "all_inclusive")], [text("Her Şey Dahil")]),
-              dom.element("option", [a.attribute("value", "full_board")], [text("Tam Pansiyon Plus")]),
+              dom.element("option", [a.attribute("value", "all_inclusive")], [
+                text("Her Şey Dahil"),
+              ]),
+              dom.element("option", [a.attribute("value", "full_board")], [
+                text("Tam Pansiyon Plus"),
+              ]),
             ],
           ),
         ]),
@@ -2596,9 +3069,15 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("transfer_type"), a.id("input-transfer-type")],
             [
-              dom.element("option", [a.attribute("value", "airport_vip")], [text("Havalimanı VIP Transfer")]),
-              dom.element("option", [a.attribute("value", "intercity")], [text("Şehirlerarası Özel Transfer")]),
-              dom.element("option", [a.attribute("value", "hourly_driver")], [text("Şoförlü Saatlik / Günlük Tahsis")]),
+              dom.element("option", [a.attribute("value", "airport_vip")], [
+                text("Havalimanı VIP Transfer"),
+              ]),
+              dom.element("option", [a.attribute("value", "intercity")], [
+                text("Şehirlerarası Özel Transfer"),
+              ]),
+              dom.element("option", [a.attribute("value", "hourly_driver")], [
+                text("Şoförlü Saatlik / Günlük Tahsis"),
+              ]),
             ],
           ),
         ]),
@@ -2608,9 +3087,15 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("vehicle_type"), a.id("input-trf-veh")],
             [
-              dom.element("option", [a.attribute("value", "vip_vito")], [text("Mercedes-Benz Vito VIP")]),
-              dom.element("option", [a.attribute("value", "sedan_e")], [text("Mercedes E-Class VIP Sedan")]),
-              dom.element("option", [a.attribute("value", "sprinter")], [text("Mercedes Sprinter VIP (10-16 Kişi)")]),
+              dom.element("option", [a.attribute("value", "vip_vito")], [
+                text("Mercedes-Benz Vito VIP"),
+              ]),
+              dom.element("option", [a.attribute("value", "sedan_e")], [
+                text("Mercedes E-Class VIP Sedan"),
+              ]),
+              dom.element("option", [a.attribute("value", "sprinter")], [
+                text("Mercedes Sprinter VIP (10-16 Kişi)"),
+              ]),
             ],
           ),
         ]),
@@ -2623,9 +3108,15 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("access_type"), a.id("input-beach-type")],
             [
-              dom.element("option", [a.attribute("value", "beach_club")], [text("Premium Beach Club")]),
-              dom.element("option", [a.attribute("value", "hotel_beach")], [text("Otel / Resort Plaj Alanı")]),
-              dom.element("option", [a.attribute("value", "public_facility")], [text("Belediye / Tesis Plajı")]),
+              dom.element("option", [a.attribute("value", "beach_club")], [
+                text("Premium Beach Club"),
+              ]),
+              dom.element("option", [a.attribute("value", "hotel_beach")], [
+                text("Otel / Resort Plaj Alanı"),
+              ]),
+              dom.element("option", [a.attribute("value", "public_facility")], [
+                text("Belediye / Tesis Plajı"),
+              ]),
             ],
           ),
         ]),
@@ -2635,9 +3126,15 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("seat_type"), a.id("input-beach-seat")],
             [
-              dom.element("option", [a.attribute("value", "sunbed")], [text("Şezlong & Şemsiye Seti")]),
-              dom.element("option", [a.attribute("value", "vip_cabana")], [text("VIP Loca / Cabana")]),
-              dom.element("option", [a.attribute("value", "front_row")], [text("Denize Sıfır Ön Sıra")]),
+              dom.element("option", [a.attribute("value", "sunbed")], [
+                text("Şezlong & Şemsiye Seti"),
+              ]),
+              dom.element("option", [a.attribute("value", "vip_cabana")], [
+                text("VIP Loca / Cabana"),
+              ]),
+              dom.element("option", [a.attribute("value", "front_row")], [
+                text("Denize Sıfır Ön Sıra"),
+              ]),
             ],
           ),
         ]),
@@ -2650,10 +3147,18 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("cuisine_type"), a.id("input-rest-cuisine")],
             [
-              dom.element("option", [a.attribute("value", "seafood")], [text("Ege & Akdeniz Deniz Ürünleri")]),
-              dom.element("option", [a.attribute("value", "fine_dining")], [text("Fine Dining & Modern Mutfak")]),
-              dom.element("option", [a.attribute("value", "steakhouse")], [text("Steakhouse & Ocakbaşı")]),
-              dom.element("option", [a.attribute("value", "international")], [text("Dünya Mutfağı")]),
+              dom.element("option", [a.attribute("value", "seafood")], [
+                text("Ege & Akdeniz Deniz Ürünleri"),
+              ]),
+              dom.element("option", [a.attribute("value", "fine_dining")], [
+                text("Fine Dining & Modern Mutfak"),
+              ]),
+              dom.element("option", [a.attribute("value", "steakhouse")], [
+                text("Steakhouse & Ocakbaşı"),
+              ]),
+              dom.element("option", [a.attribute("value", "international")], [
+                text("Dünya Mutfağı"),
+              ]),
             ],
           ),
         ]),
@@ -2663,9 +3168,15 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("reservation_type"), a.id("input-rest-res-type")],
             [
-              dom.element("option", [a.attribute("value", "standard")], [text("Masaya Rezervasyon")]),
-              dom.element("option", [a.attribute("value", "tasting_menu")], [text("Fiks Tadım Menülü Rezervasyon")]),
-              dom.element("option", [a.attribute("value", "special_event")], [text("Kutlama / Özel Grup Masası")]),
+              dom.element("option", [a.attribute("value", "standard")], [
+                text("Masaya Rezervasyon"),
+              ]),
+              dom.element("option", [a.attribute("value", "tasting_menu")], [
+                text("Fiks Tadım Menülü Rezervasyon"),
+              ]),
+              dom.element("option", [a.attribute("value", "special_event")], [
+                text("Kutlama / Özel Grup Masası"),
+              ]),
             ],
           ),
         ]),
@@ -2678,10 +3189,18 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("package_type"), a.id("input-plg-type")],
             [
-              dom.element("option", [a.attribute("value", "umrah_vip")], [text("5 Yıldızlı Lüks Umre Programı")]),
-              dom.element("option", [a.attribute("value", "umrah_standard")], [text("Standart Umre Programı")]),
-              dom.element("option", [a.attribute("value", "hajj")], [text("Hac Organizasyonu")]),
-              dom.element("option", [a.attribute("value", "quds")], [text("Kudüs Ziyareti & Kültür Turu")]),
+              dom.element("option", [a.attribute("value", "umrah_vip")], [
+                text("5 Yıldızlı Lüks Umre Programı"),
+              ]),
+              dom.element("option", [a.attribute("value", "umrah_standard")], [
+                text("Standart Umre Programı"),
+              ]),
+              dom.element("option", [a.attribute("value", "hajj")], [
+                text("Hac Organizasyonu"),
+              ]),
+              dom.element("option", [a.attribute("value", "quds")], [
+                text("Kudüs Ziyareti & Kültür Turu"),
+              ]),
             ],
           ),
         ]),
@@ -2691,8 +3210,12 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("hotel_class"), a.id("input-plg-hotel")],
             [
-              dom.element("option", [a.attribute("value", "walking_distance")], [text("Harem'e Sıfır / Yürüme Mesafesi")]),
-              dom.element("option", [a.attribute("value", "shuttle")], [text("24 Saat Ring Servisli Otel")]),
+              dom.element("option", [a.attribute("value", "walking_distance")], [
+                text("Harem'e Sıfır / Yürüme Mesafesi"),
+              ]),
+              dom.element("option", [a.attribute("value", "shuttle")], [
+                text("24 Saat Ring Servisli Otel"),
+              ]),
             ],
           ),
         ]),
@@ -2701,16 +3224,20 @@ fn step1_category_classification(cat: String) {
       dom.element("div", [a.class("form-grid-2")], [
         dom.element("label", [], [
           text("Vize Türü"),
-          dom.element(
-            "select",
-            [a.name("visa_type"), a.id("input-visa-type")],
-            [
-              dom.element("option", [a.attribute("value", "tourist")], [text("Turistik Vize (C Tipi)")]),
-              dom.element("option", [a.attribute("value", "business")], [text("Ticari / Fuar Vizesi")]),
-              dom.element("option", [a.attribute("value", "student")], [text("Eğitim / Öğrenci Vizesi")]),
-              dom.element("option", [a.attribute("value", "family")], [text("Aile / Ziyaret Vizesi")]),
-            ],
-          ),
+          dom.element("select", [a.name("visa_type"), a.id("input-visa-type")], [
+            dom.element("option", [a.attribute("value", "tourist")], [
+              text("Turistik Vize (C Tipi)"),
+            ]),
+            dom.element("option", [a.attribute("value", "business")], [
+              text("Ticari / Fuar Vizesi"),
+            ]),
+            dom.element("option", [a.attribute("value", "student")], [
+              text("Eğitim / Öğrenci Vizesi"),
+            ]),
+            dom.element("option", [a.attribute("value", "family")], [
+              text("Aile / Ziyaret Vizesi"),
+            ]),
+          ]),
         ]),
         dom.element("label", [], [
           text("Hizmet Paketi Kapsamı"),
@@ -2718,8 +3245,12 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("appointment_required"), a.id("input-visa-pkg")],
             [
-              dom.element("option", [a.attribute("value", "full_service")], [text("Tam Danışmanlık (Randevu + Dosya + Karşılama)")]),
-              dom.element("option", [a.attribute("value", "file_only")], [text("Yalnızca Dosya & Form Hazırlığı")]),
+              dom.element("option", [a.attribute("value", "full_service")], [
+                text("Tam Danışmanlık (Randevu + Dosya + Karşılama)"),
+              ]),
+              dom.element("option", [a.attribute("value", "file_only")], [
+                text("Yalnızca Dosya & Form Hazırlığı"),
+              ]),
             ],
           ),
         ]),
@@ -2732,8 +3263,12 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("ferry_type"), a.id("input-ferry-type")],
             [
-              dom.element("option", [a.attribute("value", "catamaran")], [text("Hızlı Deniz Otobüsü / Katamaran")]),
-              dom.element("option", [a.attribute("value", "car_ferry")], [text("Arabalı Vapur (Feribot)")]),
+              dom.element("option", [a.attribute("value", "catamaran")], [
+                text("Hızlı Deniz Otobüsü / Katamaran"),
+              ]),
+              dom.element("option", [a.attribute("value", "car_ferry")], [
+                text("Arabalı Vapur (Feribot)"),
+              ]),
             ],
           ),
         ]),
@@ -2743,8 +3278,12 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("vehicle_allowed"), a.id("input-ferry-veh")],
             [
-              dom.element("option", [a.attribute("value", "passengers_only")], [text("Sadece Yaya Yolcu")]),
-              dom.element("option", [a.attribute("value", "cars_allowed")], [text("Yolcu + Araç Kabulü Var")]),
+              dom.element("option", [a.attribute("value", "passengers_only")], [
+                text("Sadece Yaya Yolcu"),
+              ]),
+              dom.element("option", [a.attribute("value", "cars_allowed")], [
+                text("Yolcu + Araç Kabulü Var"),
+              ]),
             ],
           ),
         ]),
@@ -2753,14 +3292,14 @@ fn step1_category_classification(cat: String) {
       dom.element("div", [a.class("form-grid-2")], [
         dom.element("label", [], [
           text("Otobüs Koltuk Düzeni"),
-          dom.element(
-            "select",
-            [a.name("seat_type"), a.id("input-bus-seat")],
-            [
-              dom.element("option", [a.attribute("value", "2_plus_1")], [text("2+1 Rahat Hat (Geniş Koltuk)")]),
-              dom.element("option", [a.attribute("value", "2_plus_2")], [text("2+2 Standart Hat")]),
-            ],
-          ),
+          dom.element("select", [a.name("seat_type"), a.id("input-bus-seat")], [
+            dom.element("option", [a.attribute("value", "2_plus_1")], [
+              text("2+1 Rahat Hat (Geniş Koltuk)"),
+            ]),
+            dom.element("option", [a.attribute("value", "2_plus_2")], [
+              text("2+2 Standart Hat"),
+            ]),
+          ]),
         ]),
         dom.element("label", [], [
           text("Sefer Türü"),
@@ -2768,8 +3307,12 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("bus_service_type"), a.id("input-bus-srv")],
             [
-              dom.element("option", [a.attribute("value", "night_express")], [text("Gece Ekspres Seferi")]),
-              dom.element("option", [a.attribute("value", "day_express")], [text("Gündüz Seferi")]),
+              dom.element("option", [a.attribute("value", "night_express")], [
+                text("Gece Ekspres Seferi"),
+              ]),
+              dom.element("option", [a.attribute("value", "day_express")], [
+                text("Gündüz Seferi"),
+              ]),
             ],
           ),
         ]),
@@ -2782,10 +3325,18 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("event_type"), a.id("input-event-genre")],
             [
-              dom.element("option", [a.attribute("value", "concert")], [text("Konser & Canlı Müzik")]),
-              dom.element("option", [a.attribute("value", "festival")], [text("Açık Hava Festivali")]),
-              dom.element("option", [a.attribute("value", "theatre")], [text("Tiyatro & Müzikal")]),
-              dom.element("option", [a.attribute("value", "standup")], [text("Stand-up Gösterisi")]),
+              dom.element("option", [a.attribute("value", "concert")], [
+                text("Konser & Canlı Müzik"),
+              ]),
+              dom.element("option", [a.attribute("value", "festival")], [
+                text("Açık Hava Festivali"),
+              ]),
+              dom.element("option", [a.attribute("value", "theatre")], [
+                text("Tiyatro & Müzikal"),
+              ]),
+              dom.element("option", [a.attribute("value", "standup")], [
+                text("Stand-up Gösterisi"),
+              ]),
             ],
           ),
         ]),
@@ -2795,9 +3346,15 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("ticket_type"), a.id("input-evt-ticket")],
             [
-              dom.element("option", [a.attribute("value", "vip")], [text("VIP Protokol & Sahne Önü")]),
-              dom.element("option", [a.attribute("value", "numbered")], [text("Numaralı Oturmalı Koltuk")]),
-              dom.element("option", [a.attribute("value", "general")], [text("Genel Giriş / Ayakta")]),
+              dom.element("option", [a.attribute("value", "vip")], [
+                text("VIP Protokol & Sahne Önü"),
+              ]),
+              dom.element("option", [a.attribute("value", "numbered")], [
+                text("Numaralı Oturmalı Koltuk"),
+              ]),
+              dom.element("option", [a.attribute("value", "general")], [
+                text("Genel Giriş / Ayakta"),
+              ]),
             ],
           ),
         ]),
@@ -2810,24 +3367,34 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("venue_format"), a.id("input-cin-format")],
             [
-              dom.element("option", [a.attribute("value", "imax")], [text("IMAX Lazer")]),
-              dom.element("option", [a.attribute("value", "4dx")], [text("4DX Hareketli Koltuk")]),
-              dom.element("option", [a.attribute("value", "vip_gold")], [text("VIP Gold Class / Recliner")]),
-              dom.element("option", [a.attribute("value", "standard_2d")], [text("Standart Dijital 2D / 3D")]),
+              dom.element("option", [a.attribute("value", "imax")], [
+                text("IMAX Lazer"),
+              ]),
+              dom.element("option", [a.attribute("value", "4dx")], [
+                text("4DX Hareketli Koltuk"),
+              ]),
+              dom.element("option", [a.attribute("value", "vip_gold")], [
+                text("VIP Gold Class / Recliner"),
+              ]),
+              dom.element("option", [a.attribute("value", "standard_2d")], [
+                text("Standart Dijital 2D / 3D"),
+              ]),
             ],
           ),
         ]),
         dom.element("label", [], [
           text("Koltuk Tipi"),
-          dom.element(
-            "select",
-            [a.name("seat_type"), a.id("input-cin-seat")],
-            [
-              dom.element("option", [a.attribute("value", "vip_recliner")], [text("VIP Recliner Yatar Koltuk")]),
-              dom.element("option", [a.attribute("value", "double_seat")], [text("Çift Kişilik Koltuk (Love Seat)")]),
-              dom.element("option", [a.attribute("value", "standard")], [text("Standart Salon Koltuğu")]),
-            ],
-          ),
+          dom.element("select", [a.name("seat_type"), a.id("input-cin-seat")], [
+            dom.element("option", [a.attribute("value", "vip_recliner")], [
+              text("VIP Recliner Yatar Koltuk"),
+            ]),
+            dom.element("option", [a.attribute("value", "double_seat")], [
+              text("Çift Kişilik Koltuk (Love Seat)"),
+            ]),
+            dom.element("option", [a.attribute("value", "standard")], [
+              text("Standart Salon Koltuğu"),
+            ]),
+          ]),
         ]),
       ])
     _ ->
@@ -2838,8 +3405,12 @@ fn step1_category_classification(cat: String) {
             "select",
             [a.name("service_package"), a.id("input-srv-pkg")],
             [
-              dom.element("option", [a.attribute("value", "standard")], [text("Standart Hizmet Paketi")]),
-              dom.element("option", [a.attribute("value", "premium")], [text("Premium / VIP Hizmet Paketi")]),
+              dom.element("option", [a.attribute("value", "standard")], [
+                text("Standart Hizmet Paketi"),
+              ]),
+              dom.element("option", [a.attribute("value", "premium")], [
+                text("Premium / VIP Hizmet Paketi"),
+              ]),
             ],
           ),
         ]),
@@ -2847,7 +3418,10 @@ fn step1_category_classification(cat: String) {
           text("Hizmet Türü"),
           dom.element(
             "input",
-            [a.name("service_kind"), a.attribute("placeholder", "Örn: Bireysel / Kurumsal")],
+            [
+              a.name("service_kind"),
+              a.attribute("placeholder", "Örn: Bireysel / Kurumsal"),
+            ],
             [],
           ),
         ]),
@@ -2908,20 +3482,26 @@ fn step_tab_label(step: Int, cat: String) -> String {
 }
 
 fn step6_currency_select() {
-  dom.element(
-    "select",
-    [a.name("currency"), a.id("input-currency")],
-    [
-      dom.element("option", [a.attribute("value", "TRY")], [text("TRY (₺ Türk Lirası)")]),
-      dom.element("option", [a.attribute("value", "USD")], [text("USD ($ Dolar)")]),
-      dom.element("option", [a.attribute("value", "EUR")], [text("EUR (€ Euro)")]),
-      dom.element("option", [a.attribute("value", "GBP")], [text("GBP (£ Sterlin)")]),
-      dom.element("option", [a.attribute("value", "CNY")], [text("CNY (¥ Çin Yuanı)")]),
-    ],
-  )
+  dom.element("select", [a.name("currency"), a.id("input-currency")], [
+    dom.element("option", [a.attribute("value", "TRY")], [
+      text("TRY (₺ Türk Lirası)"),
+    ]),
+    dom.element("option", [a.attribute("value", "USD")], [text("USD ($ Dolar)")]),
+    dom.element("option", [a.attribute("value", "EUR")], [text("EUR (€ Euro)")]),
+    dom.element("option", [a.attribute("value", "GBP")], [
+      text("GBP (£ Sterlin)"),
+    ]),
+    dom.element("option", [a.attribute("value", "CNY")], [
+      text("CNY (¥ Çin Yuanı)"),
+    ]),
+  ])
 }
 
-fn step6_price_input(label_text: String, display_val: String, minor_val: String) {
+fn step6_price_input(
+  label_text: String,
+  display_val: String,
+  minor_val: String,
+) {
   dom.element("label", [], [
     text(label_text),
     dom.element("div", [a.class("currency-input-wrap")], [
@@ -2982,7 +3562,11 @@ fn step6_cancellation_input(default_val: String) {
   ])
 }
 
-fn step6_panel(title: String, subtitle: String, content: List(dom.Element(msg))) {
+fn step6_panel(
+  title: String,
+  subtitle: String,
+  content: List(dom.Element(msg)),
+) {
   dom.element(
     "div",
     [
@@ -2998,10 +3582,9 @@ fn step6_panel(title: String, subtitle: String, content: List(dom.Element(msg)))
           dom.element("p", [a.class("muted")], [text(subtitle)]),
         ]),
       ],
-      list.append(
-        content,
-        [step_footer_nav("5", "7", "Sonraki Adım: Açıklama, SEO & Onay")],
-      ),
+      list.append(content, [
+        step_footer_nav("5", "7", "Sonraki Adım: Açıklama, SEO & Onay"),
+      ]),
     ),
   )
 }
@@ -3015,15 +3598,22 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
         [
           dom.element("div", [a.class("form-grid-3")], [
             step6_price_input("Gecelik Taban Fiyat", "18.500", "1850000"),
-            dom.element("label", [], [text("Para Birimi"), step6_currency_select()]),
+            dom.element("label", [], [
+              text("Para Birimi"),
+              step6_currency_select(),
+            ]),
             dom.element("label", [], [
               text("Fiyatlandırma Modeli"),
               dom.element(
                 "select",
                 [a.name("pricing_model"), a.id("input-pricing-model")],
                 [
-                  dom.element("option", [a.attribute("value", "per_room")], [text("Oda Başı Gecelik")]),
-                  dom.element("option", [a.attribute("value", "per_person")], [text("Kişi Başı Gecelik (PP)")]),
+                  dom.element("option", [a.attribute("value", "per_room")], [
+                    text("Oda Başı Gecelik"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "per_person")], [
+                    text("Kişi Başı Gecelik (PP)"),
+                  ]),
                 ],
               ),
             ]),
@@ -3035,10 +3625,18 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
                 "select",
                 [a.name("child_policy_1"), a.id("input-child-policy-1")],
                 [
-                  dom.element("option", [a.attribute("value", "free_0_12")], [text("0-12 Yaş 1. Çocuk Ücretsiz")]),
-                  dom.element("option", [a.attribute("value", "free_0_6")], [text("0-6 Yaş 1. Çocuk Ücretsiz")]),
-                  dom.element("option", [a.attribute("value", "free_0_2")], [text("0-2 Yaş Bebek Ücretsiz")]),
-                  dom.element("option", [a.attribute("value", "adult_only")], [text("+16 Yetişkin Oteli (Çocuksuz)")]),
+                  dom.element("option", [a.attribute("value", "free_0_12")], [
+                    text("0-12 Yaş 1. Çocuk Ücretsiz"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "free_0_6")], [
+                    text("0-6 Yaş 1. Çocuk Ücretsiz"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "free_0_2")], [
+                    text("0-2 Yaş Bebek Ücretsiz"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "adult_only")], [
+                    text("+16 Yetişkin Oteli (Çocuksuz)"),
+                  ]),
                 ],
               ),
             ]),
@@ -3062,7 +3660,11 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               text("Giriş Saati (Check-in)"),
               dom.element(
                 "input",
-                [a.name("check_in_time"), a.id("input-check-in"), a.attribute("value", "14:00")],
+                [
+                  a.name("check_in_time"),
+                  a.id("input-check-in"),
+                  a.attribute("value", "14:00"),
+                ],
                 [],
               ),
             ]),
@@ -3070,12 +3672,18 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               text("Çıkış Saati (Check-out)"),
               dom.element(
                 "input",
-                [a.name("check_out_time"), a.id("input-check-out"), a.attribute("value", "12:00")],
+                [
+                  a.name("check_out_time"),
+                  a.id("input-check-out"),
+                  a.attribute("value", "12:00"),
+                ],
                 [],
               ),
             ]),
           ]),
-          step6_cancellation_input("Giriş tarihinden 48 saat öncesine kadar %100 kesintisiz iade hakkı."),
+          step6_cancellation_input(
+            "Giriş tarihinden 48 saat öncesine kadar %100 kesintisiz iade hakkı.",
+          ),
         ],
       )
 
@@ -3086,7 +3694,10 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
         [
           dom.element("div", [a.class("form-grid-3")], [
             step6_price_input("Gecelik Taban Fiyat", "25.000", "2500000"),
-            dom.element("label", [], [text("Para Birimi"), step6_currency_select()]),
+            dom.element("label", [], [
+              text("Para Birimi"),
+              step6_currency_select(),
+            ]),
             dom.element("label", [], [
               text("Temizlik Ücreti (TL)"),
               dom.element(
@@ -3198,7 +3809,10 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
                 [
                   a.name("ical_url"),
                   a.id("input-ical-url"),
-                  a.attribute("placeholder", "https://tesis.example.com/calendar.ics"),
+                  a.attribute(
+                    "placeholder",
+                    "https://tesis.example.com/calendar.ics",
+                  ),
                 ],
                 [],
               ),
@@ -3242,7 +3856,9 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               ),
             ]),
           ]),
-          step6_cancellation_input("Giriş tarihinden 14 gün öncesine kadar %100 kesintisiz iade hakkı."),
+          step6_cancellation_input(
+            "Giriş tarihinden 14 gün öncesine kadar %100 kesintisiz iade hakkı.",
+          ),
         ],
       )
 
@@ -3253,15 +3869,22 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
         [
           dom.element("div", [a.class("form-grid-3")], [
             step6_price_input("Günlük Kiralama Bedeli", "45.000", "4500000"),
-            dom.element("label", [], [text("Para Birimi"), step6_currency_select()]),
+            dom.element("label", [], [
+              text("Para Birimi"),
+              step6_currency_select(),
+            ]),
             dom.element("label", [], [
               text("Kiralama Tipi"),
               dom.element(
                 "select",
                 [a.name("charter_type"), a.id("input-charter-type")],
                 [
-                  dom.element("option", [a.attribute("value", "daily")], [text("Günlük Seyir")]),
-                  dom.element("option", [a.attribute("value", "weekly")], [text("Haftalık Kiralama (Cts-Cts)")]),
+                  dom.element("option", [a.attribute("value", "daily")], [
+                    text("Günlük Seyir"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "weekly")], [
+                    text("Haftalık Kiralama (Cts-Cts)"),
+                  ]),
                 ],
               ),
             ]),
@@ -3314,7 +3937,11 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               text("Marina Biniş Saati"),
               dom.element(
                 "input",
-                [a.name("check_in_time"), a.id("input-check-in"), a.attribute("value", "15:00")],
+                [
+                  a.name("check_in_time"),
+                  a.id("input-check-in"),
+                  a.attribute("value", "15:00"),
+                ],
                 [],
               ),
             ]),
@@ -3322,7 +3949,11 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               text("Marina İniş Saati"),
               dom.element(
                 "input",
-                [a.name("check_out_time"), a.id("input-check-out"), a.attribute("value", "10:00")],
+                [
+                  a.name("check_out_time"),
+                  a.id("input-check-out"),
+                  a.attribute("value", "10:00"),
+                ],
                 [],
               ),
             ]),
@@ -3353,7 +3984,9 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               ),
             ]),
           ]),
-          step6_cancellation_input("Seyir tarihinden 30 gün öncesine kadar %100 kesintisiz iade hakkı; son 15 günde %50 kesinti uygulanır."),
+          step6_cancellation_input(
+            "Seyir tarihinden 30 gün öncesine kadar %100 kesintisiz iade hakkı; son 15 günde %50 kesinti uygulanır.",
+          ),
         ],
       )
 
@@ -3364,15 +3997,24 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
         [
           dom.element("div", [a.class("form-grid-3")], [
             step6_price_input("Kişi Başı Katılım Bedeli", "1.750", "175000"),
-            dom.element("label", [], [text("Para Birimi"), step6_currency_select()]),
+            dom.element("label", [], [
+              text("Para Birimi"),
+              step6_currency_select(),
+            ]),
             dom.element("label", [], [
               text("Fiyatlandırma Tipi"),
               dom.element(
                 "select",
                 [a.name("pricing_type"), a.id("input-pricing-type")],
                 [
-                  dom.element("option", [a.attribute("value", "per_person")], [text("Kişi Başı Sabit")]),
-                  dom.element("option", [a.attribute("value", "private_group")], [text("Özel Grup / Araç Başı")]),
+                  dom.element("option", [a.attribute("value", "per_person")], [
+                    text("Kişi Başı Sabit"),
+                  ]),
+                  dom.element(
+                    "option",
+                    [a.attribute("value", "private_group")],
+                    [text("Özel Grup / Araç Başı")],
+                  ),
                 ],
               ),
             ]),
@@ -3457,7 +4099,10 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
                 [
                   a.name("owner_name"),
                   a.id("input-owner-name"),
-                  a.attribute("placeholder", "Örn: Kapadokya Balon Turizmi Ltd."),
+                  a.attribute(
+                    "placeholder",
+                    "Örn: Kapadokya Balon Turizmi Ltd.",
+                  ),
                 ],
                 [],
               ),
@@ -3475,7 +4120,9 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               ),
             ]),
           ]),
-          step6_cancellation_input("Tur hareket saatinden 24 saat öncesine kadar kesintisiz %100 iade garantisi."),
+          step6_cancellation_input(
+            "Tur hareket saatinden 24 saat öncesine kadar kesintisiz %100 iade garantisi.",
+          ),
         ],
       )
 
@@ -3486,16 +4133,25 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
         [
           dom.element("div", [a.class("form-grid-3")], [
             step6_price_input("Tek Yön Taban Bilet Fiyatı", "2.250", "225000"),
-            dom.element("label", [], [text("Para Birimi"), step6_currency_select()]),
+            dom.element("label", [], [
+              text("Para Birimi"),
+              step6_currency_select(),
+            ]),
             dom.element("label", [], [
               text("Bilet Sınıfı"),
               dom.element(
                 "select",
                 [a.name("fare_class"), a.id("input-fare-class")],
                 [
-                  dom.element("option", [a.attribute("value", "economy")], [text("Ekonomi / Standart")]),
-                  dom.element("option", [a.attribute("value", "promo")], [text("Promosyon / İadesiz")]),
-                  dom.element("option", [a.attribute("value", "business")], [text("Business / VIP Sınıf")]),
+                  dom.element("option", [a.attribute("value", "economy")], [
+                    text("Ekonomi / Standart"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "promo")], [
+                    text("Promosyon / İadesiz"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "business")], [
+                    text("Business / VIP Sınıf"),
+                  ]),
                 ],
               ),
             ]),
@@ -3583,7 +4239,9 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               ),
             ]),
           ]),
-          step6_cancellation_input("Kalkış saatinden 12 saat öncesine kadar %20 kesintili iade veya ücretsiz tarih değişikliği."),
+          step6_cancellation_input(
+            "Kalkış saatinden 12 saat öncesine kadar %20 kesintili iade veya ücretsiz tarih değişikliği.",
+          ),
         ],
       )
 
@@ -3593,17 +4251,32 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
         "Günlük veya güzergah bedeli, provizyon depozitosu, ek km tarifesi ve teslimat kurallarını belirleyin.",
         [
           dom.element("div", [a.class("form-grid-3")], [
-            step6_price_input("Günlük / Transfer Taban Ücreti", "3.200", "320000"),
-            dom.element("label", [], [text("Para Birimi"), step6_currency_select()]),
+            step6_price_input(
+              "Günlük / Transfer Taban Ücreti",
+              "3.200",
+              "320000",
+            ),
+            dom.element("label", [], [
+              text("Para Birimi"),
+              step6_currency_select(),
+            ]),
             dom.element("label", [], [
               text("Fiyat Modeli"),
               dom.element(
                 "select",
                 [a.name("pricing_model"), a.id("input-pricing-model")],
                 [
-                  dom.element("option", [a.attribute("value", "daily")], [text("Günlük Kiralama")]),
-                  dom.element("option", [a.attribute("value", "point_to_point")], [text("Noktadan Noktaya Transfer")]),
-                  dom.element("option", [a.attribute("value", "hourly")], [text("Şoförlü Saatlik Tahsis")]),
+                  dom.element("option", [a.attribute("value", "daily")], [
+                    text("Günlük Kiralama"),
+                  ]),
+                  dom.element(
+                    "option",
+                    [a.attribute("value", "point_to_point")],
+                    [text("Noktadan Noktaya Transfer")],
+                  ),
+                  dom.element("option", [a.attribute("value", "hourly")], [
+                    text("Şoförlü Saatlik Tahsis"),
+                  ]),
                 ],
               ),
             ]),
@@ -3704,7 +4377,9 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               ),
             ]),
           ]),
-          step6_cancellation_input("Teslimat saatinden 24 saat öncesine kadar kesintisiz ücretsiz iptal ve tam provizyon iadesi."),
+          step6_cancellation_input(
+            "Teslimat saatinden 24 saat öncesine kadar kesintisiz ücretsiz iptal ve tam provizyon iadesi.",
+          ),
         ],
       )
 
@@ -3714,18 +4389,33 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
         "Kişi başı kabin fiyatı, liman vergisi dahil durumu, tek kişilik oda farkı ve ön ödeme şartları.",
         [
           dom.element("div", [a.class("form-grid-3")], [
-            step6_price_input("Kişi Başı Kabin Taban Fiyatı", "38.500", "3850000"),
-            dom.element("label", [], [text("Para Birimi"), step6_currency_select()]),
+            step6_price_input(
+              "Kişi Başı Kabin Taban Fiyatı",
+              "38.500",
+              "3850000",
+            ),
+            dom.element("label", [], [
+              text("Para Birimi"),
+              step6_currency_select(),
+            ]),
             dom.element("label", [], [
               text("Kabin Kategorisi"),
               dom.element(
                 "select",
                 [a.name("cabin_category"), a.id("input-cabin-category")],
                 [
-                  dom.element("option", [a.attribute("value", "interior")], [text("İç Kabin")]),
-                  dom.element("option", [a.attribute("value", "oceanview")], [text("Dış / Deniz Manzaralı")]),
-                  dom.element("option", [a.attribute("value", "balcony")], [text("Balkonlu Kabin")]),
-                  dom.element("option", [a.attribute("value", "suite")], [text("Süit / VIP Güverte")]),
+                  dom.element("option", [a.attribute("value", "interior")], [
+                    text("İç Kabin"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "oceanview")], [
+                    text("Dış / Deniz Manzaralı"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "balcony")], [
+                    text("Balkonlu Kabin"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "suite")], [
+                    text("Süit / VIP Güverte"),
+                  ]),
                 ],
               ),
             ]),
@@ -3808,7 +4498,10 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
                 [
                   a.name("owner_name"),
                   a.id("input-owner-name"),
-                  a.attribute("placeholder", "Örn: Celestyal Cruises / Ege Hatları"),
+                  a.attribute(
+                    "placeholder",
+                    "Örn: Celestyal Cruises / Ege Hatları",
+                  ),
                 ],
                 [],
               ),
@@ -3826,7 +4519,9 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               ),
             ]),
           ]),
-          step6_cancellation_input("Kalkışa 60 gün kalaya kadar kesintisiz iade; 30 gün kalaya kadar %50 kesintili iade hakkı."),
+          step6_cancellation_input(
+            "Kalkışa 60 gün kalaya kadar kesintisiz iade; 30 gün kalaya kadar %50 kesintili iade hakkı.",
+          ),
         ],
       )
 
@@ -3836,17 +4531,30 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
         "Ortalama kişi başı kuver bedeli, masa garanti depozitosu, opsiyon tutma süresi ve iptal politikası.",
         [
           dom.element("div", [a.class("form-grid-3")], [
-            step6_price_input("Kişi Başı Ortalama Menü / Kuver Bedeli", "1.250", "125000"),
-            dom.element("label", [], [text("Para Birimi"), step6_currency_select()]),
+            step6_price_input(
+              "Kişi Başı Ortalama Menü / Kuver Bedeli",
+              "1.250",
+              "125000",
+            ),
+            dom.element("label", [], [
+              text("Para Birimi"),
+              step6_currency_select(),
+            ]),
             dom.element("label", [], [
               text("Hizmet Türü"),
               dom.element(
                 "select",
                 [a.name("service_type"), a.id("input-service-type")],
                 [
-                  dom.element("option", [a.attribute("value", "a_la_carte")], [text("Alakart Menü")]),
-                  dom.element("option", [a.attribute("value", "set_menu")], [text("Fix / Set Menü")]),
-                  dom.element("option", [a.attribute("value", "tasting")], [text("Şefin Tadım Menüsü")]),
+                  dom.element("option", [a.attribute("value", "a_la_carte")], [
+                    text("Alakart Menü"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "set_menu")], [
+                    text("Fix / Set Menü"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "tasting")], [
+                    text("Şefin Tadım Menüsü"),
+                  ]),
                 ],
               ),
             ]),
@@ -3901,8 +4609,14 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
                 [
                   a.name("child_policy"),
                   a.id("input-child-policy"),
-                  a.attribute("placeholder", "0-6 Yaş Ücretsiz / Çocuk Sandalyesi Mevcut"),
-                  a.attribute("value", "0-6 Yaş Ücretsiz / Çocuk Sandalyesi Mevcut"),
+                  a.attribute(
+                    "placeholder",
+                    "0-6 Yaş Ücretsiz / Çocuk Sandalyesi Mevcut",
+                  ),
+                  a.attribute(
+                    "value",
+                    "0-6 Yaş Ücretsiz / Çocuk Sandalyesi Mevcut",
+                  ),
                 ],
                 [],
               ),
@@ -3934,7 +4648,9 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               ),
             ]),
           ]),
-          step6_cancellation_input("Rezervasyon saatinden 2 saat öncesine kadar iptal durumunda masa depozitosu eksiksiz iade edilir."),
+          step6_cancellation_input(
+            "Rezervasyon saatinden 2 saat öncesine kadar iptal durumunda masa depozitosu eksiksiz iade edilir.",
+          ),
         ],
       )
 
@@ -3944,17 +4660,30 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
         "Günlük giriş ve şezlong bedeli, asgari harcama tutarı ve havlu depozito kurallarını belirleyin.",
         [
           dom.element("div", [a.class("form-grid-3")], [
-            step6_price_input("Günlük Şezlong / Loca Taban Ücreti", "950", "95000"),
-            dom.element("label", [], [text("Para Birimi"), step6_currency_select()]),
+            step6_price_input(
+              "Günlük Şezlong / Loca Taban Ücreti",
+              "950",
+              "95000",
+            ),
+            dom.element("label", [], [
+              text("Para Birimi"),
+              step6_currency_select(),
+            ]),
             dom.element("label", [], [
               text("Düzen / Rezervasyon Tipi"),
               dom.element(
                 "select",
                 [a.name("beach_pricing_type"), a.id("input-beach-pricing-type")],
                 [
-                  dom.element("option", [a.attribute("value", "sunbed")], [text("Standart Tek Şezlong & Şemsiye")]),
-                  dom.element("option", [a.attribute("value", "front_row")], [text("Ön Sıra / VIP Şezlong")]),
-                  dom.element("option", [a.attribute("value", "cabana")], [text("Özel Loca / Cabana Gazebo")]),
+                  dom.element("option", [a.attribute("value", "sunbed")], [
+                    text("Standart Tek Şezlong & Şemsiye"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "front_row")], [
+                    text("Ön Sıra / VIP Şezlong"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "cabana")], [
+                    text("Özel Loca / Cabana Gazebo"),
+                  ]),
                 ],
               ),
             ]),
@@ -3993,7 +4722,11 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               text("Plaj Açılış Saati"),
               dom.element(
                 "input",
-                [a.name("check_in_time"), a.id("input-check-in"), a.attribute("value", "09:00")],
+                [
+                  a.name("check_in_time"),
+                  a.id("input-check-in"),
+                  a.attribute("value", "09:00"),
+                ],
                 [],
               ),
             ]),
@@ -4001,7 +4734,11 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               text("Kapanış & Tahliye Saati"),
               dom.element(
                 "input",
-                [a.name("check_out_time"), a.id("input-check-out"), a.attribute("value", "19:00")],
+                [
+                  a.name("check_out_time"),
+                  a.id("input-check-out"),
+                  a.attribute("value", "19:00"),
+                ],
                 [],
               ),
             ]),
@@ -4032,7 +4769,9 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               ),
             ]),
           ]),
-          step6_cancellation_input("Rezervasyon gününden 24 saat öncesine kadar yapılan iptallerde ödeme tam iade edilir."),
+          step6_cancellation_input(
+            "Rezervasyon gününden 24 saat öncesine kadar yapılan iptallerde ödeme tam iade edilir.",
+          ),
         ],
       )
 
@@ -4043,16 +4782,25 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
         [
           dom.element("div", [a.class("form-grid-3")], [
             step6_price_input("Standart Bilet Taban Fiyatı", "650", "65000"),
-            dom.element("label", [], [text("Para Birimi"), step6_currency_select()]),
+            dom.element("label", [], [
+              text("Para Birimi"),
+              step6_currency_select(),
+            ]),
             dom.element("label", [], [
               text("Oturma Düzeni"),
               dom.element(
                 "select",
                 [a.name("seating_type"), a.id("input-seating-type")],
                 [
-                  dom.element("option", [a.attribute("value", "numbered")], [text("Numaralı Koltuk Düzeni")]),
-                  dom.element("option", [a.attribute("value", "general")], [text("Genel Giriş / Ayakta")]),
-                  dom.element("option", [a.attribute("value", "vip")], [text("VIP / Sahne Önü Protokol")]),
+                  dom.element("option", [a.attribute("value", "numbered")], [
+                    text("Numaralı Koltuk Düzeni"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "general")], [
+                    text("Genel Giriş / Ayakta"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "vip")], [
+                    text("VIP / Sahne Önü Protokol"),
+                  ]),
                 ],
               ),
             ]),
@@ -4122,7 +4870,10 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
                 [
                   a.name("owner_name"),
                   a.id("input-owner-name"),
-                  a.attribute("placeholder", "Örn: Kültür Sanat Organizasyon A.Ş."),
+                  a.attribute(
+                    "placeholder",
+                    "Örn: Kültür Sanat Organizasyon A.Ş.",
+                  ),
                 ],
                 [],
               ),
@@ -4140,7 +4891,9 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               ),
             ]),
           ]),
-          step6_cancellation_input("Etkinliğin iptali veya ertelenmesi haricinde satılan biletlerde cayma veya iade hakkı bulunmaz."),
+          step6_cancellation_input(
+            "Etkinliğin iptali veya ertelenmesi haricinde satılan biletlerde cayma veya iade hakkı bulunmaz.",
+          ),
         ],
       )
 
@@ -4150,16 +4903,27 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
         "Dosya hazırlık ücreti, resmi konsolosluk harçları, randevu takibi ve red halinde iade şartları.",
         [
           dom.element("div", [a.class("form-grid-3")], [
-            step6_price_input("Vize Danışmanlık Hizmet Bedeli", "3.500", "350000"),
-            dom.element("label", [], [text("Para Birimi"), step6_currency_select()]),
+            step6_price_input(
+              "Vize Danışmanlık Hizmet Bedeli",
+              "3.500",
+              "350000",
+            ),
+            dom.element("label", [], [
+              text("Para Birimi"),
+              step6_currency_select(),
+            ]),
             dom.element("label", [], [
               text("Başvuru Hızı / Türü"),
               dom.element(
                 "select",
                 [a.name("application_speed"), a.id("input-application-speed")],
                 [
-                  dom.element("option", [a.attribute("value", "standard")], [text("Standart Başvuru Süreci")]),
-                  dom.element("option", [a.attribute("value", "express")], [text("Ekspres / VIP Başvuru Hizmeti")]),
+                  dom.element("option", [a.attribute("value", "standard")], [
+                    text("Standart Başvuru Süreci"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "express")], [
+                    text("Ekspres / VIP Başvuru Hizmeti"),
+                  ]),
                 ],
               ),
             ]),
@@ -4172,7 +4936,10 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
                 [
                   a.name("consular_fee"),
                   a.id("input-consular-fee"),
-                  a.attribute("placeholder", "90 EUR (Başvuru Merkezine Ödenir)"),
+                  a.attribute(
+                    "placeholder",
+                    "90 EUR (Başvuru Merkezine Ödenir)",
+                  ),
                   a.attribute("value", "90 EUR (Başvuru Merkezine Ödenir)"),
                 ],
                 [],
@@ -4247,7 +5014,9 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               ),
             ]),
           ]),
-          step6_cancellation_input("Resmi makamlara ödenen harçlar iade edilmez; randevu oluşturulmadan önce danışmanlık %100 iade edilir."),
+          step6_cancellation_input(
+            "Resmi makamlara ödenen harçlar iade edilmez; randevu oluşturulmadan önce danışmanlık %100 iade edilir.",
+          ),
         ],
       )
 
@@ -4257,17 +5026,30 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
         "Kişi başı oda paylaşımlı paket fiyatı, 2 kişilik oda farkı, taksit vadeleri ve cayma şartları.",
         [
           dom.element("div", [a.class("form-grid-3")], [
-            step6_price_input("Kişi Başı Paket Taban Fiyatı", "48.000", "4800000"),
-            dom.element("label", [], [text("Para Birimi"), step6_currency_select()]),
+            step6_price_input(
+              "Kişi Başı Paket Taban Fiyatı",
+              "48.000",
+              "4800000",
+            ),
+            dom.element("label", [], [
+              text("Para Birimi"),
+              step6_currency_select(),
+            ]),
             dom.element("label", [], [
               text("Oda Paylaşım Tipi"),
               dom.element(
                 "select",
                 [a.name("room_occupancy"), a.id("input-room-occupancy")],
                 [
-                  dom.element("option", [a.attribute("value", "quad")], [text("4 Kişilik Standart Oda")]),
-                  dom.element("option", [a.attribute("value", "triple")], [text("3 Kişilik Aile Odası")]),
-                  dom.element("option", [a.attribute("value", "double")], [text("2 Kişilik Özel Oda")]),
+                  dom.element("option", [a.attribute("value", "quad")], [
+                    text("4 Kişilik Standart Oda"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "triple")], [
+                    text("3 Kişilik Aile Odası"),
+                  ]),
+                  dom.element("option", [a.attribute("value", "double")], [
+                    text("2 Kişilik Özel Oda"),
+                  ]),
                 ],
               ),
             ]),
@@ -4337,7 +5119,10 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
                 [
                   a.name("owner_name"),
                   a.id("input-owner-name"),
-                  a.attribute("placeholder", "Örn: Diyanet Onaylı A Grubu Acente"),
+                  a.attribute(
+                    "placeholder",
+                    "Örn: Diyanet Onaylı A Grubu Acente",
+                  ),
                 ],
                 [],
               ),
@@ -4355,14 +5140,15 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
               ),
             ]),
           ]),
-          step6_cancellation_input("Uçak ve vize kesintileri düşüldükten sonra kalan tutar seyahatten 15 gün öncesine kadar iade edilir."),
+          step6_cancellation_input(
+            "Uçak ve vize kesintileri düşüldükten sonra kalan tutar seyahatten 15 gün öncesine kadar iade edilir.",
+          ),
         ],
       )
 
     _ ->
       case is_hotel {
-        True ->
-          category_pricing_step6("hotel", True)
+        True -> category_pricing_step6("hotel", True)
         False ->
           step6_panel(
             "Fiyatlandırma, Satış Koşulları & İptal Politikası",
@@ -4370,7 +5156,10 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
             [
               dom.element("div", [a.class("form-grid-3")], [
                 step6_price_input("Birim Hizmet Bedeli", "5.000", "500000"),
-                dom.element("label", [], [text("Para Birimi"), step6_currency_select()]),
+                dom.element("label", [], [
+                  text("Para Birimi"),
+                  step6_currency_select(),
+                ]),
                 step6_commission_input("15.00"),
               ]),
               dom.element("div", [a.class("form-grid-2")], [
@@ -4394,7 +5183,10 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
                     [
                       a.name("sales_cutoff_hours"),
                       a.id("input-sales-cutoff"),
-                      a.attribute("placeholder", "Hizmet başlangıcından 24 saat önce"),
+                      a.attribute(
+                        "placeholder",
+                        "Hizmet başlangıcından 24 saat önce",
+                      ),
                       a.attribute("value", "Hizmet başlangıcından 24 saat önce"),
                     ],
                     [],
@@ -4427,7 +5219,9 @@ fn category_pricing_step6(cat: String, is_hotel: Bool) {
                   ),
                 ]),
               ]),
-              step6_cancellation_input("Hizmet başlama tarihinden 48 saat öncesine kadar kesintisiz %100 iade hakkı."),
+              step6_cancellation_input(
+                "Hizmet başlama tarihinden 48 saat öncesine kadar kesintisiz %100 iade hakkı.",
+              ),
             ],
           )
       }
@@ -4520,7 +5314,10 @@ fn catalog_form(active_cat: String) {
               a.attribute("type", "button"),
               a.class("btn-quick-util"),
               a.id("btn-reset-view"),
-              a.attribute("title", "Mod tercihi ve açık bölüm düzenini sıfırlar"),
+              a.attribute(
+                "title",
+                "Mod tercihi ve açık bölüm düzenini sıfırlar",
+              ),
             ],
             [
               dom.element("span", [], [text("🔄")]),
@@ -4671,29 +5468,18 @@ fn catalog_form(active_cat: String) {
               ),
             ],
           ),
-          dom.element("span", [a.id("wizard-progress-label"), a.class("wizard-progress-label")], [text("0% tamamlandı")]),
+          dom.element(
+            "span",
+            [a.id("wizard-progress-label"), a.class("wizard-progress-label")],
+            [text("0% tamamlandı")],
+          ),
           dom.element("div", [a.class("wizard-step-tabs")], [
             wizard_step_tab("1", "01", "Temel Bilgiler", True),
             wizard_step_tab("2", "02", "Konum & Harita", False),
-            wizard_step_tab(
-              "3",
-              "03",
-              step_tab_label(3, effective_cat),
-              False,
-            ),
-            wizard_step_tab(
-              "4",
-              "04",
-              step_tab_label(4, effective_cat),
-              False,
-            ),
+            wizard_step_tab("3", "03", step_tab_label(3, effective_cat), False),
+            wizard_step_tab("4", "04", step_tab_label(4, effective_cat), False),
             wizard_step_tab("5", "05", "Fotoğraflar", False),
-            wizard_step_tab(
-              "6",
-              "06",
-              step_tab_label(6, effective_cat),
-              False,
-            ),
+            wizard_step_tab("6", "06", step_tab_label(6, effective_cat), False),
             wizard_step_tab("7", "07", "Önizleme & Onay", False),
           ]),
         ],
@@ -4942,7 +5728,10 @@ fn catalog_form(active_cat: String) {
                           a.name("code"),
                           a.id("input-code"),
                           a.required(True),
-                          a.attribute("placeholder", category_code_prefix_and_hint(effective_cat).0),
+                          a.attribute(
+                            "placeholder",
+                            category_code_prefix_and_hint(effective_cat).0,
+                          ),
                         ],
                         [],
                       ),
@@ -4995,7 +5784,10 @@ fn catalog_form(active_cat: String) {
                         a.name("title"),
                         a.id("input-title"),
                         a.required(True),
-                        a.attribute("placeholder", category_title_placeholder(effective_cat)),
+                        a.attribute(
+                          "placeholder",
+                          category_title_placeholder(effective_cat),
+                        ),
                       ],
                       [],
                     ),
@@ -5326,7 +6118,7 @@ fn catalog_form(active_cat: String) {
                       dom.element("label", [], [
                         text("Tekne Türü"),
                         dom.element(
-                        "select",
+                          "select",
                           [
                             a.name("boat_type"),
                             a.id("input-boat-type"),
@@ -6210,73 +7002,289 @@ fn catalog_form(active_cat: String) {
                       ),
                     ]
                     "cruise" -> [
-                      wizard_amenity_chip("balcony_cabin", "🌊", "Balkonlu Kabin İmkanı"),
-                      wizard_amenity_chip("all_inclusive_dining", "🍽️", "Her Şey Dahil Alakart & Büfe"),
-                      wizard_amenity_chip("pool_deck", "🏊", "Açık Güverte Yüzme Havuzu"),
-                      wizard_amenity_chip("spa_wellness", "🧖", "Lüks Spa, Masaj & Termal Alan"),
-                      wizard_amenity_chip("casino_theater", "🎭", "Casino, Broadway Şovları & Tiyatro"),
-                      wizard_amenity_chip("duty_free", "🛍️", "Duty-Free Alışveriş Alanları"),
-                      wizard_amenity_chip("kids_club", "🧒", "Çocuk & Genç Kulübü (Mini Club)"),
-                      wizard_amenity_chip("shore_excursions", "🧭", "Rehberli Liman & Şehir Turları"),
-                      wizard_amenity_chip("satellite_wifi", "📶", "Uydu İnterneti & Wi-Fi"),
-                      wizard_amenity_chip("room_service", "🛎️", "24 Saat Kabin Servisi"),
+                      wizard_amenity_chip(
+                        "balcony_cabin",
+                        "🌊",
+                        "Balkonlu Kabin İmkanı",
+                      ),
+                      wizard_amenity_chip(
+                        "all_inclusive_dining",
+                        "🍽️",
+                        "Her Şey Dahil Alakart & Büfe",
+                      ),
+                      wizard_amenity_chip(
+                        "pool_deck",
+                        "🏊",
+                        "Açık Güverte Yüzme Havuzu",
+                      ),
+                      wizard_amenity_chip(
+                        "spa_wellness",
+                        "🧖",
+                        "Lüks Spa, Masaj & Termal Alan",
+                      ),
+                      wizard_amenity_chip(
+                        "casino_theater",
+                        "🎭",
+                        "Casino, Broadway Şovları & Tiyatro",
+                      ),
+                      wizard_amenity_chip(
+                        "duty_free",
+                        "🛍️",
+                        "Duty-Free Alışveriş Alanları",
+                      ),
+                      wizard_amenity_chip(
+                        "kids_club",
+                        "🧒",
+                        "Çocuk & Genç Kulübü (Mini Club)",
+                      ),
+                      wizard_amenity_chip(
+                        "shore_excursions",
+                        "🧭",
+                        "Rehberli Liman & Şehir Turları",
+                      ),
+                      wizard_amenity_chip(
+                        "satellite_wifi",
+                        "📶",
+                        "Uydu İnterneti & Wi-Fi",
+                      ),
+                      wizard_amenity_chip(
+                        "room_service",
+                        "🛎️",
+                        "24 Saat Kabin Servisi",
+                      ),
                     ]
                     "flight" | "bus" | "ferry" -> [
                       wizard_amenity_chip("wifi", "📶", "Yüksek Hızlı Wi-Fi"),
-                      wizard_amenity_chip("power_socket", "🔌", "USB & 220V Priz Bağlantısı"),
-                      wizard_amenity_chip("seat_selection", "💺", "Ücretsiz Koltuk Seçimi"),
-                      wizard_amenity_chip("catering", "☕", "Sıcak/Soğuk İkram & Yemek Servisi"),
-                      wizard_amenity_chip("extra_baggage", "🧳", "Ekstra Bagaj Satın Alma"),
-                      wizard_amenity_chip("tv_screen", "📺", "Kişisel Multimedya Ekranı"),
-                      wizard_amenity_chip("priority_boarding", "⚡", "Öncelikli Biniş (Priority)"),
-                      wizard_amenity_chip("air_conditioning", "❄️", "Gelişmiş İklimlendirme"),
+                      wizard_amenity_chip(
+                        "power_socket",
+                        "🔌",
+                        "USB & 220V Priz Bağlantısı",
+                      ),
+                      wizard_amenity_chip(
+                        "seat_selection",
+                        "💺",
+                        "Ücretsiz Koltuk Seçimi",
+                      ),
+                      wizard_amenity_chip(
+                        "catering",
+                        "☕",
+                        "Sıcak/Soğuk İkram & Yemek Servisi",
+                      ),
+                      wizard_amenity_chip(
+                        "extra_baggage",
+                        "🧳",
+                        "Ekstra Bagaj Satın Alma",
+                      ),
+                      wizard_amenity_chip(
+                        "tv_screen",
+                        "📺",
+                        "Kişisel Multimedya Ekranı",
+                      ),
+                      wizard_amenity_chip(
+                        "priority_boarding",
+                        "⚡",
+                        "Öncelikli Biniş (Priority)",
+                      ),
+                      wizard_amenity_chip(
+                        "air_conditioning",
+                        "❄️",
+                        "Gelişmiş İklimlendirme",
+                      ),
                     ]
                     "restaurant" -> [
-                      wizard_amenity_chip("sea_view", "🌊", "Deniz Manzaralı Teras"),
-                      wizard_amenity_chip("valet", "🚗", "Ücretsiz Vale & Otopark"),
-                      wizard_amenity_chip("sommelier", "🍷", "Sommelier & Zengin Şarap Kavı"),
-                      wizard_amenity_chip("live_music", "🎶", "Canlı Akustik / Caz Performansı"),
-                      wizard_amenity_chip("private_room", "🚪", "Özel VIP Yemek Odası"),
-                      wizard_amenity_chip("vegan_menu", "🥗", "Vegan & Vejetaryen Seçenekler"),
-                      wizard_amenity_chip("kids_friendly", "👶", "Çocuk Alanı & Mama Sandalyesi"),
-                      wizard_amenity_chip("outdoor_seating", "🌿", "Bahçe & Açık Hava Masaları"),
+                      wizard_amenity_chip(
+                        "sea_view",
+                        "🌊",
+                        "Deniz Manzaralı Teras",
+                      ),
+                      wizard_amenity_chip(
+                        "valet",
+                        "🚗",
+                        "Ücretsiz Vale & Otopark",
+                      ),
+                      wizard_amenity_chip(
+                        "sommelier",
+                        "🍷",
+                        "Sommelier & Zengin Şarap Kavı",
+                      ),
+                      wizard_amenity_chip(
+                        "live_music",
+                        "🎶",
+                        "Canlı Akustik / Caz Performansı",
+                      ),
+                      wizard_amenity_chip(
+                        "private_room",
+                        "🚪",
+                        "Özel VIP Yemek Odası",
+                      ),
+                      wizard_amenity_chip(
+                        "vegan_menu",
+                        "🥗",
+                        "Vegan & Vejetaryen Seçenekler",
+                      ),
+                      wizard_amenity_chip(
+                        "kids_friendly",
+                        "👶",
+                        "Çocuk Alanı & Mama Sandalyesi",
+                      ),
+                      wizard_amenity_chip(
+                        "outdoor_seating",
+                        "🌿",
+                        "Bahçe & Açık Hava Masaları",
+                      ),
                     ]
                     "beach" -> [
-                      wizard_amenity_chip("vip_cabana", "🛖", "Özel VIP Loca / Cabana"),
-                      wizard_amenity_chip("pier", "⛵", "Güneşlenme İskelesi & Merdiven"),
-                      wizard_amenity_chip("towel_service", "🧺", "Ücretsiz Plaj Havlusu"),
-                      wizard_amenity_chip("cocktail_bar", "🍹", "Sahil Kokteyl & Sushi Bar"),
-                      wizard_amenity_chip("water_sports", "🏄", "Su Sporları & Jet Ski"),
-                      wizard_amenity_chip("dj_music", "🎧", "Canlı DJ & Gün Batımı Partileri"),
-                      wizard_amenity_chip("shower_cabin", "🚿", "Lüks Duş & Giyinme Kabinleri"),
-                      wizard_amenity_chip("valet", "🚗", "Vale & Güvenli Otopark"),
+                      wizard_amenity_chip(
+                        "vip_cabana",
+                        "🛖",
+                        "Özel VIP Loca / Cabana",
+                      ),
+                      wizard_amenity_chip(
+                        "pier",
+                        "⛵",
+                        "Güneşlenme İskelesi & Merdiven",
+                      ),
+                      wizard_amenity_chip(
+                        "towel_service",
+                        "🧺",
+                        "Ücretsiz Plaj Havlusu",
+                      ),
+                      wizard_amenity_chip(
+                        "cocktail_bar",
+                        "🍹",
+                        "Sahil Kokteyl & Sushi Bar",
+                      ),
+                      wizard_amenity_chip(
+                        "water_sports",
+                        "🏄",
+                        "Su Sporları & Jet Ski",
+                      ),
+                      wizard_amenity_chip(
+                        "dj_music",
+                        "🎧",
+                        "Canlı DJ & Gün Batımı Partileri",
+                      ),
+                      wizard_amenity_chip(
+                        "shower_cabin",
+                        "🚿",
+                        "Lüks Duş & Giyinme Kabinleri",
+                      ),
+                      wizard_amenity_chip(
+                        "valet",
+                        "🚗",
+                        "Vale & Güvenli Otopark",
+                      ),
                     ]
                     "visa" -> [
-                      wizard_amenity_chip("document_review", "📋", "Uzman Evrak İnceleme & Kontrol"),
-                      wizard_amenity_chip("form_filling", "✍️", "Resmi Başvuru Formu Doldurma"),
-                      wizard_amenity_chip("early_appointment", "📅", "Erken Randevu Takibi"),
-                      wizard_amenity_chip("translation", "🗣️", "Yeminli Tercüme & Noter Desteği"),
-                      wizard_amenity_chip("travel_insurance", "🛡️", "30.000€ Teminatlı Seyahat Sigortası"),
-                      wizard_amenity_chip("vip_escort", "🤝", "Başvuru Merkezinde Birebir Karşılama"),
-                      wizard_amenity_chip("courier_delivery", "📦", "Pasaportun Adrese Kurye ile Teslimi"),
+                      wizard_amenity_chip(
+                        "document_review",
+                        "📋",
+                        "Uzman Evrak İnceleme & Kontrol",
+                      ),
+                      wizard_amenity_chip(
+                        "form_filling",
+                        "✍️",
+                        "Resmi Başvuru Formu Doldurma",
+                      ),
+                      wizard_amenity_chip(
+                        "early_appointment",
+                        "📅",
+                        "Erken Randevu Takibi",
+                      ),
+                      wizard_amenity_chip(
+                        "translation",
+                        "🗣️",
+                        "Yeminli Tercüme & Noter Desteği",
+                      ),
+                      wizard_amenity_chip(
+                        "travel_insurance",
+                        "🛡️",
+                        "30.000€ Teminatlı Seyahat Sigortası",
+                      ),
+                      wizard_amenity_chip(
+                        "vip_escort",
+                        "🤝",
+                        "Başvuru Merkezinde Birebir Karşılama",
+                      ),
+                      wizard_amenity_chip(
+                        "courier_delivery",
+                        "📦",
+                        "Pasaportun Adrese Kurye ile Teslimi",
+                      ),
                     ]
                     "pilgrimage" -> [
-                      wizard_amenity_chip("near_haram", "🕋", "Harem-i Şerif'e Yürüme Mesafesi"),
-                      wizard_amenity_chip("buffet_dining", "🍽️", "Açık Büfe Türk Mutfağı Yemek"),
-                      wizard_amenity_chip("religious_guide", "📖", "Deneyimli Din Görevlisi & Rehberlik"),
-                      wizard_amenity_chip("vip_bus", "🚌", "Lüks Klimalı Transfer Araçları"),
-                      wizard_amenity_chip("ihram_gift", "🎁", "İhram, Çanta & Rehber Kitap Seti"),
-                      wizard_amenity_chip("medical_team", "🩺", "Türk Sağlık Ekibi & Doktor Desteği"),
-                      wizard_amenity_chip("zamzam", "💧", "Dönüşte 5 Litre Zemzem İkramı"),
-                      wizard_amenity_chip("ziyarat", "🕌", "Mekke & Medine Kutsal Ziyaret Turları"),
+                      wizard_amenity_chip(
+                        "near_haram",
+                        "🕋",
+                        "Harem-i Şerif'e Yürüme Mesafesi",
+                      ),
+                      wizard_amenity_chip(
+                        "buffet_dining",
+                        "🍽️",
+                        "Açık Büfe Türk Mutfağı Yemek",
+                      ),
+                      wizard_amenity_chip(
+                        "religious_guide",
+                        "📖",
+                        "Deneyimli Din Görevlisi & Rehberlik",
+                      ),
+                      wizard_amenity_chip(
+                        "vip_bus",
+                        "🚌",
+                        "Lüks Klimalı Transfer Araçları",
+                      ),
+                      wizard_amenity_chip(
+                        "ihram_gift",
+                        "🎁",
+                        "İhram, Çanta & Rehber Kitap Seti",
+                      ),
+                      wizard_amenity_chip(
+                        "medical_team",
+                        "🩺",
+                        "Türk Sağlık Ekibi & Doktor Desteği",
+                      ),
+                      wizard_amenity_chip(
+                        "zamzam",
+                        "💧",
+                        "Dönüşte 5 Litre Zemzem İkramı",
+                      ),
+                      wizard_amenity_chip(
+                        "ziyarat",
+                        "🕌",
+                        "Mekke & Medine Kutsal Ziyaret Turları",
+                      ),
                     ]
                     "event" | "cinema" -> [
-                      wizard_amenity_chip("vip_lounge", "🥂", "VIP Lounge & Ayrıcalıklı Giriş"),
-                      wizard_amenity_chip("valet_parking", "🚗", "Ücretsiz Otopark & Vale"),
-                      wizard_amenity_chip("catering_included", "🍿", "İkram, Aperitif & İçecek"),
-                      wizard_amenity_chip("cloakroom", "🧥", "Ücretsiz Vestiyer Hizmeti"),
-                      wizard_amenity_chip("disabled_access", "♿", "Engelsiz Erişim & Özel Koltuk"),
-                      wizard_amenity_chip("premium_audio", "🔊", "Dolby Atmos & Yüksek Akustik"),
+                      wizard_amenity_chip(
+                        "vip_lounge",
+                        "🥂",
+                        "VIP Lounge & Ayrıcalıklı Giriş",
+                      ),
+                      wizard_amenity_chip(
+                        "valet_parking",
+                        "🚗",
+                        "Ücretsiz Otopark & Vale",
+                      ),
+                      wizard_amenity_chip(
+                        "catering_included",
+                        "🍿",
+                        "İkram, Aperitif & İçecek",
+                      ),
+                      wizard_amenity_chip(
+                        "cloakroom",
+                        "🧥",
+                        "Ücretsiz Vestiyer Hizmeti",
+                      ),
+                      wizard_amenity_chip(
+                        "disabled_access",
+                        "♿",
+                        "Engelsiz Erişim & Özel Koltuk",
+                      ),
+                      wizard_amenity_chip(
+                        "premium_audio",
+                        "🔊",
+                        "Dolby Atmos & Yüksek Akustik",
+                      ),
                     ]
                     _ -> [
                       wizard_amenity_chip("pool", "🏊", "Özel Müstakil Havuz"),
@@ -6914,7 +7922,8 @@ fn listing_selector(id: String) {
   ])
 }
 
-fn listing_operations_form() {    dom.element(
+fn listing_operations_form() {
+  dom.element(
     "form",
     [
       a.id("bulk-form"),
@@ -7283,7 +8292,6 @@ fn categories_form() {
             "input",
             [
               a.name("slug"),
-              a.id("cms-slug"),
               a.required(True),
               a.attribute("placeholder", "tatil-evi-kiralama"),
             ],
@@ -7534,26 +8542,66 @@ fn category_filters_form() {
           text("Kategori"),
           dom.element(
             "select",
-            [a.name("category_code"), a.id("filter-category-code"), a.required(True)],
             [
-              dom.element("option", [a.attribute("value", "")], [text("Kategori seçin")]),
-              dom.element("option", [a.attribute("value", "hotel")], [text("Otel (hotel)")]),
-              dom.element("option", [a.attribute("value", "holiday_home")], [text("Tatil Evi (holiday_home)")]),
-              dom.element("option", [a.attribute("value", "yacht")], [text("Yat (yacht)")]),
-              dom.element("option", [a.attribute("value", "tour")], [text("Tur (tour)")]),
-              dom.element("option", [a.attribute("value", "activity")], [text("Aktivite (activity)")]),
-              dom.element("option", [a.attribute("value", "flight")], [text("Uçuş (flight)")]),
-              dom.element("option", [a.attribute("value", "car")], [text("Araç (car)")]),
-              dom.element("option", [a.attribute("value", "cruise")], [text("Kruvaziyer (cruise)")]),
-              dom.element("option", [a.attribute("value", "pilgrimage")], [text("Hac & Umre (pilgrimage)")]),
-              dom.element("option", [a.attribute("value", "visa")], [text("Vize (visa)")]),
-              dom.element("option", [a.attribute("value", "ferry")], [text("Feribot (ferry)")]),
-              dom.element("option", [a.attribute("value", "transfer")], [text("Transfer (transfer)")]),
-              dom.element("option", [a.attribute("value", "beach")], [text("Şezlong (beach)")]),
-              dom.element("option", [a.attribute("value", "cinema")], [text("Sinema (cinema)")]),
-              dom.element("option", [a.attribute("value", "event")], [text("Etkinlik (event)")]),
-              dom.element("option", [a.attribute("value", "restaurant")], [text("Restoran (restaurant)")]),
-              dom.element("option", [a.attribute("value", "bus")], [text("Otobüs (bus)")]),
+              a.name("category_code"),
+              a.id("filter-category-code"),
+              a.required(True),
+            ],
+            [
+              dom.element("option", [a.attribute("value", "")], [
+                text("Kategori seçin"),
+              ]),
+              dom.element("option", [a.attribute("value", "hotel")], [
+                text("Otel (hotel)"),
+              ]),
+              dom.element("option", [a.attribute("value", "holiday_home")], [
+                text("Tatil Evi (holiday_home)"),
+              ]),
+              dom.element("option", [a.attribute("value", "yacht")], [
+                text("Yat (yacht)"),
+              ]),
+              dom.element("option", [a.attribute("value", "tour")], [
+                text("Tur (tour)"),
+              ]),
+              dom.element("option", [a.attribute("value", "activity")], [
+                text("Aktivite (activity)"),
+              ]),
+              dom.element("option", [a.attribute("value", "flight")], [
+                text("Uçuş (flight)"),
+              ]),
+              dom.element("option", [a.attribute("value", "car")], [
+                text("Araç (car)"),
+              ]),
+              dom.element("option", [a.attribute("value", "cruise")], [
+                text("Kruvaziyer (cruise)"),
+              ]),
+              dom.element("option", [a.attribute("value", "pilgrimage")], [
+                text("Hac & Umre (pilgrimage)"),
+              ]),
+              dom.element("option", [a.attribute("value", "visa")], [
+                text("Vize (visa)"),
+              ]),
+              dom.element("option", [a.attribute("value", "ferry")], [
+                text("Feribot (ferry)"),
+              ]),
+              dom.element("option", [a.attribute("value", "transfer")], [
+                text("Transfer (transfer)"),
+              ]),
+              dom.element("option", [a.attribute("value", "beach")], [
+                text("Şezlong (beach)"),
+              ]),
+              dom.element("option", [a.attribute("value", "cinema")], [
+                text("Sinema (cinema)"),
+              ]),
+              dom.element("option", [a.attribute("value", "event")], [
+                text("Etkinlik (event)"),
+              ]),
+              dom.element("option", [a.attribute("value", "restaurant")], [
+                text("Restoran (restaurant)"),
+              ]),
+              dom.element("option", [a.attribute("value", "bus")], [
+                text("Otobüs (bus)"),
+              ]),
             ],
           ),
         ]),
@@ -7625,7 +8673,10 @@ fn category_filters_form() {
             "input",
             [
               a.name("help_text"),
-              a.attribute("placeholder", "Kullanıcıya gösterilecek kısa açıklama"),
+              a.attribute(
+                "placeholder",
+                "Kullanıcıya gösterilecek kısa açıklama",
+              ),
             ],
             [],
           ),
@@ -7773,6 +8824,7 @@ fn cms_form() {
             [
               a.name("slug"),
               a.required(True),
+              a.id("cms-slug"),
               a.attribute("placeholder", "hakkimizda"),
             ],
             [],
@@ -7816,6 +8868,21 @@ fn cms_form() {
             dom.element("option", [a.value("visa")], [text("Vize")]),
             dom.element("option", [a.value("pilgrimage")], [text("Hac / Umre")]),
           ]),
+        ]),
+        dom.element("label", [], [
+          text("Blog kategorisi (blog yazıları için)"),
+          dom.element("select", [a.name("blog_category")], [
+            dom.element("option", [a.value("")], [text("Kategori seçin")]),
+            dom.element("option", [a.value("gezilesi-yerler")], [text("Gezilesi Yerler")]),
+          ]),
+        ]),
+        dom.element("label", [], [
+          text("Blog bölgesi (slug)"),
+          dom.element("input", [a.name("region_slug"), a.attribute("placeholder", "mugla")], []),
+        ]),
+        dom.element("label", [a.class("field-wide")], [
+          text("Blog kapak görseli URL'si"),
+          dom.element("input", [a.name("cover_image"), a.attribute("placeholder", "https://... veya /static/...")], []),
         ]),
         dom.element("label", [], [
           text("Yayın durumu"),
@@ -7881,6 +8948,8 @@ fn cms_form() {
             dom.element("div", [a.class("page-builder-toolbar")], [
               dom.element("select", [a.id("page-builder-type")], [
                 dom.element("option", [a.value("hero")], [text("Hero / Arama")]),
+                dom.element("option", [a.value("source_section")], [text("Sayfa bölümü")]),
+                dom.element("option", [a.value("region_places")], [text("Gezilesi Yerler / Bölge tanıtımı")]),
                 dom.element("option", [a.value("featured_listings")], [
                   text("Öne çıkan ilanlar"),
                 ]),
@@ -7890,12 +8959,26 @@ fn cms_form() {
                 dom.element("option", [a.value("trust_strip")], [
                   text("Güven şeridi"),
                 ]),
+                dom.element("option", [a.value("benefit_cards")], [text("Neden bizi seçin kartları")]),
+                dom.element("option", [a.value("video_gallery")], [text("Video galerisi")]),
+                dom.element("option", [a.value("destination_grid")], [text("Destinasyon kartları")]),
+                dom.element("option", [a.value("how_it_works")], [text("Nasıl çalışır adımları")]),
+                dom.element("option", [a.value("stay_types")], [text("Konaklama tipleri")]),
+                dom.element("option", [a.value("blog_cards")], [text("Blog kartları")]),
+                dom.element("option", [a.value("divider")], [text("Bölüm ayırıcı")]),
                 dom.element("option", [a.value("rich_text")], [
                   text("Zengin metin"),
                 ]),
                 dom.element("option", [a.value("newsletter")], [
                   text("Bülten kayıt"),
                 ]),
+                dom.element("option", [a.value("filter_bar")], [text("Filtre çubuğu")]),
+                dom.element("option", [a.value("listing_grid")], [text("İlan ızgarası")]),
+                dom.element("option", [a.value("listing_collection")], [text("Seçilebilir ilan listeleme")]),
+                dom.element("option", [a.value("image_gallery")], [text("Görsel galeri")]),
+                dom.element("option", [a.value("faq")], [text("SSS / Sorular")]),
+                dom.element("option", [a.value("cta")], [text("Harekete geçirici alan")]),
+                dom.element("option", [a.value("testimonials")], [text("Müşteri yorumları")]),
               ]),
               dom.element(
                 "button",
@@ -8112,6 +9195,22 @@ fn ai_form() {
             ),
             text("Bölge rehberi ve yakın mekan içerikleri"),
           ]),
+          dom.element("label", [a.class("check-row")], [
+            dom.element("input", [a.type_("checkbox"), a.name("ai_campaigns_enabled")], []),
+            text("AI kampanya taslağı ve hedef kitle önerileri"),
+          ]),
+          dom.element("label", [a.class("check-row")], [
+            dom.element("input", [a.type_("checkbox"), a.name("ai_sales_assist_enabled")], []),
+            text("AI satış fırsatı, upsell ve çapraz satış önerileri"),
+          ]),
+          dom.element("label", [a.class("check-row")], [
+            dom.element("input", [a.type_("checkbox"), a.name("ai_after_sales_enabled")], []),
+            text("AI satış sonrası destek ve vaka sınıflandırması"),
+          ]),
+          dom.element("label", [a.class("check-row")], [
+            dom.element("input", [a.type_("checkbox"), a.name("ai_financial_approval_required")], []),
+            text("İade, iptal ve finansal işlemlerde insan onayı zorunlu"),
+          ]),
           dom.element("label", [], [
             text("Instagram / Facebook hesabı"),
             dom.element(
@@ -8179,6 +9278,10 @@ fn ai_form() {
             dom.element("option", [a.value("en")], [
               text("English · reservationinturkey"),
             ]),
+            dom.element("option", [a.value("de")], [text("Deutsch")]),
+            dom.element("option", [a.value("ru")], [text("Русский")]),
+            dom.element("option", [a.value("fr")], [text("Français")]),
+            dom.element("option", [a.value("zh")], [text("简体中文")]),
           ]),
           dom.element(
             "input",
@@ -8211,11 +9314,55 @@ fn ai_form() {
             ],
             [],
           ),
+          dom.element("label", [a.class("check-row")], [
+            dom.element(
+              "input",
+              [a.type_("checkbox"), a.name("approval_required"), a.value("true")],
+              [],
+            ),
+            text("Yayınlamadan önce manuel onay iste"),
+          ]),
+          dom.element("select", [a.name("automation_mode")], [
+            dom.element("option", [a.value("manual")], [text("Manuel paylaşım")]),
+            dom.element("option", [a.value("automatic")], [text("Otomatik paylaşım")]),
+          ]),
+          dom.element(
+            "input",
+            [
+              a.name("daily_limit"),
+              a.type_("number"),
+              a.value("5"),
+              a.attribute("min", "0"),
+              a.attribute("max", "1000"),
+              a.attribute("placeholder", "Günlük limit"),
+            ],
+            [],
+          ),
           dom.element("button", [a.type_("submit"), a.class("primary")], [
             text("Taslağı kuyruğa al"),
           ]),
         ],
       ),
+    ]),
+    dom.element("section", [a.class("social-compose-card"), a.id("social-review")], [
+      dom.element("h3", [], [text("Sosyal gönderi denetimi")]),
+      dom.element("p", [a.class("muted")], [text("Onay bekleyen ve sonucu doğrulanamayan gönderileri burada inceleyin. Yeniden denemeden önce sosyal ağdaki yayını kontrol edin.")]),
+      dom.element("div", [a.id("social-review-list")], [text("Gönderiler yükleniyor…")]),
+    ]),
+    dom.element("section", [a.class("social-compose-card"), a.id("ai-worker-review")], [
+      dom.element("h3", [], [text("AI işçi durumu")]),
+      dom.element("p", [a.class("muted")], [text("Bekleyen kalite testlerini, kampanya teslimatlarını ve işçi sağlık durumunu buradan izleyin.")]),
+      dom.element("div", [a.id("ai-worker-health-list")], [text("Durum yükleniyor…")]),
+    ]),
+    dom.element("section", [a.class("social-compose-card"), a.id("ai-campaign-review")], [
+      dom.element("h3", [], [text("AI kampanya teslimatları")]),
+      dom.element("p", [a.class("muted")], [text("Gönderime alınan, bekleyen ve müdahale isteyen kampanyaların SMTP kabul sonuçları.")]),
+      dom.element("div", [a.id("ai-campaign-runs-list")], [text("Kampanyalar yükleniyor…")]),
+    ]),
+    dom.element("section", [a.class("social-compose-card"), a.id("ai-quality-review")], [
+      dom.element("h3", [], [text("AI kalite testleri")]),
+      dom.element("p", [a.class("muted")], [text("Sonuçları ve bekleyen testlerin nedenlerini inceleyin. Model çıktısı olmayan testler başarılı sayılmaz.")]),
+      dom.element("div", [a.id("ai-quality-cases-list")], [text("Kalite testleri yükleniyor…")]),
     ]),
     dom.element("section", [a.class("ai-supervisor-card")], [
       dom.element("h3", [], [text("AI Müdür · Sürekli Denetim")]),
@@ -8266,6 +9413,34 @@ fn ai_form() {
       ),
     ]),
     ai_key_pool_card(),
+    module_control_card(),
+  ])
+}
+
+fn module_control_card() {
+  dom.element("section", [a.class("quick"), a.id("module-controls")], [
+    dom.element("h3", [], [text("Modül otomasyon merkezi")]),
+    dom.element("p", [a.class("muted")], [
+      text("Her modülü manuel veya otomatik çalıştırın; günlük, haftalık ve aylık limitleri belirleyin."),
+    ]),
+    dom.element("form", [a.method("post"), a.action("/admin/module-controls"), a.class("workspace-form")], [
+      dom.element("select", [a.name("module_key")], [
+        dom.element("option", [a.value("social")], [text("Sosyal medya")]),
+        dom.element("option", [a.value("seo")], [text("SEO")]),
+        dom.element("option", [a.value("translation")], [text("Çeviri")]),
+        dom.element("option", [a.value("campaigns")], [text("Kampanyalar")]),
+        dom.element("option", [a.value("commerce")], [text("E-ticaret")]),
+        dom.element("option", [a.value("support")], [text("Destek")]),
+      ]),
+      dom.element("select", [a.name("mode")], [
+        dom.element("option", [a.value("manual")], [text("Manuel")]),
+        dom.element("option", [a.value("automatic")], [text("Otomatik")]),
+      ]),
+      dom.element("input", [a.name("daily_limit"), a.type_("number"), a.value("0"), a.attribute("min", "0")], []),
+      dom.element("input", [a.name("weekly_limit"), a.type_("number"), a.value("0"), a.attribute("min", "0")], []),
+      dom.element("input", [a.name("monthly_limit"), a.type_("number"), a.value("0"), a.attribute("min", "0")], []),
+      dom.element("button", [a.type_("submit"), a.class("primary")], [text("Modül politikasını kaydet")]),
+    ]),
   ])
 }
 
@@ -8725,7 +9900,11 @@ fn reports_form() {
         dom.element("span", [a.class("muted")], [text("Özet yükleniyor…")]),
       ]),
       // Haftalık mini grafikler — JS tarafından 7 günlük seri verisiyle doldurulur
-      dom.element("div", [a.class("digest-sparklines"), a.id("digest-sparklines")], []),
+      dom.element(
+        "div",
+        [a.class("digest-sparklines"), a.id("digest-sparklines")],
+        [],
+      ),
       dom.element(
         "form",
         [
@@ -8736,27 +9915,33 @@ fn reports_form() {
         [
           dom.element("label", [], [
             text("Alıcı e-posta"),
-            dom.element("input", [
-              a.type_("email"),
-              a.name("to"),
-              a.required(True),
-              a.placeholder("ornek@acente.com"),
-            ], []),
+            dom.element(
+              "input",
+              [
+                a.type_("email"),
+                a.name("to"),
+                a.required(True),
+                a.placeholder("ornek@acente.com"),
+              ],
+              [],
+            ),
           ]),
           dom.element("label", [], [
             text("Konu (isteğe bağlı)"),
-            dom.element("input", [
-              a.type_("text"),
-              a.name("subject"),
-              a.placeholder("Haftalık özet"),
-            ], []),
+            dom.element(
+              "input",
+              [
+                a.type_("text"),
+                a.name("subject"),
+                a.placeholder("Haftalık özet"),
+              ],
+              [],
+            ),
           ]),
           dom.element("div", [a.class("digest-form-actions")], [
-            dom.element(
-              "button",
-              [a.type_("submit"), a.class("primary")],
-              [text("Kuyruğa al")],
-            ),
+            dom.element("button", [a.type_("submit"), a.class("primary")], [
+              text("Kuyruğa al"),
+            ]),
             dom.element(
               "button",
               [
@@ -8800,19 +9985,71 @@ fn reports_form() {
       ]),
       dom.element("div", [a.class("table-wrap")], [
         dom.element("h3", [], [text("Denetim kayıtları")]),
+        dom.element("div", [a.class("report-filter-bar")], [
+          dom.element(
+            "input",
+            [
+              a.type_("search"),
+              a.id("audit-search"),
+              a.placeholder("İşlem, varlık veya metadata ara"),
+            ],
+            [],
+          ),
+          dom.element("select", [a.id("audit-entity")], [
+            dom.element("option", [a.attribute("value", "")], [
+              text("Tüm varlıklar"),
+            ]),
+            dom.element("option", [a.attribute("value", "listings")], [
+              text("İlanlar"),
+            ]),
+            dom.element(
+              "option",
+              [a.attribute("value", "category_filter_groups")],
+              [text("Filtre grupları")],
+            ),
+            dom.element(
+              "option",
+              [a.attribute("value", "category_filter_items")],
+              [text("Filtre maddeleri")],
+            ),
+            dom.element("option", [a.attribute("value", "category_fields")], [
+              text("Kategori alanları"),
+            ]),
+            dom.element("option", [a.attribute("value", "contract_versions")], [
+              text("Sözleşmeler"),
+            ]),
+            dom.element("option", [a.attribute("value", "integration")], [
+              text("Entegrasyon"),
+            ]),
+            dom.element("option", [a.attribute("value", "sync_job")], [
+              text("Sync işleri"),
+            ]),
+          ]),
+          dom.element(
+            "button",
+            [
+              a.type_("button"),
+              a.class("secondary"),
+              a.id("audit-export-csv"),
+            ],
+            [text("CSV indir")],
+          ),
+        ]),
         dom.element("table", [a.class("data-table")], [
           dom.element("thead", [], [
             dom.element("tr", [], [
               dom.element("th", [], [text("İşlem")]),
               dom.element("th", [], [text("Varlık")]),
+              dom.element("th", [], [text("Kullanıcı")]),
               dom.element("th", [], [text("Tarih")]),
+              dom.element("th", [], [text("Detay")]),
             ]),
           ]),
           dom.element("tbody", [a.id("report-audits-body")], [
             dom.element("tr", [], [
               dom.element(
                 "td",
-                [a.attribute("colspan", "3"), a.class("empty-state")],
+                [a.attribute("colspan", "5"), a.class("empty-state")],
                 [text("Kayıtlar yükleniyor…")],
               ),
             ]),
@@ -9017,6 +10254,7 @@ fn abandoned_carts_form() {
 
 fn sub_agencies_form() {
   dom.element("section", [a.class("quick"), a.id("sub-agencies-workspace")], [
+    dom.element("div", [a.id("partner-network-workspace"), a.attribute("aria-live", "polite")], [text("Acente ağı yükleniyor…")]),
     dom.element("div", [a.class("section-heading")], [
       dom.element("div", [], [
         dom.element("h2", [], [text("B2B Acente ve Tedarikçi Yönetimi")]),
@@ -9149,6 +10387,105 @@ fn supplier_campaigns_panel() {
         [text("Tüm kampanyaları yönet")],
       ),
     ]),
+    dom.element("section", [a.class("ai-workforce-suite")], [
+      dom.element("div", [a.class("section-heading")], [
+        dom.element("div", [], [
+          dom.element("h3", [], [text("AI Çalışanlar Holding Merkezi")]),
+          dom.element("p", [a.class("muted")], [text("Her çalışan ayrı yetki, görev kuyruğu ve insan onayı politikasıyla çalışır.")]),
+        ]),
+        dom.element("span", [a.class("status-pill")], [text("Denetimli otonomi")]),
+      ]),
+      dom.element("div", [a.class("ai-workforce-grid")], [
+        ai_workforce_card("Gelir yöneticisi", "Talep, fiyat, stok ve kampanya önerileri", "revenue_manager"),
+        ai_workforce_card("Satış asistanı", "Upsell, sepet kurtarma ve rezervasyon fırsatları", "sales_assistant"),
+        ai_workforce_card("Kampanya yöneticisi", "Hedef kitle, kanal ve içerik taslakları", "campaign_manager"),
+        ai_workforce_card("Müşteri destek çalışanı", "Soruları sınıflandırır ve yanıt taslağı oluşturur", "support_agent"),
+        ai_workforce_card("Risk ve güvenlik", "Sahtekarlık, şikayet ve işlem risklerini izler", "risk_guardian"),
+        ai_workforce_card("Yönetim analisti", "Satış ve operasyon özetleri üretir", "executive_analyst"),
+        ai_workforce_card("Katalog kalite çalışanı", "Eksik alanları ve duplicate ilanları bulur", "product_quality"),
+        ai_workforce_card("Stok ve kapasite çalışanı", "Talep, kapasite ve overbooking sinyallerini izler", "inventory_manager"),
+        ai_workforce_card("Kişiselleştirme çalışanı", "Kullanıcı niyetine göre ürün ve kategori önerir", "personalization"),
+        ai_workforce_card("Rezervasyon kurtarma", "Terk edilen arama ve rezervasyonları takip eder", "recovery_manager"),
+        ai_workforce_card("Sadakat yöneticisi", "Puan, seviye ve müşteri yaşam boyu değerini izler", "loyalty_manager"),
+        ai_workforce_card("Finans mutabakatı", "Ödeme, iade ve tedarikçi farklarını bulur", "finance_reconciliation"),
+        ai_workforce_card("Reklam yöneticisi", "Google, Meta, Yandex, Baidu ve Çin kanalları için taslak üretir", "ad_campaign_manager"),
+      ]),
+    ]),
+    dom.element("section", [a.class("ai-governance-suite")], [
+      dom.element("div", [a.class("section-heading")], [
+        dom.element("div", [], [
+          dom.element("h3", [], [text("AI Orkestrasyon ve Güvenlik")]),
+          dom.element("p", [a.class("muted")], [text("İş akışları, politikalar, bilgi, model maliyetleri ve güvenlik olayları.")]),
+        ]),
+        dom.element("span", [a.class("status-pill")], [text("Merkezi denetim")]),
+      ]),
+      dom.element("div", [a.class("ai-governance-grid")], [
+        ai_governance_card("İş akışı kuyruğu", "Çalışanlar arası görev aktarımı", "workflow_runs"),
+        ai_governance_card("Politika merkezi", "AI karar kuralları ve sınırlar", "policies"),
+        ai_governance_card("Bilgi merkezi", "İlan, sözleşme ve içerik bilgisi", "knowledge_documents"),
+        ai_governance_card("Model yönlendirme", "Göreve göre sağlayıcı ve model", "model_routes"),
+        ai_governance_card("Maliyet merkezi", "Token, model ve görev maliyetleri", "usage_costs"),
+        ai_governance_card("Deney laboratuvarı", "A/B test ve dönüşüm ölçümü", "experiments"),
+        ai_governance_card("Geri bildirim", "İnsan onaylarından öğrenme", "feedback_events"),
+        ai_governance_card("Güvenlik olayları", "PII, injection ve politika ihlalleri", "security_events"),
+        ai_governance_card("Worker sağlık paneli", "Heartbeat, kuyruk ve hata durumları", "worker_health"),
+        ai_governance_card("Prompt sürümleri", "Prompt ve model geçmişi", "prompt_versions"),
+        ai_governance_card("AI bütçeleri", "Tenant ve modül bazlı maliyet limitleri", "budget_limits"),
+        ai_governance_card("Gizlilik merkezi", "Maskeleme, rıza ve veri silme talepleri", "privacy_events"),
+        ai_governance_card("Canary yayınlar", "AI modüllerini kontrollü yayınlama ve rollback", "release_channels"),
+        ai_governance_card("Karar auditleri", "Gerekçe, model, prompt ve güven skorları", "decision_audits"),
+      ]),
+    ]),
+    dom.element("section", [a.class("ai-commerce-suite")], [
+      dom.element("div", [a.class("section-heading")], [
+        dom.element("div", [], [
+          dom.element("h3", [], [text("AI Turizm ve E-Ticaret Merkezi")]),
+          dom.element("p", [a.class("muted")], [text("Paket, stok, komisyon, müşteri ve çok kanallı satış yönetimi.")]),
+        ]),
+        dom.element("span", [a.class("status-pill")], [text("Ticaret zekâsı")]),
+      ]),
+      dom.element("div", [a.class("ai-commerce-grid")], [
+        ai_governance_card("Dinamik paketler", "Otel, transfer, tur, araç ve aktivite paketleri", "travel_packages"),
+        ai_governance_card("Müsaitlik merkezi", "Kapasite, rezervasyon ve overbooking takibi", "availability"),
+        ai_governance_card("Tedarikçi skorları", "Kalite, yanıt, iptal ve kârlılık puanları", "supplier_scores"),
+        ai_governance_card("Komisyon motoru", "Kategori, kanal ve tedarikçi bazlı kurallar", "commission_rules"),
+        ai_governance_card("Tekil müşteri profili", "Tercihler, izinler, LTV ve sadakat", "customer_profiles"),
+        ai_governance_card("Öneri motoru", "Kişiselleştirilmiş ürün ve paket önerileri", "recommendations"),
+        ai_governance_card("Kanal merkezi", "Web, B2B, mesajlaşma ve reklam kanalları", "channel_connections"),
+      ]),
+    ]),
+  ])
+}
+
+fn ai_workforce_card(title: String, description: String, key: String) {
+  dom.element("article", [a.class("ai-workforce-card")], [
+    dom.element("div", [a.class("ai-workforce-card__head")], [
+      dom.element("h4", [], [text(title)]),
+      dom.element("span", [a.class("status-pill")], [text("Onaylı")]),
+    ]),
+    dom.element("p", [a.class("muted")], [text(description)]),
+    dom.element("code", [], [text(key)]),
+    dom.element("label", [a.class("check-row")], [
+      dom.element("input", [a.type_("checkbox"), a.name("ai_module_" <> key <> "_enabled")], []),
+      text("Çalışanı etkinleştir"),
+    ]),
+    dom.element("label", [], [
+      text("Otonomi"),
+      dom.element("select", [a.name("ai_module_" <> key <> "_autonomy")], [
+        dom.element("option", [a.attribute("value", "suggest")], [text("Öneri üret")]),
+        dom.element("option", [a.attribute("value", "draft")], [text("Taslak oluştur")]),
+        dom.element("option", [a.attribute("value", "approval_required")], [text("Onay gerektirir")]),
+      ]),
+    ]),
+  ])
+}
+
+fn ai_governance_card(title: String, description: String, key: String) {
+  dom.element("article", [a.class("ai-governance-card")], [
+    dom.element("h4", [], [text(title)]),
+    dom.element("p", [a.class("muted")], [text(description)]),
+    dom.element("code", [], [text("ai." <> key)]),
+    dom.element("button", [a.type_("button"), a.class("secondary"), a.attribute("data-ai-governance", key)], [text("Yönet")]),
   ])
 }
 
@@ -9522,6 +10859,8 @@ fn integration_whatsapp_form() {
         "whatsapp_token",
         "EAAB...",
       ),
+      setting_input("Onaylı öneri şablonu", "whatsapp_recommendation_template", "travel_recommendation"),
+      setting_input("Şablon dil kodu", "whatsapp_recommendation_language", "tr"),
     ],
   )
 }
@@ -9567,6 +10906,7 @@ fn integrations_form() {
       integration_social_form(),
       integration_nexus_form(),
       integration_ota_form(),
+      integration_search_engines_form(),
     ]),
     dom.element("div", [a.class("table-wrap")], [
       dom.element("h3", [], [text("Kayıtlı bağlantılar")]),
@@ -9591,6 +10931,34 @@ fn integrations_form() {
           ]),
         ]),
       ]),
+    ]),
+  ])
+}
+
+fn integration_search_engines_form() {
+  dom.element("div", [a.class("integration-grid integration-search-engines")], [
+    integration_card("Google Search Console", "google_search_console", "seo", [
+      setting_input("Site adresi", "site_url", "https://ornek.com"),
+      setting_input("HTML doğrulama kodu", "verification_code", "google-site-verification=..."),
+    ]),
+    integration_card("Google Merchant Center", "google_merchant", "commerce", [
+      setting_input("Merchant hesap ID", "account_id", "123456789"),
+      setting_input("Ülke kodu", "merchant_country", "TR"),
+      setting_input("Ürün feed URL", "feed_url", "https://ornek.com/feeds/google.xml"),
+    ]),
+    integration_card("Google Analytics 4", "google_analytics", "analytics", [
+      setting_input("Ölçüm ID", "measurement_id", "G-XXXXXXX"),
+    ]),
+    integration_card("Google Tag Manager", "google_tag_manager", "analytics", [
+      setting_input("Konteyner ID", "container_id", "GTM-XXXXXXX"),
+    ]),
+    integration_card("Yandex Webmaster", "yandex_webmaster", "seo", [
+      setting_input("Site adresi", "site_url", "https://ornek.com"),
+      setting_input("Doğrulama kodu", "verification_code", "yandex_verification"),
+    ]),
+    integration_card("Baidu Search", "baidu_search", "seo", [
+      setting_input("Site adresi", "site_url", "https://ornek.com"),
+      setting_input("Doğrulama kodu", "verification_code", "baidu_verification"),
     ]),
   ])
 }
@@ -9712,6 +11080,13 @@ fn integration_social_form() {
         "token_...",
       ),
       setting_input("Pinterest pano ID", "pinterest_board_id", "board-id"),
+      setting_input("Meta OAuth uygulama ID", "app_id", "123456789"),
+      setting_input("Meta OAuth uygulama sırrı", "app_secret", "••••••••"),
+      setting_input("TikTok Business hesap ID", "tiktok_business_id", "business-id"),
+      setting_input("YouTube kanal ID", "youtube_channel_id", "UC..."),
+      setting_input("Meta OAuth callback adresi", "meta_redirect_uri", "https://site.tld/auth/social/meta/callback"),
+      setting_input("TikTok OAuth callback adresi", "tiktok_redirect_uri", "https://site.tld/auth/social/tiktok/callback"),
+      setting_input("YouTube OAuth callback adresi", "youtube_redirect_uri", "https://site.tld/auth/social/youtube/callback"),
     ],
   )
 }
@@ -10018,7 +11393,7 @@ fn setting_tab_btn(
       a.attribute("data-settings-tab", tab_id),
     ],
     [
-      dom.element("span", [a.class("tab-icon")], [text(icon)]),
+      hugeicon(icon, "tab-icon"),
       dom.element("span", [a.class("tab-label")], [text(label)]),
     ],
   )
@@ -10095,14 +11470,14 @@ fn settings_form() {
 
       // Tab Navigation Bar
       dom.element("div", [a.class("settings-nav-tabs")], [
-        setting_tab_btn("brand", "🏢", "Kurumsal & Marka", True),
-        setting_tab_btn("pos", "💳", "Ödeme & Sanal POS", False),
-        setting_tab_btn("ai", "🤖", "AI Motoru (Gemini / DeepSeek)", False),
-        setting_tab_btn("sms", "📱", "SMS ve bildirimler", False),
-        setting_tab_btn("currency", "💱", "Kurlar & TCMB", False),
-        setting_tab_btn("analytics", "📊", "Analitik & Harita", False),
-        setting_tab_btn("legal", "⚖️", "Sözleşmeler & KVKK", False),
-        setting_tab_btn("appearance", "🎨", "Görünüm & Tema", False),
+        setting_tab_btn("brand", "building-03", "Kurumsal & Marka", True),
+        setting_tab_btn("pos", "credit-card", "Ödeme & Sanal POS", False),
+        setting_tab_btn("ai", "ai-beautify", "AI Motoru (Gemini / DeepSeek)", False),
+        setting_tab_btn("sms", "smart-phone-01", "SMS ve bildirimler", False),
+        setting_tab_btn("currency", "money-exchange-01", "Kurlar & TCMB", False),
+        setting_tab_btn("analytics", "analytics-01", "Analitik & Harita", False),
+        setting_tab_btn("legal", "legal-document-01", "Sözleşmeler & KVKK", False),
+        setting_tab_btn("appearance", "paint-brush-01", "Görünüm & Tema", False),
       ]),
 
       dom.element(
@@ -10201,6 +11576,18 @@ fn settings_form() {
                 "address",
                 "Şirinyalı Mah. İsmet Gökşen Cad. No:45/A Muratpaşa / Antalya",
                 "2",
+              ),
+              dom.element("div", [a.class("panel-section-title")], [
+                dom.element("h3", [], [text("🎧 Müşteri Destek Kanalları")]),
+                dom.element("p", [a.class("muted")], [
+                  text("Yukarıdaki müşteri hizmetleri telefonu ve WhatsApp hattı mobil destek menüsünde kullanılır. Canlı sohbet için tawk.to widget kodunu aşağıya yapıştırın."),
+                ]),
+              ]),
+              setting_textarea(
+                "tawk.to canlı destek kodu",
+                "tawk_embed_code",
+                "https://embed.tawk.to/PROPERTY_ID/WIDGET_ID veya tawk.to tarafından verilen kod",
+                "4",
               ),
             ],
           ),
@@ -10670,22 +12057,43 @@ fn settings_form() {
               ),
               language_appearance_section(),
               // Yenileme aralığı seçici
-              dom.element("div", [a.class("panel-section-title"), a.attribute("style", "margin-top: var(--space-6)")], [
-                dom.element("h3", [], [text("⏱ Yenileme Aralığı")]),
-                dom.element("p", [a.class("muted")], [
-                  text("Dashboard ve katalog sayfalarındaki canlı veri yenileme sıklığını ayarlayın."),
-                ]),
-              ]),
-              dom.element("div", [
-                a.class("refresh-interval-picker"),
-                a.id("refresh-interval-picker"),
-                a.attribute("role", "radiogroup"),
-                a.attribute("aria-label", "Yenileme aralığı"),
-              ], [
-                refresh_interval_option("15", "15 sn", "Hızlı — sık güncelleme"),
-                refresh_interval_option("30", "30 sn", "Varsayılan — dengeli"),
-                refresh_interval_option("60", "60 sn", "Yavaş — düşük trafiğe duyarlı"),
-              ]),
+              dom.element(
+                "div",
+                [
+                  a.class("panel-section-title"),
+                  a.attribute("style", "margin-top: var(--space-6)"),
+                ],
+                [
+                  dom.element("h3", [], [text("⏱ Yenileme Aralığı")]),
+                  dom.element("p", [a.class("muted")], [
+                    text(
+                      "Dashboard ve katalog sayfalarındaki canlı veri yenileme sıklığını ayarlayın.",
+                    ),
+                  ]),
+                ],
+              ),
+              dom.element(
+                "div",
+                [
+                  a.class("refresh-interval-picker"),
+                  a.id("refresh-interval-picker"),
+                  a.attribute("role", "radiogroup"),
+                  a.attribute("aria-label", "Yenileme aralığı"),
+                ],
+                [
+                  refresh_interval_option(
+                    "15",
+                    "15 sn",
+                    "Hızlı — sık güncelleme",
+                  ),
+                  refresh_interval_option("30", "30 sn", "Varsayılan — dengeli"),
+                  refresh_interval_option(
+                    "60",
+                    "60 sn",
+                    "Yavaş — düşük trafiğe duyarlı",
+                  ),
+                ],
+              ),
             ],
           ),
 
@@ -10714,12 +12122,16 @@ fn settings_form() {
 /// Yenileme aralığı seçeneği (radio butonu + açıklama)
 fn refresh_interval_option(value: String, label: String, desc: String) {
   dom.element("label", [a.class("refresh-interval-option")], [
-    dom.element("input", [
-      a.type_("radio"),
-      a.name("refresh_interval"),
-      a.attribute("value", value),
-      a.attribute("data-refresh-interval", value),
-    ], []),
+    dom.element(
+      "input",
+      [
+        a.type_("radio"),
+        a.name("refresh_interval"),
+        a.attribute("value", value),
+        a.attribute("data-refresh-interval", value),
+      ],
+      [],
+    ),
     dom.element("span", [a.class("refresh-interval-label")], [text(label)]),
     dom.element("span", [a.class("refresh-interval-desc")], [text(desc)]),
   ])
@@ -10743,23 +12155,23 @@ fn language_appearance_section() {
       a.attribute("aria-label", "Arayüz dili"),
     ],
     langs
-    |> list.map(fn(lang) {
-      let #(code, name, desc) = lang
-      dom.element(
-        "button",
-        [
-          a.attribute("type", "button"),
-          a.class("language-choice theme-swatch theme-card"),
-          a.attribute("data-language-choice", code),
-          a.attribute("aria-label", name <> " — " <> desc),
-          a.attribute("title", name <> " — " <> desc),
-        ],
-        [
-          dom.element("span", [a.class("theme-card-icon")], [text(name)]),
-          dom.element("span", [a.class("theme-card-desc")], [text(desc)]),
-        ],
-      )
-    }),
+      |> list.map(fn(lang) {
+        let #(code, name, desc) = lang
+        dom.element(
+          "button",
+          [
+            a.attribute("type", "button"),
+            a.class("language-choice theme-swatch theme-card"),
+            a.attribute("data-language-choice", code),
+            a.attribute("aria-label", name <> " — " <> desc),
+            a.attribute("title", name <> " — " <> desc),
+          ],
+          [
+            dom.element("span", [a.class("theme-card-icon")], [text(name)]),
+            dom.element("span", [a.class("theme-card-desc")], [text(desc)]),
+          ],
+        )
+      }),
   )
 }
 
@@ -10791,51 +12203,49 @@ fn theme_appearance_section() {
       a.attribute("data-theme-picker", "true"),
     ],
     [
-    dom.element(
-      "button",
-      [
-        a.attribute("type", "button"),
-        a.class("theme-swatch theme-card theme-card-auto"),
-        a.attribute("data-theme-choice", "auto"),
-        a.attribute(
-          "aria-label",
-          "Otomatik — saate göre tema (07-19 aydınlık, diğer saatler koyu)",
-        ),
-        a.attribute(
-          "title",
-          "Otomatik: 07–19 aydınlık · diğer saatler koyu",
-        ),
-        a.attribute("style", "--swatch-bg:#0f172a;--swatch-accent:#94a3b8"),
-      ],
-      [
-        dom.element("span", [a.class("theme-card-icon")], [text("🕒")]),
-        dom.element("span", [a.class("theme-card-name")], [text("Otomatik")]),
-        dom.element("span", [a.class("theme-card-desc")], [
-          text("Saate göre palet seçer"),
-        ]),
-      ],
-    ),
-    ..cards
-    |> list.map(fn(card) {
-      let #(choice, name, desc, style) = card
       dom.element(
         "button",
         [
           a.attribute("type", "button"),
-          a.class("theme-swatch theme-card"),
-          a.attribute("data-theme-choice", choice),
-          a.attribute("aria-label", name <> " — " <> desc),
-          a.attribute("title", name <> " — " <> desc),
-          a.attribute("style", style),
+          a.class("theme-swatch theme-card theme-card-auto"),
+          a.attribute("data-theme-choice", "auto"),
+          a.attribute(
+            "aria-label",
+            "Otomatik — saate göre tema (07-19 aydınlık, diğer saatler koyu)",
+          ),
+          a.attribute("title", "Otomatik: 07–19 aydınlık · diğer saatler koyu"),
+          a.attribute("style", "--swatch-bg:#0f172a;--swatch-accent:#94a3b8"),
         ],
         [
-          dom.element("span", [a.class("theme-card-swatch")], []),
-          dom.element("span", [a.class("theme-card-name")], [text(name)]),
-          dom.element("span", [a.class("theme-card-desc")], [text(desc)]),
+          dom.element("span", [a.class("theme-card-icon")], [text("🕒")]),
+          dom.element("span", [a.class("theme-card-name")], [text("Otomatik")]),
+          dom.element("span", [a.class("theme-card-desc")], [
+            text("Saate göre palet seçer"),
+          ]),
         ],
-      )
-    })
-  ])
+      ),
+      ..cards
+      |> list.map(fn(card) {
+        let #(choice, name, desc, style) = card
+        dom.element(
+          "button",
+          [
+            a.attribute("type", "button"),
+            a.class("theme-swatch theme-card"),
+            a.attribute("data-theme-choice", choice),
+            a.attribute("aria-label", name <> " — " <> desc),
+            a.attribute("title", name <> " — " <> desc),
+            a.attribute("style", style),
+          ],
+          [
+            dom.element("span", [a.class("theme-card-swatch")], []),
+            dom.element("span", [a.class("theme-card-name")], [text(name)]),
+            dom.element("span", [a.class("theme-card-desc")], [text(desc)]),
+          ],
+        )
+      })
+    ],
+  )
 }
 
 fn currency_form() {
@@ -11195,14 +12605,8 @@ fn metric_id(title: String, value: String, desc: String, id: String) {
       a.attribute("data-unit", unit),
       a.attribute("role", "button"),
       a.attribute("tabindex", "0"),
-      a.attribute(
-        "aria-haspopup",
-        "dialog",
-      ),
-      a.attribute(
-        "aria-label",
-        title <> " — 14 günlük trend grafiğini aç",
-      ),
+      a.attribute("aria-haspopup", "dialog"),
+      a.attribute("aria-label", title <> " — 14 günlük trend grafiğini aç"),
       a.attribute("title", "14 günlük trendi gör"),
     ]
   }
@@ -11222,11 +12626,7 @@ fn metric_id(title: String, value: String, desc: String, id: String) {
       [],
     ),
     // Haftalık toplam etiketi — JS tarafından son 7 gün toplamıyla doldurulur
-    dom.element(
-      "small",
-      [a.class("metric-weekly")],
-      [text("")],
-    ),
+    dom.element("small", [a.class("metric-weekly")], [text("")]),
     dom.element(
       "div",
       [a.class("metric-announce"), a.attribute("aria-live", "polite")],
@@ -11303,7 +12703,7 @@ pub fn holiday_home_manager_page(
     ],
     [
       "/static/css/08-editor-rooms-seo.css",
-      "/static/css/09-catalog-mode.css",
+      "/static/css/09-catalog-mode.css?v=20260926-benefitcards1",
     ],
     s.wizard_prefs_json,
   )
@@ -11337,19 +12737,29 @@ fn section_scripts(section_key: String) -> List(String) {
       "/static/ai-key-pool.js?v=20260916",
     ]
     "currencies" -> ["/static/currency-admin.js"]
-    "customers" -> ["/static/customer-admin.js"]
+    "customers" -> ["/static/customer-admin.js?v=20260927-3"]
     "reservations" -> ["/static/reservation-admin.js"]
+    "role-context" -> ["/static/role-context.js?v=20260927-1"]
+    "supplier-bookings" -> ["/static/supplier-bookings.js?v=20260928-1"]
+    "supplier-operations" -> ["/static/supplier-operations.js?v=20260928-application1"]
+    "supplier-inquiries" -> ["/static/supplier-inquiries.js?v=20260927-1"]
+    "assigned-inquiries" -> ["/static/assigned-inquiries.js?v=20260927-1"]
+    "sub-agencies" -> ["/static/team-admin.js", "/static/partner-network.js?v=20260927-1"]
+    "finance-overview" -> ["/static/finance-overview.js?v=20260927-1"]
+    "commercial-operations" -> ["/static/commercial-operations.js?v=20260927-2"]
+    "review-center" -> ["/static/review-center.js?v=20260927-1"]
     "languages" -> ["/static/language-admin.js"]
-    "categories" -> ["/static/category-admin.js"]
+    "categories" -> ["/static/category-admin.js?v=20260924-tour-tree"]
     "integrations" -> ["/static/integration-admin.js"]
-    "sync" -> ["/static/sync-admin.js"]
-    "supplier-onboarding" -> ["/static/supplier-onboarding-admin.js"]
+    "ai" -> ["/static/ai-admin.js", "/static/ai-key-pool.js?v=20260916", "/static/module-controls.js"]
+    "sync" -> ["/static/sync-admin.js?v=20260928-2"]
+    "control-center" -> ["/static/control-center.js?v=20260928-1"]
+    "supplier-onboarding" -> ["/static/supplier-onboarding-admin.js?v=20260928-review3"]
     "cms" -> [
-      "/static/cms-admin.js",
+      "/static/cms-admin.js?v=20260926-hero-all1",
       "/static/rich-editor.js?v=20260914-seo",
       "/static/ai-seo-suite.js?v=20260914-seo",
     ]
-    "ai" -> ["/static/ai-admin.js", "/static/ai-key-pool.js?v=20260916"]
     "campaigns" | "supplier-campaigns" -> ["/static/campaign-admin.js"]
     "team" -> ["/static/team-admin.js"]
     "reports" -> ["/static/report-admin.js?v=20260918-digest1"]
@@ -11390,6 +12800,19 @@ fn sync_form() {
       metric("Filtreler", "Yükleniyor", "Aktif yönetilebilir filtre maddeleri"),
       metric("Panel modülleri", "Yükleniyor", "Ortak tedarikçi panel modülleri"),
     ]),
+    dom.element("div", [a.class("metric-grid"), a.id("sync-health-cards")], [
+        metric("NEXUS bağlantısı", "Yükleniyor", "Endpoint ve API anahtarı"),
+        metric("Onay durumu", "Yükleniyor", "Acentenin bağlantı başvurusu"),
+        metric("Son senkronizasyon", "Yükleniyor", "Son iş ve hata durumu"),
+        metric("Son başarılı sync", "Yükleniyor", "Başarılı import zamanı"),
+        metric("NEXUS ilanları", "Yükleniyor", "Merkezden gelen ilan sayısı"),
+        metric("Başarısız sync işleri", "Yükleniyor", "Son hata ile birlikte"),
+        metric(
+          "Rezervasyon kuyruğu",
+          "Yükleniyor",
+        "Bekleyen / başarısız olaylar",
+      ),
+    ]),
     dom.element("div", [a.class("table-card")], [
       dom.element("div", [a.class("table-toolbar")], [
         dom.element("h3", [], [text("Son sync işleri")]),
@@ -11429,7 +12852,9 @@ fn supplier_onboarding_form() {
     [
       dom.element("div", [a.class("section-heading")], [
         dom.element("div", [], [
-          dom.element("span", [a.class("eyebrow")], [text("TEDARİKÇİ ONBOARDING")]),
+          dom.element("span", [a.class("eyebrow")], [
+            text("TEDARİKÇİ ONBOARDING"),
+          ]),
           dom.element("h2", [], [text("Tedarikçi başvuruları")]),
           dom.element("p", [a.class("muted")], [
             text(
@@ -11447,18 +12872,22 @@ fn supplier_onboarding_form() {
           [text("Yenile")],
         ),
       ]),
-      dom.element("div", [a.class("metric-grid"), a.id("supplier-onboarding-status-cards")], [
-        metric("Taslak", "0", "Tamamlanmamış başvuru"),
-        metric("Gönderildi", "0", "İnceleme bekliyor"),
-        metric("İncelemede", "0", "Operasyon kontrolünde"),
-        metric("Onaylandı", "0", "Tedarikçi aktif"),
-        metric("Askıda/Ret", "0", "Aksiyon gerekiyor"),
-      ]),
+      dom.element(
+        "div",
+        [a.class("metric-grid"), a.id("supplier-onboarding-status-cards")],
+        [
+          metric("Taslak", "0", "Tamamlanmamış başvuru"),
+          metric("Gönderildi", "0", "İnceleme bekliyor"),
+          metric("İncelemede", "0", "Operasyon kontrolünde"),
+          metric("Onaylandı", "0", "Tedarikçi aktif"),
+          metric("Askıda/Ret", "0", "Aksiyon gerekiyor"),
+        ],
+      ),
       dom.element("div", [a.class("table-card")], [
         dom.element("div", [a.class("table-toolbar")], [
           dom.element("h3", [], [text("Başvuru kuyruğu")]),
           dom.element("span", [a.class("muted")], [
-            text("Onay/ret aksiyonları sonraki adımda bu tabloya bağlanacak."),
+            text("Kararlar yetki ve durum kontrolünden sonra kaydedilir."),
           ]),
         ]),
         dom.element("table", [a.class("data-table")], [
@@ -11487,7 +12916,9 @@ fn supplier_onboarding_form() {
         dom.element("div", [a.class("table-toolbar")], [
           dom.element("h3", [], [text("Belge inceleme")]),
           dom.element("span", [a.class("muted")], [
-            text("Eksik, bekleyen, onaylanan ve reddedilen evraklar başvuru bazında izlenir."),
+            text(
+              "Eksik, bekleyen, onaylanan ve reddedilen evraklar başvuru bazında izlenir.",
+            ),
           ]),
         ]),
         dom.element("div", [a.id("supplier-document-review")], [
@@ -11506,7 +12937,7 @@ fn section_stylesheets(section_key: String) -> List(String) {
     "catalog" | "listings" -> [
       "/static/css/06-wizard.css",
       "/static/css/08-editor-rooms-seo.css",
-      "/static/css/09-catalog-mode.css",
+      "/static/css/09-catalog-mode.css?v=20260926-benefitcards1",
       "/static/css/10-translations.css",
     ]
     "regions" -> [
@@ -11514,10 +12945,12 @@ fn section_stylesheets(section_key: String) -> List(String) {
       "/static/css/11-regions.css",
     ]
     "settings" | "ai" -> [
-      "/static/css/09-catalog-mode.css",
+      "/static/css/09-catalog-mode.css?v=20260926-benefitcards1",
       "/static/css/11-regions.css",
     ]
     "cms" -> ["/static/css/08-editor-rooms-seo.css"]
+    "commercial-operations" -> ["/static/commercial-operations.css?v=20260927-1"]
+    "control-center" -> ["/static/control-center.css?v=20260928-1"]
     _ -> []
   }
 }
@@ -11545,7 +12978,15 @@ fn layout_with_theme(
   extra_stylesheets: List(String),
   wizard_prefs_json: String,
 ) -> String {
-  layout_with_theme_and_prefs(theme_pref, title, body, lang, extra_scripts, extra_stylesheets, wizard_prefs_json)
+  layout_with_theme_and_prefs(
+    theme_pref,
+    title,
+    body,
+    lang,
+    extra_scripts,
+    extra_stylesheets,
+    wizard_prefs_json,
+  )
 }
 
 fn layout_with_theme_and_prefs(
@@ -11579,8 +13020,8 @@ fn layout_with_theme_and_prefs(
       [
         // CSRF guard en erken sırada: sonraki betiklerin ürettiği formlara
         // token enjeksiyonu submit anında hazır olsun.
-        script_tag("/static/csrf-guard.js?v=20260918-csrf4"),
-        script_tag("/static/theme-toggle.js?v=20260918-auto4"),
+        script_tag("/static/csrf-guard.js?v=20260924-login"),
+        script_tag("/static/theme-toggle.js?v=20260924-locale-sync"),
         script_tag("/static/focus-trap.js"),
         script_tag("/static/table-bulk.js?v=20260918-bulk6"),
         script_tag("/static/table-expand.js?v=20260918-expand1"),
@@ -11588,9 +13029,10 @@ fn layout_with_theme_and_prefs(
         script_tag("/static/sidebar-tree.js?v=20260916-catalog-groups"),
         script_tag("/static/sidebar-nav.js?v=20260917-mobile-active"),
         script_tag("/static/quick-search.js"),
-        script_tag("/static/form-enhancements.js"),
+        script_tag("/static/form-enhancements.js?v=20260924-login-submit"),
         script_tag("/static/panel-tab-bar.js"),
         script_tag("/static/login-theme.js"),
+        script_tag("/static/hugeicons-normalizer.js?v=20260924-hgi1"),
       ],
       extra_scripts |> list.map(script_tag),
     )
@@ -11628,6 +13070,14 @@ fn layout_with_theme_and_prefs(
           ),
           // Modüler glass tema — çekirdek set her sayfada, bölüm modülleri sonra.
           ..list.append(stylesheet_tags, [
+            dom.element(
+              "link",
+              [
+                a.attribute("rel", "stylesheet"),
+                a.href("https://use.hugeicons.com/font/icons.css"),
+              ],
+              [],
+            ),
             dom.element("title", [], [text(title <> " · NEXUS Agency")]),
           ])
         ]),
@@ -11666,7 +13116,7 @@ fn core_stylesheet_links() -> List(dom.Element(Nil)) {
   [
     "/static/css/01-tokens.css",
     "/static/css/02-base.css",
-    "/static/css/03-layout.css?v=20260918-sparktip",
+    "/static/css/03-layout.css?v=20260927-panel2",
     "/static/css/04-forms-tables.css",
     "/static/css/05-media-catalog.css",
     "/static/css/07-utilities.css",

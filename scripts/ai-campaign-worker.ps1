@@ -1,0 +1,15 @@
+$ErrorActionPreference = 'Continue'
+$root = Split-Path $PSScriptRoot -Parent
+$envFile = Join-Path $root '.env'
+Get-Content $envFile | ForEach-Object { $line=$_.Trim(); $i=$line.IndexOf('='); if($i -gt 0){ Set-Item "Env:$($line.Substring(0,$i).Trim())" $line.Substring($i+1).Trim() } }
+$psql=(Get-Command psql -ErrorAction Stop).Source
+function Invoke-AgencySql([string]$sql){$args=@('-X','-w','-v','ON_ERROR_STOP=1','-h',$env:PGHOST,'-p',$env:PGPORT,'-U',$env:PGUSER,'-d',$env:PGDATABASE,'-c',$sql);$out=& $psql @args;if($LASTEXITCODE -ne 0){throw "PostgreSQL command failed: $LASTEXITCODE"};return $out}
+while($true){
+  try {
+    Invoke-AgencySql "select agency.ai_campaign_enqueue_email(c.tenant_id,c.id) from agency.ai_campaign_runs c where c.status='scheduled' and c.scheduled_at<=now() and c.channel='email' order by c.scheduled_at limit 20" | Out-Null
+    Invoke-AgencySql "update agency.notifications n set status='cancelled',last_error='Pazarlama e-posta izni kaldırıldı.',started_at=null,next_attempt_at=null from agency.ai_campaign_notifications link join agency.ai_campaign_runs r on r.id=link.run_id and r.tenant_id=link.tenant_id where n.id=link.notification_id and n.tenant_id=link.tenant_id and n.status='queued' and r.status='running' and not exists(select 1 from agency.users u join agency.customer_notification_preferences pref on pref.user_id=u.id and pref.tenant_id=u.tenant_id where u.id=link.user_id and u.tenant_id=link.tenant_id and u.active and pref.marketing_email)" | Out-Null
+    Invoke-AgencySql "select agency.ai_campaign_reconcile(c.tenant_id,c.id) from agency.ai_campaign_runs c where c.status='running' and c.channel='email' limit 100" | Out-Null
+    Invoke-AgencySql "insert into agency.ai_worker_health(tenant_id,worker_key,status,last_heartbeat,queue_depth,details,updated_at) select t.id,'ai-campaign',case when exists(select 1 from agency.ai_campaign_runs c where c.tenant_id=t.id and c.status='scheduled' and c.scheduled_at<=now()) or exists(select 1 from agency.ai_campaign_runs c where c.tenant_id=t.id and c.status='paused' and c.metrics ? 'failed') then 'degraded' else 'healthy' end,now(),(select count(*) from agency.ai_campaign_runs c where c.tenant_id=t.id and c.status in ('scheduled','running') and c.scheduled_at<=now()),jsonb_build_object('executor','notification_email','resultMeaning','smtp_submitted','preflightReasons',coalesce((select jsonb_object_agg(x.reason,x.total) from (select gate.reason,count(*) as total from agency.ai_campaign_runs c cross join lateral agency.ai_campaign_preflight(t.id,c.id) gate where c.tenant_id=t.id and c.status='scheduled' and c.scheduled_at<=now() group by gate.reason) x),'{}'::jsonb)),now() from agency.tenants t on conflict(tenant_id,worker_key) do update set status=excluded.status,last_heartbeat=excluded.last_heartbeat,queue_depth=excluded.queue_depth,details=excluded.details,updated_at=excluded.updated_at" | Out-Null
+  } catch { Add-Content (Join-Path $root '.local/ai-campaign-worker-error.log') "$(Get-Date -Format s) $($_.Exception.Message)" }
+  Start-Sleep -Seconds 30
+}

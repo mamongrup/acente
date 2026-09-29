@@ -74,20 +74,20 @@ function desktopActive(links) {
 test.describe('masaüstü ↔ mobil aktif kategori paritesi', () => {
   test.use({ viewport: { width: 1280, height: 900 } });
 
-  test('kategori sayfası (/kategori/hotel): İKİ menü de vurgular', async ({ page }) => {
-    await page.goto('/kategori/hotel');
+  test('kategori sayfası (/otel): İKİ menü de vurgular', async ({ page }) => {
+    await page.goto('/otel');
     const desktop = await desktopLinks(page);
     const drawer = await drawerActive(page, 'bnav');
 
     // Masaüstü: kategori sayfasında eskiden vurgusuz kalıyordu
-    expect(desktopActive(desktop)).toContain('/urunler?kategori=hotel');
+    expect(desktopActive(desktop)).toContain('/otel');
     // Sınıf da verilmeli (vurgunun görsel taşıyıcısı)
-    const hotel = desktop.find((l) => l.href === '/urunler?kategori=hotel');
+    const hotel = desktop.find((l) => l.href === '/otel');
     expect(hotel.activeClass).toBe(true);
     // Tek bağlantı aktif olmalı — komşular vurgusuz
     expect(desktopActive(desktop)).toHaveLength(1);
     // Mobil çekmece aynı kategoriyi işaret eder (yol biçimiyle)
-    expect(drawer).toEqual(['/kategori/hotel']);
+    expect(drawer).toEqual(['/otel']);
   });
 
   test('liste filtresi (/urunler?kategori=yacht): İKİ menü de vurgular', async ({ page }) => {
@@ -95,8 +95,8 @@ test.describe('masaüstü ↔ mobil aktif kategori paritesi', () => {
     const desktop = await desktopLinks(page);
     const drawer = await drawerActive(page, 'bnav');
 
-    expect(desktopActive(desktop)).toEqual(['/urunler?kategori=yacht']);
-    expect(drawer).toEqual(['/kategori/yacht']);
+    expect(desktopActive(desktop)).toEqual(['/yat']);
+    expect(drawer).toEqual(['/yat']);
   });
 
   test('doğrudan rota eşlemesi (/urunler?kategori=car → /arac)', async ({ page }) => {
@@ -132,7 +132,7 @@ test.describe('masaüstü ↔ mobil aktif kategori paritesi', () => {
     // Yapısal iz sayesinde çekmece kurulu ve açılıyor
     await expect(page.locator(DRAWER)).toHaveCount(1);
     const drawer = await drawerActive(page, 'hamburger');
-    expect(drawer).toEqual(['/kategori/hotel']);
+    expect(drawer).toEqual(['/hotel']);
   });
 
   test('ortak kaynak yüklenir ve betik sırası doğrudur', async ({ page }) => {

@@ -89,6 +89,7 @@
     if (!lang) return;
     paintLangUI(lang);
     document.cookie = 'nexus_lang=' + encodeURIComponent(lang) + ';path=/;max-age=31536000;samesite=lax';
+    document.cookie = 'agency_lang=' + btoa(lang).replace(/=+$/, '') + ';path=/;max-age=31536000;samesite=lax';
     var csrf = readCookieCsrf();
     if (!csrf) return; // oturum yoksa sessizce çık
     fetch('/admin/preferences/language?lang=' + encodeURIComponent(lang), {

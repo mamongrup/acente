@@ -115,6 +115,21 @@ body.panel-menu-open { overflow: hidden; }
 @media (max-width: 820px) {
   html, body { max-width: 100%; overflow-x: hidden; }
   .dashboard { display: block; min-height: 100vh; }
+  /* Every admin module shares this containment contract. Without min-width:0,
+     a long label, grid child or table can enlarge the entire mobile canvas. */
+  .dashboard main,
+  .panel-content,
+  .panel-content > *,
+  .panel-content section,
+  .panel-content article,
+  .panel-content form,
+  .panel-content fieldset,
+  .panel-content [class*="-grid"],
+  .panel-content [class*="-card"] {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
   .dashboard .sidebar {
     display: none;
     position: fixed;
@@ -230,6 +245,14 @@ body.panel-menu-open { overflow: hidden; }
   .full-width-workspace { padding: 16px !important; margin-top: 14px; border-radius: 13px; }
   .section-heading { flex-direction: column; gap: 8px; padding-bottom: 13px; margin-bottom: 16px; }
   .section-heading h2 { font-size: 17px; }
+  .section-heading > *, .subcard-header > *, .subcard-title-group > * { min-width: 0; }
+  .section-heading h2, .section-heading p, .subcard-header h3,
+  .subcard-header p, .panel-content td, .panel-content th {
+    overflow-wrap: anywhere;
+  }
+  .subcard-header { align-items: flex-start; flex-wrap: wrap; gap: 10px; }
+  .subcard-title-group { min-width: 0; align-items: flex-start; }
+  .subcard-title-group .subcard-icon { flex: 0 0 auto; }
   .quick form, .customer-form, .language-form, .listing-form, .category-form,
   .category-field-form, .cms-form, .ai-form, .campaign-form, .coupon-form, .team-form {
     grid-template-columns: 1fr !important;
@@ -292,6 +315,11 @@ body.panel-menu-open { overflow: hidden; }
   .hh-day { padding: 9px; }
   .table-wrap { max-width: 100%; overflow-x: auto; }
   .data-table { min-width: 620px; }
+  .panel-content table { max-width: none; }
+  .panel-content img, .panel-content video, .panel-content canvas,
+  .panel-content iframe { max-width: 100%; height: auto; }
+  .panel-content .toolbar, .panel-content [class*="-toolbar"],
+  .panel-content [class*="-actions"] { flex-wrap: wrap; min-width: 0; }
   .page-builder-toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
   .page-builder-toolbar select { min-width: 0; flex: 1 1 100%; }
   .ai-key-pool-grid { grid-template-columns: 1fr; }

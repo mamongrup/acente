@@ -7,20 +7,48 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $env:PGCLIENTENCODING = "UTF8"
 
+$root = Split-Path $PSScriptRoot -Parent
+function Load-DotEnv([string]$Path) {
+    if (!(Test-Path -LiteralPath $Path)) { return }
+    Get-Content -LiteralPath $Path | ForEach-Object {
+        $line = $_.Trim()
+        if (!$line -or $line.StartsWith("#")) { return }
+        $index = $line.IndexOf("=")
+        if ($index -gt 0) {
+            $key = $line.Substring(0, $index).Trim()
+            $value = $line.Substring($index + 1).Trim()
+            if (![Environment]::GetEnvironmentVariable($key)) {
+                [Environment]::SetEnvironmentVariable($key, $value)
+            }
+        }
+    }
+}
+
+function Require-Env([string]$Name) {
+    $value = [Environment]::GetEnvironmentVariable($Name)
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        throw "$Name environment variable is required for E2E simulation."
+    }
+    return $value
+}
+
+Load-DotEnv (Join-Path $root ".env")
+Load-DotEnv "C:\laragon\www\Nexustraveltech\.env"
+
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "  NEXUS - Acente Uctan Uca (E2E) Entegrasyon Simulasyonu" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
-$NexusPort = 5433
-$NexusDb = "nexustraveltech"
-$NexusUser = "nexus_app"
-$NexusPass = "9cca1062aa4de6a14edc898d3f4f104f9f1d588ab4da25fd2e030460daa75cd8"
+$NexusPort = if ($env:NEXUS_PGPORT) { [int]$env:NEXUS_PGPORT } else { 5433 }
+$NexusDb = if ($env:NEXUS_PGDATABASE) { $env:NEXUS_PGDATABASE } else { "nexustraveltech" }
+$NexusUser = if ($env:NEXUS_PGUSER) { $env:NEXUS_PGUSER } else { "nexus_app" }
+$NexusPass = Require-Env "NEXUS_PGPASSWORD"
 
-$AgencyPort = 5432
-$AgencyDb = "nexus_agency"
-$AgencyUser = "agency_app"
-$AgencyPass = "agency_dev_2026"
-$TenantId = "47d11134-ca4e-4eb9-919e-ca0f076fe9d5"
+$AgencyPort = if ($env:PGPORT) { [int]$env:PGPORT } else { 5432 }
+$AgencyDb = if ($env:PGDATABASE) { $env:PGDATABASE } else { "nexus_agency" }
+$AgencyUser = if ($env:PGUSER) { $env:PGUSER } else { "agency_app" }
+$AgencyPass = Require-Env "PGPASSWORD"
+$TenantId = Require-Env "NEXUS_TENANT_ID"
 
 # 1. Veritabani Baglanti Testleri
 Write-Host "`n[1/5] Veritabani baglantilari test ediliyor..." -ForegroundColor Yellow

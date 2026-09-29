@@ -32,6 +32,8 @@
 
   function ensureField(form) {
     if (!form || form.tagName !== "FORM") return;
+    // Giriş formu oturum oluşturur; bu aşamada CSRF çerezi henüz yoktur.
+    if (form.getAttribute("action") === "/login") return;
     if (form.querySelector('input[name="' + FIELD + '"]')) return;
     var value = token();
     if (!value) return;
@@ -73,6 +75,7 @@
       function (e) {
         var form = e.target;
         if (!form || form.tagName !== "FORM") return;
+        if (form.getAttribute("action") === "/login") return;
         ensureField(form);
         if (!form.querySelector('input[name="' + FIELD + '"]')) {
           e.preventDefault();

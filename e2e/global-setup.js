@@ -7,6 +7,7 @@
 // "Executable doesn't exist" hataları yerine ne yapılacağını söyleyen bir
 // mesaj üretir.
 const { request, chromium } = require('@playwright/test');
+const { seedCriticalPagesFixture } = require('./critical-pages-fixture');
 
 const BASE_URL = process.env.BASE_URL || `http://127.0.0.1:${process.env.APP_PORT || 8082}`;
 const CHANNEL = process.env.PW_CHANNEL || 'msedge';
@@ -59,4 +60,8 @@ async function assertBrowserLaunchable() {
 module.exports = async () => {
   await assertServerReachable();
   await assertBrowserLaunchable();
+  const fixture = seedCriticalPagesFixture();
+  process.env.E2E_CRITICAL_TENANT_ID = fixture.tenantId;
+  process.env.E2E_CRITICAL_LISTING_ID = fixture.listingId;
+  process.env.E2E_CRITICAL_ISOLATED_TENANT_ID = fixture.isolatedTenantId;
 };

@@ -47,7 +47,7 @@ Write-Output "Kategori sözleşmeleri uyumlu: $($local.contract_version), $($loc
 
 $localSupplierListing = Get-Content -LiteralPath $localSupplierListingContract -Raw | ConvertFrom-Json
 $peerSupplierListing = Get-Content -LiteralPath $peerSupplierListingContract -Raw | ConvertFrom-Json
-if ($localSupplierListing.contract_version -ne '1.1.0') {
+if ($localSupplierListing.contract_version -ne '1.2.0') {
   throw "Beklenmeyen tedarikçi/ilan sözleşme sürümü: $($localSupplierListing.contract_version)"
 }
 if ($localSupplierListing.contract_version -ne $peerSupplierListing.contract_version) {

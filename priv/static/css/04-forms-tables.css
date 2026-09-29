@@ -888,6 +888,105 @@ tr.bulk-row-selected > td {
   letter-spacing: 0.06em;
 }
 
+.audit-detail-btn {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.audit-detail-dialog[hidden] {
+  display: none;
+}
+
+.audit-detail-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+}
+
+.audit-detail-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(6px);
+}
+
+.audit-detail-card {
+  position: relative;
+  z-index: 1;
+  width: min(720px, 100%);
+  max-height: min(760px, 86vh);
+  overflow: auto;
+  padding: var(--space-6);
+  border: 1px solid var(--border-glass-light);
+  border-radius: var(--radius-xl);
+  background: var(--panel-bg, #fff);
+  box-shadow: var(--shadow-xl);
+}
+
+.audit-detail-close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--border-glass-light);
+  background: var(--glass-card);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.audit-detail-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+
+.audit-detail-list div {
+  padding: var(--space-3);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-md);
+  background: var(--fill-whisper);
+}
+
+.audit-detail-list dt {
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.audit-detail-list dd {
+  margin: 0;
+  font-weight: var(--font-semibold);
+  word-break: break-word;
+}
+
+.audit-detail-card pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line-faint);
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+@media (max-width: 720px) {
+  .audit-detail-list {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ==========================================================================
    TABLE EXPAND — satır tıklama ile detay açma/kapama
    ========================================================================== */

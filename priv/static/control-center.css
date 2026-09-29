@@ -1,0 +1,12 @@
+#control-center-workspace .metric-grid { margin: 20px 0; }
+#control-center-workspace .metric-card { display: flex; flex-direction: column; gap: 5px; padding: 20px; border: 1px solid var(--border-glass); border-radius: 18px; background: var(--input-fill); }
+#control-center-workspace .metric-card strong { font-size: 26px; color: var(--text-pure); }
+#control-center-workspace .metric-card span { color: var(--text-muted); }
+#control-center-results { overflow-x: auto; }
+#control-center-results td:first-child small { display: block; margin-top: 5px; font-size: 12px; }
+#control-center-results td a { display: inline-block; text-decoration: none; white-space: nowrap; }
+.control-status { display: inline-block; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.control-status-ok { color: #087b56; background: #e6f7ef; }
+.control-status-attention { color: #9a5700; background: #fff3dc; }
+.control-status-optional { color: #566375; background: #eef1f5; }
+@media (max-width: 720px) { #control-center-results .data-table { min-width: 650px; } }

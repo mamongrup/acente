@@ -1,6 +1,6 @@
 {
   "contract_name": "nexus.supplier_listing",
-  "contract_version": "1.1.0",
+  "contract_version": "1.2.0",
   "description": "Acente ve Nexustraveltech projelerinde tedarikçi olma, tedarikçi paneli, ilan ekleme ve kategori öznitelikleri için ortak sözleşme.",
   "supplier_onboarding": {
     "required_identity_fields": [
@@ -199,7 +199,7 @@
     "hotel": ["property_type", "room_types", "board_type", "check_in_time", "check_out_time", "amenities", "star_rating"],
     "holiday_home": ["property_type", "bedroom_count", "bathroom_count", "guest_capacity", "pool_type", "kitchen", "season_rules"],
     "yacht": ["yacht_type", "capacity", "cabin_count", "departure_port", "route", "captain_included", "fuel_policy"],
-    "tour": ["tour_type", "duration", "start_point", "end_point", "guide_languages", "group_size_min", "group_size_max"],
+    "tour": ["tour_type", "tour_subcategory", "duration", "start_point", "end_point", "guide_languages", "group_size_min", "group_size_max"],
     "activity": ["activity_type", "duration", "difficulty", "age_limit", "equipment_included", "meeting_point"],
     "flight": ["airline_or_provider", "route_from", "route_to", "fare_class", "baggage_policy", "ticket_rules"],
     "car": ["vehicle_type", "brand_model", "transmission", "fuel_type", "seat_count", "pickup_locations", "deposit_policy"],

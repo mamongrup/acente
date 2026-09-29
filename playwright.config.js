@@ -25,6 +25,7 @@ module.exports = defineConfig({
   forbidOnly: !!process.env.CI,
   reporter: [['list']],
   globalSetup: require.resolve('./e2e/global-setup.js'),
+  globalTeardown: require.resolve('./e2e/global-teardown.js'),
   use: {
     baseURL: BASE_URL,
     channel: process.env.PW_CHANNEL || 'msedge',

@@ -52,9 +52,9 @@ pub fn nav_active_single_source_test() {
   let src = read_file(main_js_path)
   // Tek tanım (ikinci kopya geri gelirse kapı kırılır)
   src |> count_occurrences("window.NEXUS_NAV = ") |> should.equal(1)
-  // İki form da aynı predicate içinde
+  // Kısa kategori yolu ve liste filtresi aynı predicate içinde.
   src |> string.contains("[?&]kategori=([^&]*)") |> should.be_true
-  src |> string.contains("/^\\/kategori\\/(.+)$/") |> should.be_true
+  src |> string.contains("window.NEXUS_CATEGORY_CODE(path)") |> should.be_true
   src |> string.contains("LISTING_PATHS = ['/urunler', '/products']") |> should.be_true
   // Ortak API
   src |> string.contains("function isActiveCategory(slug)") |> should.be_true
@@ -291,105 +291,18 @@ pub fn desktop_popover_targets_are_store_routes_test() {
   }
 }
 
-/// Masaüstü ve mobil menü AYNI geçerli hedef kümesini kullanmalı:
-/// panellerdeki `kategori=<slug>` filtreleri mobil çekmecenin kanonik slug
-/// listesinde bulunmalı (tek kaynak = geçerli filtre slug'ları), `tur=`
-/// değerleri de mağazanın kabul ettiği tür kümesinden olmalı.
+/// Masaüstü ve mobil kategori menüleri aynı kanonik kodları kısa URL
+/// sözleşmesine vermeli; kategori sayfasına liste filtresi üzerinden gidilmez.
 pub fn desktop_and_mobile_category_slugs_agree_test() {
-  let mobile_slugs =
-    read_file(main_js_path)
-    |> string.split("\n")
-    |> list.filter_map(fn(line) {
-      case string.contains(line, "'/kategori/") {
-        True ->
-          extract_between(line, "'/kategori/", "'")
-          |> result.try(fn(slug) {
-            case is_category_slug(slug) {
-              True -> Ok(slug)
-              False -> Error(Nil)
-            }
-          })
-        False -> Error(Nil)
-      }
-    })
-  // Boş çıkarsa test sessizce geçmesin (ayıklama bozulmasın).
-  mobile_slugs |> should.not_equal([])
-
-  let js = read_file(header_js_path)
-
-  let desktop_slugs =
-    js
-    |> string.split("\n")
-    |> list.filter_map(fn(line) {
-      case string.contains(line, "kategori=") {
-        True ->
-          extract_between(line, "kategori=", "\"")
-          |> result.try(fn(slug) {
-            case is_category_slug(slug) {
-              True -> Ok(slug)
-              False -> Error(Nil)
-            }
-          })
-        False -> Error(Nil)
-      }
-    })
-    |> list.unique
-  desktop_slugs |> should.not_equal([])
-  list.each(desktop_slugs, fn(slug) {
-    list.contains(mobile_slugs, slug) |> should.be_true
+  let mobile = read_file(main_js_path)
+  let desktop = read_file(header_js_path)
+  list.each(["hotel", "holiday_home", "yacht", "tour", "activity"], fn(code) {
+    mobile |> string.contains("['" <> code <> "', '") |> should.be_true
+    desktop |> string.contains("['" <> code <> "', 'hgi-") |> should.be_true
   })
-
-  // Header sözleşmesi artık tek filtre adı kullanır: kategori=<slug>.
-  js |> string.contains("tur=") |> should.be_false
-  let valid_turs: List(String) = []
-  let turs =
-    js
-    |> string.split("\n")
-    |> list.filter_map(fn(line) {
-      case string.contains(line, "tur=") {
-        True ->
-          extract_between(line, "tur=", "\"")
-          |> result.try(fn(value) {
-            case is_category_slug(value) {
-              True -> Ok(value)
-              False -> Error(Nil)
-            }
-          })
-        False -> Error(Nil)
-      }
-    })
-    |> list.unique
-  turs |> should.equal([])
-  list.each(turs, fn(value) {
-    list.contains(valid_turs, value) |> should.be_true
-  })
-}
-
-/// Küçük harf/alt çizgiden oluşan slug mı? (regex'ten kacan `(.+)` gibi
-/// parçaları eler)
-fn is_category_slug(value: String) -> Bool {
-  case string.is_empty(value) {
-    True -> False
-    False ->
-      value
-      |> string.to_graphemes
-      |> list.all(fn(g) { string.contains("abcdefghijklmnopqrstuvwxyz0123456789_", g) })
-  }
-}
-
-fn extract_between(
-  line: String,
-  start_marker: String,
-  end_marker: String,
-) -> Result(String, Nil) {
-  case string.split_once(line, start_marker) {
-    Error(_) -> Error(Nil)
-    Ok(#(_before, after)) ->
-      case string.split_once(after, end_marker) {
-        Error(_) -> Error(Nil)
-        Ok(#(value, _rest)) -> Ok(value)
-      }
-  }
+  mobile |> string.contains("window.NEXUS_CATEGORY_URL") |> should.be_true
+  desktop |> string.contains("window.NEXUS_CATEGORY_URL") |> should.be_true
+  desktop |> string.contains("href=\"/urunler?kategori=") |> should.be_false
 }
 
 // ---------------------------------------------------------------------------

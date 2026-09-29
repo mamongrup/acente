@@ -44,26 +44,32 @@ pub fn all_panel_categories_have_public_surfaces_test() {
     "cinema: {",
     "event: {",
     "restaurant: {",
-    "category-directory-grid",
+    "category-managed-filters",
   ])
   |> should.be_true
 }
 
-pub fn legacy_category_aliases_use_real_landings_test() {
+pub fn clean_category_routes_replace_legacy_aliases_test() {
   let source = read_file(router_path)
   contains_all(source, [
-    "{get, [~\"konaklama-kategoriler\"]} ->\n                    public_category_page(Req, Db, Origin, ~\"hotel\")",
-    "{get, [~\"deneyimler\"]} ->\n                    public_category_page(Req, Db, Origin, ~\"tour\")",
-    "{get, [~\"arac\"]} ->\n                    public_category_page(Req, Db, Origin, ~\"car\")",
-    "{get, [~\"ucus\"]} ->\n                    public_category_page(Req, Db, Origin, ~\"flight\")",
-    "{get, [~\"otobus\"]} ->\n                    public_category_page(Req, Db, Origin, ~\"bus\")",
+    "{get, [~\"otel\"]} -> public_category_page(Req, Db, Origin, ~\"hotel\")",
+    "{get, [~\"tatil-evi\"]} -> public_category_page(Req, Db, Origin, ~\"holiday_home\")",
+    "{get, [~\"arac\"]} -> public_category_page(Req, Db, Origin, ~\"car\")",
+    "{get, [~\"ucus\"]} -> public_category_page(Req, Db, Origin, ~\"flight\")",
+    "{get, [~\"otobus\"]} -> public_category_page(Req, Db, Origin, ~\"bus\")",
   ])
+  |> should.be_true
+  source
+  |> string.contains("{get, [~\"kategori\", _]} ->")
+  |> should.be_true
+  source
+  |> string.contains("wisp:string_body(wisp:response(404), ~\"Sayfa bulunamadı\")")
   |> should.be_true
 }
 
 pub fn detail_shell_has_category_features_test() {
   let js = read_file(catalog_js_path)
   let css = read_file(bridge_css_path)
-  contains_all(js, [".detail-columns", "category-feature-strip", "cfg.booking"]) |> should.be_true
-  contains_all(css, [".category-feature-strip", ".category-directory-card.is-active"]) |> should.be_true
+  contains_all(js, [".detail-columns", "detail-gallery", "cfg.booking"]) |> should.be_true
+  contains_all(css, [".detail-columns", ".detail-amenities"]) |> should.be_true
 }

@@ -6,6 +6,12 @@
   const body = document.getElementById("supplier-onboarding-body");
   const documentsWrap = document.getElementById("supplier-document-review");
   const refresh = document.getElementById("supplier-onboarding-refresh");
+  const notice = document.createElement("p");
+  notice.className = "muted";
+  notice.setAttribute("role", "status");
+  notice.setAttribute("aria-live", "polite");
+  notice.hidden = true;
+  workspace.prepend(notice);
 
   function escapeHtml(value) {
     return String(value || "")
@@ -23,6 +29,10 @@
       approved: "Onaylandı",
       rejected: "Reddedildi",
       suspended: "Askıda",
+      verified: "Doğrulandı",
+      manual_review: "Manuel inceleme",
+      failed: "Başarısız",
+      pending: "Bekliyor",
     };
     return labels[status] || status || "—";
   }
@@ -53,7 +63,7 @@
       .join("");
   }
 
-  function renderTable(applications) {
+  function renderTable(applications, documents) {
     if (!body) return;
     if (!applications || !applications.length) {
       body.innerHTML = `<tr><td colspan="8">Henüz tedarikçi başvurusu yok.</td></tr>`;
@@ -61,8 +71,11 @@
     }
     body.innerHTML = applications
       .map((app) => {
-        const supplier = app.name ? `${app.name}<br><small>${app.email}</small>` : app.email;
-        const actions = renderActions(app);
+        const supplier = app.name
+          ? `${escapeHtml(app.name)}<br><small>${escapeHtml(app.email)}</small>`
+          : escapeHtml(app.email);
+        const appDocuments = (documents || []).filter((doc) => doc.application_id === app.id);
+        const actions = renderActions(app, appDocuments);
         return `<tr>
           <td>${supplier}</td>
           <td>${escapeHtml(app.categories || "—")}</td>
@@ -100,6 +113,7 @@
 
   function documentDecisionForm(doc, decision, label, className) {
     if (!doc.document_id) return "";
+    if (decision === "approved" && doc.source_valid !== "true") return "";
     return `<form method="post" action="/admin/supplier-onboarding/document-decision" class="inline-action-form">
       <input type="hidden" name="document" value="${escapeHtml(doc.document_id)}">
       <input type="hidden" name="decision" value="${escapeHtml(decision)}">
@@ -133,8 +147,8 @@
                   : `<div class="table-actions">${documentDecisionForm(doc, "approved", "Onayla", "primary")}${documentDecisionForm(doc, "rejected", "Reddet", "secondary")}${documentDecisionForm(doc, "pending", "Beklet", "secondary")}</div>`;
                 return `<tr>
                   <td>${escapeHtml(documentTypeLabel(doc.document_type))}</td>
-                  <td><span class="${statusClass(doc.status)}">${escapeHtml(documentStatusLabel(doc.status))}</span></td>
-                  <td>${escapeHtml(doc.media_id || "—")}</td>
+                  <td><span class="${statusClass(doc.status)}">${escapeHtml(documentStatusLabel(doc.status))}</span>${doc.expires_on ? `<small class="muted"> Son geçerlilik: ${escapeHtml(doc.expires_on)}</small>` : ""}${doc.document_id && doc.source_valid !== "true" ? `<small class="muted"> Tedarikçi kaynak belgesi doğrulanamadı</small>` : ""}</td>
+                  <td>${/^https:\/\/[^\s]+$/.test(doc.document_url || "") ? `<a href="${escapeHtml(doc.document_url)}" target="_blank" rel="noopener noreferrer">Belgeyi aç</a>` : escapeHtml(doc.media_id || "—")}</td>
                   <td>${escapeHtml(doc.reviewed_at || "—")}</td>
                   <td>${escapeHtml(doc.note || "")}</td>
                   <td>${actions}</td>
@@ -166,18 +180,33 @@
     </form>`;
   }
 
-  function renderActions(app) {
+  function identityForm(app, result, label) {
+    return `<form method="post" action="/admin/supplier-onboarding/identity" class="inline-action-form">
+      <input type="hidden" name="application" value="${escapeHtml(app.id)}">
+      <input type="hidden" name="result" value="${escapeHtml(result)}">
+      <input name="note" minlength="10" maxlength="1000" required placeholder="Kimlik kontrolü ve kanıt notu" aria-label="Kimlik kontrol kanıtı">
+      <button type="submit" class="secondary">${escapeHtml(label)}</button>
+    </form>`;
+  }
+
+  function renderActions(app, documents) {
+    const today = new Date().toISOString().slice(0, 10);
+    const eligible = app.identity_status === "verified" && documents.length > 0 && documents.every((doc) => doc.status === "approved" && doc.source_valid === "true" && (!doc.expires_on || doc.expires_on >= today));
+    const identity = ["submitted", "in_review"].includes(app.status)
+      ? identityForm(app, "verified", "Kimliği doğrula") + identityForm(app, "manual_review", "İncelemeye al")
+      : "";
+    const approval = eligible ? decisionButton(app, "approved", "Onayla", "primary") : `<span class="muted">Onay için kimlik ve tüm belgeler doğrulanmalı.</span>`;
     if (app.status === "submitted" || app.status === "draft" || app.status === "rejected") {
-      return `<div class="table-actions">${decisionButton(app, "in_review", "İncele", "secondary")}${decisionButton(app, "approved", "Onayla", "primary")}</div>`;
+      return `<div class="table-actions">${decisionButton(app, "in_review", "İncele", "secondary")}${identity}${approval}</div>`;
     }
     if (app.status === "in_review") {
-      return `<div class="table-actions">${decisionButton(app, "approved", "Onayla", "primary")}${decisionButton(app, "rejected", "Reddet", "secondary")}</div>`;
+      return `<div class="table-actions">${identity}${approval}${decisionButton(app, "rejected", "Reddet", "secondary")}</div>`;
     }
     if (app.status === "approved") {
       return `<div class="table-actions">${decisionButton(app, "suspended", "Askıya al", "secondary")}</div>`;
     }
     if (app.status === "suspended") {
-      return `<div class="table-actions">${decisionButton(app, "approved", "Tekrar onayla", "primary")}</div>`;
+      return `<div class="table-actions">${approval}</div>`;
     }
     return `<span class="muted">Aksiyon yok</span>`;
   }
@@ -192,7 +221,7 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Başvurular okunamadı");
       renderCards(data.applications || []);
-      renderTable(data.applications || []);
+      renderTable(data.applications || [], data.documents || []);
       renderDocuments(data.applications || [], data.documents || []);
     } catch (error) {
       if (body) body.innerHTML = `<tr><td colspan="8">${escapeHtml(error.message)}</td></tr>`;
@@ -203,5 +232,39 @@
   }
 
   if (refresh) refresh.addEventListener("click", load);
+  workspace.addEventListener("submit", async (event) => {
+    const form = event.target;
+    if (!form.matches('form[action="/admin/supplier-onboarding/decision"], form[action="/admin/supplier-onboarding/document-decision"], form[action="/admin/supplier-onboarding/identity"]')) return;
+    event.preventDefault();
+    const buttons = Array.from(form.querySelectorAll('button[type="submit"]'));
+    buttons.forEach((button) => { button.disabled = true; });
+    notice.hidden = true;
+    try {
+      const response = await fetch(form.action, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(new FormData(form)),
+      });
+      if (response.redirected && new URL(response.url).pathname === "/login") {
+        notice.textContent = "Oturum sona erdi. Yeniden giriş yapın.";
+      } else if (response.ok) {
+        notice.textContent = "Karar kaydedildi.";
+        await load();
+      } else {
+        notice.textContent = ({
+          403: "Bu inceleme için yetkiniz yok.",
+          404: "Başvuru veya belge bulunamadı.",
+          409: "Karar mevcut başvuru durumunda uygulanamadı. Kimlik durumu ve zorunlu belgeleri kontrol edin.",
+          503: "Karar şu anda kaydedilemedi. Biraz sonra yeniden deneyin.",
+        })[response.status] || "Karar kaydedilemedi.";
+      }
+    } catch (_) {
+      notice.textContent = "Bağlantı hatası nedeniyle karar kaydedilemedi.";
+    } finally {
+      notice.hidden = false;
+      buttons.forEach((button) => { button.disabled = false; });
+    }
+  });
   load();
 })();

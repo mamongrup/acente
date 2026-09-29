@@ -1,0 +1,81 @@
+name: Release readiness
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  readiness:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Gleam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27"
+          gleam-version: "1.18.1"
+
+      - name: Build
+        shell: pwsh
+        run: gleam build
+
+      - name: Gleam unit tests
+        shell: pwsh
+        run: gleam test
+
+      - name: Static release script parse
+        shell: pwsh
+        run: |
+          $files = @(
+            "scripts/check-release-readiness.ps1",
+            "scripts/check-production-gates.ps1",
+            "scripts/check-secret-hygiene.ps1",
+            "scripts/check-legacy-cleanup.ps1",
+            "scripts/check-worker-hygiene.ps1",
+            "scripts/check-nexus-callback-flow.ps1",
+            "scripts/check-nexus-rest-contract.ps1",
+            "scripts/rebaseline-migration.ps1",
+            "scripts/check-runtime-health.ps1",
+            "scripts/run-audit-retention.ps1",
+            "scripts/backup-restore-drill.ps1",
+            "scripts/check-nexus-reservation-queue.ps1",
+            "scripts/test-parampos.ps1",
+            "scripts/run-e2e-simulation.ps1"
+          )
+          foreach ($file in $files) {
+            if (!(Test-Path $file)) { throw "Missing script: $file" }
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) { throw "$file parse failed: $($errors[0].Message)" }
+          }
+
+      - name: Worker hygiene
+        shell: pwsh
+        run: ./scripts/check-worker-hygiene.ps1
+
+      - name: Production gate negative smoke
+        shell: pwsh
+        run: |
+          $envFile = Join-Path $env:RUNNER_TEMP "unsafe-production.env"
+          @"
+          APP_ENV=production
+          APP_ORIGIN=http://localhost:8082
+          SECRET_KEY_BASE=short
+          NEXUS_CONFIG_KEY=short
+          PGHOST=127.0.0.1
+          PGPORT=5432
+          PGDATABASE=nexus_agency
+          PGUSER=agency_app
+          PGPASSWORD=dummy
+          TRUSTED_PROXY_SECURE_COOKIES=false
+          EDGE_RATE_LIMIT_ENABLED=false
+          "@ | Set-Content -LiteralPath $envFile -Encoding UTF8
+          powershell -ExecutionPolicy Bypass -File scripts/check-production-gates.ps1 -EnvPath $envFile
+          if ($LASTEXITCODE -eq 0) { throw "Production gate unexpectedly passed for unsafe env." }
+          Write-Host "Unsafe production env rejected as expected."

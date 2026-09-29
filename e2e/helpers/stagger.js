@@ -150,7 +150,10 @@ async function expectSettledVisible(page, { panelSelector, childSelector = '*', 
         (el) => el.getClientRects().length > 0,
       );
       if (kids.length === 0) return false;
-      return kids.every((el) => parseFloat(getComputedStyle(el).opacity) === 1);
+      return kids.every((el) =>
+        parseFloat(getComputedStyle(el).opacity) === 1 &&
+        el.getAnimations().every((animation) => animation.playState !== 'running'),
+      );
     },
     probe,
     { timeout: 5_000 },

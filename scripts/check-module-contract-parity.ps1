@@ -125,6 +125,28 @@ $agencyRows = Normalize-Rows (Invoke-ProjectSql $agencyEnv $agencySql)
 $nexusRows = Normalize-Rows (Invoke-ProjectSql $nexusEnv $nexusSql)
 $agencyDetailRows = Normalize-Rows (Invoke-ProjectSql $agencyEnv $agencyDetailsSql)
 $nexusDetailRows = Normalize-Rows (Invoke-ProjectSql $nexusEnv $nexusDetailsSql)
+$supplierRoles = @('owner','operations_director','content_moderator','general_manager',
+  'sales','editor','onboarding_specialist','frontdesk','support_specialist',
+  'ai_pricing_specialist','marketing','housekeeping','finance_manager',
+  'accounting','purchasing')
+$supplierPermissions = @($expectedModules | ForEach-Object {
+  @($moduleDetails.$_.permissions)
+} | Sort-Object -Unique) + @('supplier.unknown')
+$roleSql = ($supplierRoles | ForEach-Object { "('$_')" }) -join ','
+$permissionSql = ($supplierPermissions | ForEach-Object { "('$_')" }) -join ','
+$decisionSql = @"
+WITH roles(role) AS (VALUES $roleSql), permissions(permission) AS (VALUES $permissionSql)
+SELECT roles.role || '|' || permissions.permission || '|' ||
+  agency.role_allows_supplier_permission(roles.role,permissions.permission)::text
+FROM roles CROSS JOIN permissions ORDER BY roles.role,permissions.permission;
+"@
+$nexusDecisionSql = $decisionSql.Replace('agency.role_allows_supplier_permission',
+  'onboarding.role_allows_supplier_permission')
+$agencyDecisionRows = Normalize-Rows (Invoke-ProjectSql $agencyEnv $decisionSql)
+$nexusDecisionRows = Normalize-Rows (Invoke-ProjectSql $nexusEnv $nexusDecisionSql)
+if (($agencyDecisionRows -join "`n") -ne ($nexusDecisionRows -join "`n")) {
+  throw 'Acente ve NEXUS tedarikçi rol/yetki kararları farklı.'
+}
 $expectedDetailRows = Normalize-Rows (@($expectedModules | ForEach-Object {
   $detail = $moduleDetails.$_
   "$_|$($detail.family)|$(@($detail.scope) -join ',')|$(@($detail.permissions) -join ',')"
@@ -158,3 +180,4 @@ if ($missingInNexus.Count -gt 0 -or $missingInAgency.Count -gt 0) {
 }
 
 Write-Output "Tedarikçi panel modül sözleşmeleri uyumlu: $($agencyRows.Count) aktif modül."
+Write-Output "Tedarikçi rol/yetki kararları uyumlu: $($agencyDecisionRows.Count) karar."

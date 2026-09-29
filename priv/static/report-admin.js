@@ -142,6 +142,117 @@
   }
   function cell(value) { var td = document.createElement('td'); td.textContent = value || '—'; return td; }
   function empty(table, count, message) { var row = document.createElement('tr'); var td = cell(message); td.colSpan = count; td.className = 'empty-state'; row.appendChild(td); table.appendChild(row); }
+  function actionCell(label, handler) {
+    var td = document.createElement('td');
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'secondary audit-detail-btn';
+    btn.textContent = label;
+    btn.addEventListener('click', handler);
+    td.appendChild(btn);
+    return td;
+  }
+  function pretty(value) {
+    if (value === null || value === undefined || value === '') return '—';
+    if (typeof value === 'string') {
+      try { return JSON.stringify(JSON.parse(value), null, 2); } catch (_) { return value; }
+    }
+    try { return JSON.stringify(value, null, 2); } catch (_) { return String(value); }
+  }
+  var auditDialog = null;
+  function ensureAuditDialog() {
+    if (auditDialog) return auditDialog;
+    auditDialog = document.createElement('div');
+    auditDialog.className = 'audit-detail-dialog';
+    auditDialog.setAttribute('hidden', 'hidden');
+    auditDialog.innerHTML =
+      '<div class="audit-detail-backdrop" data-close="1"></div>' +
+      '<section class="audit-detail-card" role="dialog" aria-modal="true" aria-labelledby="audit-detail-title">' +
+      '<button type="button" class="audit-detail-close" data-close="1" aria-label="Kapat">×</button>' +
+      '<h3 id="audit-detail-title">Denetim detayı</h3>' +
+      '<dl class="audit-detail-list">' +
+      '<div><dt>İşlem</dt><dd data-audit-field="action"></dd></div>' +
+      '<div><dt>Varlık</dt><dd data-audit-field="entity"></dd></div>' +
+      '<div><dt>Varlık ID</dt><dd data-audit-field="entityId"></dd></div>' +
+      '<div><dt>Kullanıcı</dt><dd data-audit-field="user"></dd></div>' +
+      '<div><dt>IP</dt><dd data-audit-field="ip"></dd></div>' +
+      '<div><dt>Tarayıcı</dt><dd data-audit-field="userAgent"></dd></div>' +
+      '<div><dt>Request ID</dt><dd data-audit-field="requestId"></dd></div>' +
+      '<div><dt>Tarih</dt><dd data-audit-field="createdAt"></dd></div>' +
+      '</dl>' +
+      '<h4>Metadata</h4><pre data-audit-field="metadata"></pre>' +
+      '</section>';
+    auditDialog.addEventListener('click', function (event) {
+      if (event.target && event.target.getAttribute('data-close')) closeAuditDialog();
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && auditDialog && !auditDialog.hasAttribute('hidden')) closeAuditDialog();
+    });
+    document.body.appendChild(auditDialog);
+    return auditDialog;
+  }
+  function setAuditField(dialog, name, value) {
+    var el = dialog.querySelector('[data-audit-field="' + name + '"]');
+    if (el) el.textContent = value || '—';
+  }
+  function openAuditDialog(audit) {
+    var dialog = ensureAuditDialog();
+    setAuditField(dialog, 'action', audit.action);
+    setAuditField(dialog, 'entity', audit.entityType || audit.entity);
+    setAuditField(dialog, 'entityId', audit.entityId);
+    setAuditField(dialog, 'user', audit.userName || audit.userEmail || audit.userId);
+    setAuditField(dialog, 'ip', audit.ip);
+    setAuditField(dialog, 'userAgent', audit.userAgent);
+    setAuditField(dialog, 'requestId', audit.requestId);
+    setAuditField(dialog, 'createdAt', audit.createdAt);
+    setAuditField(dialog, 'metadata', pretty(audit.metadata));
+    dialog.removeAttribute('hidden');
+    var close = dialog.querySelector('.audit-detail-close');
+    if (close) close.focus();
+  }
+  function closeAuditDialog() {
+    if (auditDialog) auditDialog.setAttribute('hidden', 'hidden');
+  }
+  var auditSearch = document.getElementById('audit-search');
+  var auditEntity = document.getElementById('audit-entity');
+  var auditExport = document.getElementById('audit-export-csv');
+  function auditUrl(path) {
+    var params = new URLSearchParams();
+    if (auditSearch && auditSearch.value.trim()) params.set('q', auditSearch.value.trim());
+    if (auditEntity && auditEntity.value) params.set('entity', auditEntity.value);
+    params.set('limit', '200');
+    return path + '?' + params.toString();
+  }
+  function renderAudits(rows) {
+    audits.textContent = '';
+    if (!rows.length) return empty(audits, 5, 'Henüz denetim kaydı yok.');
+    rows.forEach(function (audit) {
+      var row = document.createElement('tr');
+      row.appendChild(cell(audit.action));
+      row.appendChild(cell(audit.entityType || audit.entity));
+      row.appendChild(cell(audit.userName || audit.userEmail || audit.userId));
+      row.appendChild(cell(audit.createdAt));
+      row.appendChild(actionCell('Detay', function () { openAuditDialog(audit); }));
+      audits.appendChild(row);
+    });
+  }
+  function loadAudits() {
+    audits.textContent = '';
+    empty(audits, 5, 'Denetim kayıtları yükleniyor…');
+    fetch(auditUrl('/admin/reports/audits'), { credentials: 'same-origin', cache: 'no-store' })
+      .then(function (response) { if (!response.ok) throw new Error('Denetim kayıtları yüklenemedi'); return response.json(); })
+      .then(renderAudits)
+      .catch(function (error) { audits.textContent = ''; empty(audits, 5, error.message); });
+  }
+  var auditTimer = null;
+  if (auditSearch) auditSearch.addEventListener('input', function () {
+    clearTimeout(auditTimer);
+    auditTimer = setTimeout(loadAudits, 250);
+  });
+  if (auditEntity) auditEntity.addEventListener('change', loadAudits);
+  if (auditExport) auditExport.addEventListener('click', function () {
+    window.open(auditUrl('/admin/reports/audits.csv'), '_blank', 'noopener');
+  });
   fetch('/admin/reports/data', { credentials: 'same-origin', cache: 'no-store' })
     .then(function (response) { if (!response.ok) throw new Error('Rapor yüklenemedi'); return response.json(); })
     .then(function (data) {
@@ -149,11 +260,10 @@
       document.getElementById('report-reservations').textContent = data.reservations;
       document.getElementById('report-customers').textContent = data.customers;
       document.getElementById('report-contacts').textContent = data.newContacts;
-      tasks.textContent = ''; audits.textContent = '';
+      tasks.textContent = '';
       if (!data.tasks.length) empty(tasks, 4, 'Henüz görev kaydı yok.');
       data.tasks.forEach(function (task) { var row = document.createElement('tr'); row.appendChild(cell(task.task)); row.appendChild(cell(task.status)); row.appendChild(cell(task.attempt)); row.appendChild(cell(task.finishedAt)); tasks.appendChild(row); });
-      if (!data.audits.length) empty(audits, 3, 'Henüz denetim kaydı yok.');
-      data.audits.forEach(function (audit) { var row = document.createElement('tr'); row.appendChild(cell(audit.action)); row.appendChild(cell(audit.entity)); row.appendChild(cell(audit.createdAt)); audits.appendChild(row); });
+      loadAudits();
     })
-    .catch(function (error) { tasks.textContent = ''; audits.textContent = ''; empty(tasks, 4, error.message); empty(audits, 3, error.message); });
+    .catch(function (error) { tasks.textContent = ''; audits.textContent = ''; empty(tasks, 4, error.message); empty(audits, 5, error.message); });
 })();

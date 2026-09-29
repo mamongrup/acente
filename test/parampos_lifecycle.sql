@@ -5,8 +5,32 @@ DECLARE
   total int; mismatch boolean := false; failed boolean := false;
 BEGIN
   SELECT id INTO STRICT tenant FROM agency.tenants LIMIT 1;
-  INSERT INTO agency.listings(tenant_id,code,category,title,price_minor,status)
-    VALUES(tenant,'parampos-test-'||gen_random_uuid(),'hotel','Payment test',12345,'published') RETURNING id INTO listing;
+  INSERT INTO agency.listings(
+    tenant_id,code,category,title,locality,description,currency,price_minor,
+    status,source,metadata,images,owner_info,cancellation_policy
+  )
+    VALUES(
+      tenant,
+      'parampos-test-'||gen_random_uuid(),
+      'hotel',
+      'Payment test',
+      'Test locality',
+      'ParamPOS lifecycle regression listing.',
+      'TRY',
+      12345,
+      'published',
+      'manual',
+      jsonb_build_object(
+        'property_type','Otel',
+        'room_types','Standart Oda',
+        'board_type','Oda Kahvaltı',
+        'check_in_time','14:00',
+        'check_out_time','12:00'
+      ),
+      jsonb_build_array(jsonb_build_object('url','/static/placeholder.jpg')),
+      jsonb_build_object('provider','ParamPOS lifecycle test'),
+      jsonb_build_object('policy','Test cancellation policy')
+    ) RETURNING id INTO listing;
   SELECT * INTO STRICT o FROM agency.checkout_order(tenant,'Test','parampos-test@example.invalid','',listing,'TEST-'||gen_random_uuid(),CURRENT_DATE+1,CURRENT_DATE+4,2,'parampos-test-'||listing);
   ASSERT o.total_minor=37035, 'server price must include nights';
   SELECT * INTO STRICT repeated FROM agency.checkout_order(tenant,'Test','parampos-test@example.invalid','',listing,'ignored',CURRENT_DATE+1,CURRENT_DATE+4,2,'parampos-test-'||listing);

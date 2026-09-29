@@ -40,7 +40,7 @@ Get-Content (Join-Path $root '.env') | ForEach-Object {
     }
 }
 
-$psql = 'C:/laragon/bin/postgresql/postgresql/bin/psql.exe'
+$psql = (Get-Command psql -ErrorAction Stop).Source
 
 function Write-Log([string]$msg) {
     $ts   = (Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz')

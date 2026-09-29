@@ -666,6 +666,30 @@
   }
 
   // ---- Mevcut canlı değerler ---------------------------------------------
+  function renderWorkQueue(queues) {
+    var host = document.getElementById('dashboard-work-queue');
+    if (!host || !queues) return;
+    var role = (document.querySelector('[data-panel-role]') || {}).dataset.panelRole || 'admin';
+    var definitions = {
+      draftListings: ['Taslak ilan', '/admin/catalog#catalog-workspace'],
+      reviewListings: ['İncelemedeki ilan', '/admin/catalog#catalog-workspace'],
+      pendingReservations: ['Bekleyen rezervasyon', role === 'supplier' ? '/admin/supplier-bookings' : '/admin/reservations'],
+      serviceDue: ['Tarihi geçen hizmet adımı', '/admin/supplier-bookings'],
+      serviceUnstarted: ['Başlatılmamış hizmet akışı', '/admin/supplier-bookings'],
+      openContacts: ['Yeni müşteri talebi', role === 'supplier' ? '/admin/supplier-inquiries' : '/admin/inquiries'],
+      openSupport: ['Açık destek görüşmesi', '/admin/customer-care'],
+      openRequests: ['Rezervasyon işlem talebi', '/admin/customer-care'],
+      failedPayments: ['Başarısız ödeme', '/admin/reports'],
+      syncErrors: ['Senkronizasyon hatası', '/admin/sync']
+    };
+    var allowed = role === 'supplier' ? ['draftListings','reviewListings','pendingReservations','serviceDue','serviceUnstarted','openContacts'] : role === 'sub_agency' ? ['pendingReservations','openContacts'] : role === 'staff' ? ['draftListings','reviewListings','pendingReservations','openContacts','openSupport','openRequests'] : Object.keys(definitions);
+    var active = allowed.filter(function (key) { return Number(queues[key] || 0) > 0; });
+    host.innerHTML = '<h2>İş bekleyen konular</h2>' + (active.length ? '<div class="dashboard-queue">' + active.map(function (key) {
+      var item = definitions[key];
+      return '<a href="' + item[1] + '"><strong>' + Number(queues[key]) + '</strong><span>' + item[0] + '</span><i class="hgi-stroke hgi-arrow-right-01" aria-hidden="true"></i></a>';
+    }).join('') + '</div>' : '<p class="muted">Şu anda bekleyen işlem bulunmuyor.</p>');
+  }
+
   function loadValues() {
     return fetch('/admin/dashboard/data', { credentials: 'same-origin', cache: 'no-store' })
       .then(function (response) { if (!response.ok) throw new Error('Genel bakış yüklenemedi'); return response.json(); })
@@ -678,6 +702,7 @@
         renderValue('dashboard-pending', data.pending);
         renderValue('dashboard-upcoming', data.upcoming);
         renderValue('dashboard-nexus', data.nexus);
+        renderWorkQueue(data.queues);
         updateTimestamp();
       })
       .catch(function () {

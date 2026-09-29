@@ -1,4 +1,242 @@
 (() => {
+  const breadcrumb = document.querySelector('.product-detail .detail-breadcrumb');
+  const detailTitle = document.querySelector('.product-detail h1');
+  if (breadcrumb && detailTitle) {
+    const category = (document.querySelector('.product-detail')?.className.match(/category-([a-z_]+)/) || [])[1];
+    const home = breadcrumb.querySelector('a');
+    const categoryLabel = breadcrumb.querySelector('span:last-child');
+    if (home) { home.href = '/'; home.textContent = 'Ana Sayfa'; }
+    if (categoryLabel && category) {
+      const categoryLink = document.createElement('a');
+      categoryLink.href = window.NEXUS_CATEGORY_URL ? window.NEXUS_CATEGORY_URL(category, 'tr') : '/' + category;
+      categoryLink.textContent = categoryLabel.textContent;
+      categoryLabel.replaceWith(categoryLink);
+    }
+    const separator = document.createElement('span');
+    separator.textContent = '/';
+    const current = document.createElement('span');
+    current.textContent = detailTitle.textContent;
+    current.setAttribute('aria-current', 'page');
+    breadcrumb.append(separator, current);
+  }
+  const detailMain = document.querySelector('.product-detail .detail-main');
+  const listingId = document.querySelector('#public-availability')?.dataset.listingId;
+  if (detailMain && listingId) {
+    fetch('/api/public/listings', { credentials: 'same-origin' })
+      .then(response => response.ok ? response.json() : [])
+      .then(items => {
+        const listing = Array.isArray(items) && items.find(item => item.id === listingId);
+        if (listing) renderListingInformation(detailMain, listing, items);
+      }).catch(() => {});
+  }
+  function renderListingInformation(main, listing, allListings) {
+    const intro = main.querySelector('.detail-intro');
+    const about = intro?.nextElementSibling;
+    const availability = main.querySelector('#public-availability')?.closest('.listingSection__wrap');
+    const related = [...main.children].find(node => node.querySelector('a[href*="/urunler?kategori"]'));
+    if (!intro || !about || !availability) return;
+    const category = listing.category;
+    let detailData = {};
+    try {
+      const encoded = document.querySelector('.product-detail')?.dataset.listingDetail;
+      if (encoded) detailData = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(encoded), char => char.charCodeAt(0))));
+    } catch (_) {}
+    const metadata = detailData.metadata && typeof detailData.metadata === 'object' ? detailData.metadata : {};
+    if (category === 'hotel') {
+      const quality = [];
+      const stars = parseInt(metadata.hotel_stars, 10);
+      if (stars > 0 && stars <= 5) quality.push('☆'.repeat(stars) + ' ' + stars + ' yıldız');
+      const board = { uai: 'Ultra Her Şey Dahil', ai: 'Her Şey Dahil', bb: 'Oda Kahvaltı', hb: 'Yarım Pansiyon', fb: 'Tam Pansiyon' }[metadata.board_type];
+      if (board) quality.push(board);
+      if (quality.length) {
+        const line = document.createElement('p');
+        line.className = 'reference-hotel-quality';
+        line.textContent = quality.join(' · ');
+        intro.querySelector('h1')?.after(line);
+      }
+      about.querySelector('h2')?.replaceChildren(document.createTextNode('Otel tanıtımı'));
+    }
+    const details = [
+      [listing.guestCount, 'misafir'],
+      [listing.bedroomCount, 'yatak odası'],
+      [listing.bathroomCount, 'banyo']
+    ].filter(([value]) => value && Number(value) > 0);
+    if (details.length) {
+      const facts = document.createElement('div');
+      facts.className = 'reference-detail-facts';
+      details.forEach(([value, label]) => {
+        const fact = document.createElement('span');
+        fact.textContent = value + ' ' + label;
+        facts.appendChild(fact);
+      });
+      intro.appendChild(facts);
+    }
+    const rating = intro.querySelector('.detail-rating');
+    if (rating) {
+      if (listing.ratingAverage && Number(listing.reviewCount) > 0) rating.textContent = '★ ' + listing.ratingAverage + ' (' + listing.reviewCount + ')';
+      else rating.remove();
+    }
+    if (related) related.remove();
+    const money = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: listing.currency || 'TRY', maximumFractionDigits: 0 }).format(Number(listing.priceMinor || 0) / 100);
+    const rates = section('Oda ve fiyat bilgileri', 'Güncel başlangıç fiyatı; tarih ve müsaitliğe göre değişebilir.');
+    const rateRow = document.createElement('div');
+    rateRow.className = 'reference-detail-rate';
+    const rateLabel = document.createElement('span');
+    rateLabel.textContent = category === 'hotel' ? 'Gecelik başlangıç fiyatı' : 'Başlangıç fiyatı';
+    const rateValue = document.createElement('strong');
+    rateValue.textContent = money;
+    rateRow.append(rateLabel, rateValue);
+    rates.appendChild(rateRow);
+    about.after(rates);
+    const amenities = section('Olanaklar', 'İlanda belirtilen özellikler ve hizmetler');
+    const amenityNames = { pool: 'Havuz', sea_view: 'Deniz manzarası', jacuzzi: 'Jakuzi', sheltered: 'Korunaklı alan', ac: 'Klima', wifi: 'Wi-Fi', bbq: 'Barbekü', parking: 'Otopark', beach: 'Plaj', spa: 'Spa', restaurant: 'Restoran' };
+    const amenityValues = Array.isArray(listing.amenities) ? listing.amenities.filter(value => typeof value === 'string' && value) : [];
+    if (amenityValues.length) {
+      const list = document.createElement('div');
+      list.className = 'reference-detail-amenities';
+      amenityValues.forEach(value => {
+        const item = document.createElement('span');
+        item.textContent = amenityNames[value] || value.replace(/_/g, ' ');
+        list.appendChild(item);
+      });
+      amenities.appendChild(list);
+    } else amenities.appendChild(paragraph('Bu ilan için olanak bilgisi henüz eklenmemiş.'));
+    rates.after(amenities);
+    if (category === 'hotel') {
+      const stars = parseInt(metadata.hotel_stars, 10);
+      const rooms = Array.isArray(metadata.room_types) ? metadata.room_types.filter(room => room && room.title) : [];
+      if (rooms.length) {
+        const roomSection = section('Oda Seçenekleri', 'Oda tiplerini inceleyin ve tarih seçerek güncel fiyatı öğrenin.');
+        roomSection.classList.add('reference-room-section');
+        rooms.forEach(room => {
+          const card = document.createElement('article');
+          card.className = 'reference-room-card';
+          const photo = Array.isArray(room.images) && room.images[0];
+          if (photo) {
+            const image = document.createElement('img');
+            image.src = photo;
+            image.alt = room.title;
+            image.loading = 'lazy';
+            card.appendChild(image);
+          }
+          const content = document.createElement('div');
+          const name = document.createElement('h3');
+          name.textContent = room.title;
+          content.appendChild(name);
+          const specs = document.createElement('p');
+          specs.textContent = [room.adults && room.adults + ' yetişkin', room.children && room.children + ' çocuk', room.bed, room.size_m2 && room.size_m2 + ' m²', room.view_type].filter(Boolean).join(' · ');
+          content.appendChild(specs);
+          const note = document.createElement('small');
+          note.textContent = 'Odaya özel fiyat için tarih seçin.';
+          content.appendChild(note);
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = 'Tarih Seç';
+          button.addEventListener('click', () => {
+            document.querySelector('.detail-sidebar .chisfis-date-trigger')?.click();
+            document.querySelector('.detail-sidebar')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          });
+          content.appendChild(button);
+          card.appendChild(content);
+          roomSection.appendChild(card);
+        });
+        amenities.after(roomSection);
+      }
+      const ruleItems = [
+        metadata.check_in_time && ['Giriş', metadata.check_in_time],
+        metadata.check_out_time && ['Çıkış', metadata.check_out_time],
+        stars && ['Sınıf', stars + ' yıldız'],
+        detailData.policy?.policy && ['İptal ve iade', detailData.policy.policy]
+      ].filter(Boolean);
+      if (ruleItems.length) {
+        const rules = section('Kurallar', 'Konaklama koşulları ve tesis bilgileri');
+        rules.classList.add('reference-rules-section');
+        const grid = document.createElement('div');
+        grid.className = 'reference-rules-grid';
+        ruleItems.forEach(([label, value]) => {
+          const item = document.createElement('div');
+          const small = document.createElement('small');
+          small.textContent = label;
+          const strong = document.createElement('strong');
+          strong.textContent = value;
+          item.append(small, strong);
+          grid.appendChild(item);
+        });
+        rules.appendChild(grid);
+        (main.querySelector('.reference-room-section') || amenities).after(rules);
+      }
+    }
+    const availabilityTitle = availability.querySelector('h2');
+    if (availabilityTitle) availabilityTitle.textContent = 'Müsaitlik';
+    availability.appendChild(paragraph('Tarih seçerek güncel müsaitlik ve fiyat teklifini öğrenebilirsiniz.'));
+    const reviews = section('Yorumlar' + (Number(listing.reviewCount) > 0 ? ' (' + listing.reviewCount + ')' : ''));
+    reviews.appendChild(paragraph(Number(listing.reviewCount) > 0 ? 'Bu ilan için ' + listing.reviewCount + ' onaylı değerlendirme bulunuyor.' : 'Bu ilan için henüz yayımlanmış yorum yok.'));
+    availability.after(reviews);
+    const location = section('Konum', listing.locality || 'Konum bilgisi');
+    const lat = Number(listing.latitude), lon = Number(listing.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lon) && lat && lon) {
+      const map = document.createElement('iframe');
+      map.className = 'reference-detail-map';
+      map.title = 'İlan konumu';
+      map.loading = 'lazy';
+      map.referrerPolicy = 'no-referrer';
+      map.src = 'https://www.openstreetmap.org/export/embed.html?bbox=' + [lon - .015, lat - .015, lon + .015, lat + .015].join('%2C') + '&layer=mapnik&marker=' + lat + '%2C' + lon;
+      location.appendChild(map);
+    } else location.appendChild(paragraph('Harita konumu henüz paylaşılmamış.'));
+    reviews.after(location);
+    const columns = main.closest('.detail-columns');
+    if (columns) {
+      columns.after(location);
+      const similar = allListings.filter(item => item.id !== listing.id && item.category === listing.category).slice(0, 4);
+      if (similar.length) {
+        const relatedSection = section('Benzer ilanlar');
+        relatedSection.classList.add('reference-similar');
+        const grid = document.createElement('div');
+        grid.className = 'reference-similar-grid';
+        similar.forEach(item => {
+          const link = document.createElement('a');
+          link.href = window.NEXUS_LISTING_URL ? window.NEXUS_LISTING_URL(item) : '/urunler/' + encodeURIComponent(item.id);
+          const image = document.createElement('img');
+          image.src = Array.isArray(item.images) && item.images[0] || '/static/chisfis/images/pexels-photo-6129967.home.webp';
+          image.alt = item.title || '';
+          image.loading = 'lazy';
+          const type = document.createElement('small');
+          type.textContent = item.categoryLabel || '';
+          const title = document.createElement('strong');
+          title.textContent = item.title || 'İlan';
+          const place = document.createElement('span');
+          place.textContent = item.locality || '';
+          link.append(image, type, title, place);
+          grid.appendChild(link);
+        });
+        relatedSection.appendChild(grid);
+        location.after(relatedSection);
+      }
+      if (detailData.ownerName) {
+        const owner = section('İlan sahibi');
+        owner.classList.add('reference-owner');
+        const name = document.createElement('strong');
+        name.textContent = detailData.ownerName;
+        owner.appendChild(name);
+        (document.querySelector('.reference-similar') || location).after(owner);
+        owner.after(reviews);
+      } else (document.querySelector('.reference-similar') || location).after(reviews);
+    }
+  }
+  function section(title, subtitle) {
+    const node = document.createElement('section');
+    node.className = 'listingSection__wrap reference-detail-section';
+    const heading = document.createElement('h2');
+    heading.textContent = title;
+    node.appendChild(heading);
+    if (subtitle) node.appendChild(paragraph(subtitle));
+    return node;
+  }
+  function paragraph(text) {
+    const p = document.createElement('p');
+    p.textContent = text;
+    return p;
+  }
   const today = new Date().toISOString().slice(0, 10);
   document.querySelectorAll('.booking-quick-form').forEach(form => {
     const dates = form.querySelectorAll('input[type="date"]');
@@ -68,7 +306,7 @@
       const showAll = document.createElement('button');
       showAll.type = 'button';
       showAll.className = 'gallery-showall';
-      showAll.textContent = 'Tüm fotoğrafları gör (' + images.length + ')';
+      showAll.textContent = 'Tüm fotoğrafları göster';
       showAll.addEventListener('click', () => openLightbox(images, 0));
       gallery.appendChild(showAll);
     }

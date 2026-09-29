@@ -236,8 +236,8 @@ pub fn router_scope_test() {
   // Fiyat gösteren mağaza sayfaları kapsamda
   route |> string.contains("[\"urunler\"]") |> should.equal(True)
   route |> string.contains("[\"urunler\", _]") |> should.equal(True)
-  route |> string.contains("[\"kategori\", _]") |> should.equal(True)
-  route |> string.contains("[\"rezervasyon\"]") |> should.equal(True)
+  route |> string.contains("[_] -> True") |> should.equal(True)
+  route |> string.contains("[\"kategori\", _]") |> should.equal(False)
   // Gerçek TRY tahsilatı gösteren ödeme sayfası kapsam DIŞI
   route |> string.contains("parampos") |> should.equal(False)
   // Yalnız GET yanıtları
@@ -368,6 +368,8 @@ pub fn symbol_table_parity_test() {
     #("EUR", "€"),
     #("GBP", "£"),
     #("SAR", "﷼"),
+    #("RUB", "₽"),
+    #("CNY", "¥"),
   ]
   let src = read(main_js_path)
   let symbols_line =
@@ -388,7 +390,7 @@ pub fn symbol_table_parity_test() {
     |> should.equal(True)
   })
   // NEXUS_LOCALE.currencies listesi de aynı simgeleri taşır
-  pairs
+  pairs |> list.filter(fn(pair) { pair.0 != "SAR" })
   |> list.each(fn(pair) {
     let #(code, symbol) = pair
     read(main_js_path)

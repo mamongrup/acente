@@ -32,7 +32,7 @@
   }
 
   function currencySymbol(code) {
-    return { TRY: "₺", USD: "$", EUR: "€", GBP: "£", SAR: "﷼" }[String(code || "TRY").toUpperCase()] || code || "₺";
+    return { TRY: "₺", USD: "$", EUR: "€", GBP: "£", SAR: "﷼", RUB: "₽", CNY: "¥" }[String(code || "TRY").toUpperCase()] || code || "₺";
   }
 
   function priceUnit(category) {
@@ -51,7 +51,7 @@
   function renderCard(item, tenant) {
     const image = firstImage(item.images);
     const price = MONEY.format(Math.round(Number(item.priceMinor || 0) / 100));
-    const href = "/urunler/" + encodeURIComponent(item.id) + (tenant ? "?tenant=" + encodeURIComponent(tenant) : "");
+    const href = (window.NEXUS_LISTING_URL ? window.NEXUS_LISTING_URL(item) : "/urunler/" + encodeURIComponent(item.id)) + (tenant ? "?tenant=" + encodeURIComponent(tenant) : "");
     return '' +
       '<article class="product-card">' +
       '<div class="product-card-media" data-images="' + esc(JSON.stringify([image])) + '" style="background-image:url(' + esc(image) + ')"><button class="card-favorite" type="button" aria-label="Favorilere ekle">♡</button></div>' +
@@ -84,6 +84,7 @@
 
     function loadListings() {
       const apiParams = new URLSearchParams(new FormData(form));
+      if (category) apiParams.set("kategori", category);
       if (selectedKey && selectedValue) {
         apiParams.set("filter_key", selectedKey);
         apiParams.set("filter_value", selectedValue);
@@ -103,6 +104,11 @@
         .catch(function (error) {
           renderEmpty(grid, error.message || "İlanlar yüklenemedi.");
         });
+    }
+
+    if (category) {
+      const categorySelect = form.querySelector('select[name="kategori"]');
+      if (categorySelect) categorySelect.value = category;
     }
 
     if (category) {

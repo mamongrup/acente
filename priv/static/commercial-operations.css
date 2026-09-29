@@ -1,0 +1,45 @@
+#commercial-operations-content { display: grid; gap: 18px; margin-top: 20px; }
+#commercial-operations-content .commercial-card {
+  border: 1px solid var(--line-soft, #e6e9ef);
+  border-radius: 20px;
+  background: var(--glass-card, #fff);
+  padding: clamp(18px, 2vw, 28px);
+  box-shadow: var(--shadow-card, 0 10px 32px rgba(15, 23, 42, .04));
+}
+#commercial-operations-content .commercial-card h3 { margin: 0 0 16px; font-size: 1.12rem; }
+#commercial-operations-content .commercial-step-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px;
+}
+#commercial-operations-content .commercial-step {
+  border: 1px solid var(--line-soft, #e6e9ef); border-radius: 14px;
+  background: var(--fill-whisper, #f9fafb); padding: 13px 15px;
+}
+#commercial-operations-content .commercial-step summary { cursor: pointer; display: flex; justify-content: space-between; gap: 8px; }
+#commercial-operations-content .commercial-step summary span { color: var(--text-muted, #64748b); font-size: .82rem; }
+#commercial-operations-content .commercial-step ol { margin: 12px 0 0; padding-left: 20px; line-height: 1.55; }
+#commercial-operations-content .partner-action-form {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin: 14px 0;
+}
+#commercial-operations-content .commercial-field {
+  display: flex; flex: 1 1 210px; flex-direction: column; gap: 5px;
+  color: var(--text-muted, #64748b); font-size: .8rem;
+}
+#commercial-operations-content .commercial-field input { width: 100%; }
+#commercial-operations-content .partner-action-form input:not([type="hidden"]),
+#commercial-operations-content .partner-action-form select {
+  min-width: 155px; max-width: 100%; border: 1px solid var(--line-soft, #d9dee8);
+  border-radius: 10px; padding: 10px 12px; background: var(--glass-input, #fff);
+  color: var(--text-main, #111827);
+}
+#commercial-operations-content .partner-action-form button {
+  border: 0; border-radius: 10px; padding: 10px 15px;
+  background: var(--accent-solid, #5447e2); color: #fff; cursor: pointer;
+}
+#commercial-operations-content .commercial-card li { margin: 10px 0; }
+@media (max-width: 640px) {
+  #commercial-operations-content .partner-action-form { align-items: stretch; flex-direction: column; }
+  #commercial-operations-content .partner-action-form input:not([type="hidden"]),
+  #commercial-operations-content .partner-action-form select,
+  #commercial-operations-content .partner-action-form button { width: 100%; }
+  #commercial-operations-content .commercial-field { width: 100%; }
+}

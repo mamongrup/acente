@@ -15,8 +15,8 @@ const { measureStagger, expectStaggered, expectSettledVisible } = require('./hel
 // 1) Masaüstü popover'lar
 // ---------------------------------------------------------------------------
 const DESKTOP_POPOVERS = [
-  { id: 'popover-button-1', panel: 'popover-panel-1', name: 'Misafirler' },
-  { id: 'popover-button-2', panel: 'popover-panel-2', name: 'Keşfet' },
+  { id: 'popover-button-1', panel: 'popover-panel-1', name: 'Yolcular', children: '.nc-travel > *' },
+  { id: 'popover-button-2', panel: 'popover-panel-2', name: 'Şablonlar', children: '.nc-mega > *' },
   { id: 'popover-button-3', panel: 'popover-panel-3', name: 'Dil/Para birimi' },
   { id: 'popover-button-5', panel: 'popover-panel-5', name: 'Hesap' },
 ];
@@ -30,6 +30,7 @@ test.describe('masaüstü popover kademeli giriş', () => {
 
       const measured = await measureStagger(page, {
         panelSelector: '#' + popover.panel,
+        childSelector: popover.children,
         open: { type: 'id', value: popover.id },
       });
       expectStaggered(measured, {
@@ -40,6 +41,7 @@ test.describe('masaüstü popover kademeli giriş', () => {
 
       await expectSettledVisible(page, {
         panelSelector: '#' + popover.panel,
+        childSelector: popover.children,
         label: popover.name,
       });
     });
@@ -49,13 +51,14 @@ test.describe('masaüstü popover kademeli giriş', () => {
     await page.goto('/');
     const measured = await measureStagger(page, {
       panelSelector: '#popover-panel-2',
+      childSelector: '.nc-mega > *',
       open: { type: 'id', value: 'popover-button-2' },
     });
     const timings = expectStaggered(measured, {
       animationName: 'nc-stagger-in',
       durationMs: 280,
-      label: 'Keşfet',
-      minChildren: 6,
+      label: 'Şablonlar',
+      minChildren: 5,
     });
     // İlk gecikme .06s, her öğede +.04s artış (şablon değerleriyle birebir)
     expect(timings[0].delayMs).toBeCloseTo(60, -1);
@@ -70,10 +73,11 @@ test.describe('masaüstü popover kademeli giriş', () => {
     // 1. açılış
     let measured = await measureStagger(page, {
       panelSelector: panel,
+      childSelector: '.nc-mega > *',
       open: { type: 'id', value: 'popover-button-2' },
     });
-    expectStaggered(measured, { animationName: 'nc-stagger-in', durationMs: 280, label: 'Keşfet #1' });
-    await expectSettledVisible(page, { panelSelector: panel, label: 'Keşfet #1' });
+    expectStaggered(measured, { animationName: 'nc-stagger-in', durationMs: 280, label: 'Şablonlar #1' });
+    await expectSettledVisible(page, { panelSelector: panel, childSelector: '.nc-mega > *', label: 'Şablonlar #1' });
 
     // kapat (dış tıklama popover'ları kapatır)
     await page.mouse.click(5, 5);
@@ -85,10 +89,11 @@ test.describe('masaüstü popover kademeli giriş', () => {
     // 2. açılış — animasyon yeniden başlamalı (opacity tekrar 1'e dönmeli)
     measured = await measureStagger(page, {
       panelSelector: panel,
+      childSelector: '.nc-mega > *',
       open: { type: 'id', value: 'popover-button-2' },
     });
-    expectStaggered(measured, { animationName: 'nc-stagger-in', durationMs: 280, label: 'Keşfet #2' });
-    await expectSettledVisible(page, { panelSelector: panel, label: 'Keşfet #2' });
+    expectStaggered(measured, { animationName: 'nc-stagger-in', durationMs: 280, label: 'Şablonlar #2' });
+    await expectSettledVisible(page, { panelSelector: panel, childSelector: '.nc-mega > *', label: 'Şablonlar #2' });
   });
 });
 
@@ -134,6 +139,7 @@ test.describe('hareket azaltma sözleşmesi', () => {
     await page.goto('/');
     const measured = await measureStagger(page, {
       panelSelector: '#popover-panel-2',
+      childSelector: '.nc-mega > *',
       open: { type: 'id', value: 'popover-button-2' },
     });
 

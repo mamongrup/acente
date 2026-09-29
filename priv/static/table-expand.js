@@ -9,8 +9,7 @@
 
   var EXPAND_CLASS = "row-expand";
   var EXPANDED_CLASS = "row-expanded";
-  var CHEVRON_SVG =
-    '<svg class="expand-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>';
+  var CHEVRON_SVG = '<i class="hgi-stroke hgi-arrow-down-01 expand-chevron" aria-hidden="true"></i>';
 
   function esc(s) {
     return String(s || "")

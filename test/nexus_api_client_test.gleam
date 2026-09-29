@@ -46,11 +46,49 @@ pub fn webhook_payload_dispatch_failure_resilience_test() {
   }
 }
 
+pub fn webhook_receipt_requires_explicit_success_test() {
+  let created = "{\"event_type\":\"reservation.created\"}"
+  nexus_api_client.validate_reservation_webhook_reply(
+    created,
+    "{\"ok\": false, \"status\":\"failed\",\"booking_reference\":\"\"}",
+  )
+  |> should.be_error
+  nexus_api_client.validate_reservation_webhook_reply(
+    created,
+    "{\"status\":\"processed\",\"booking_reference\":\"B-1\"}",
+  )
+  |> should.be_error
+  nexus_api_client.validate_reservation_webhook_reply(
+    created,
+    "{\"ok\":true,\"status\":\"processed\",\"booking_reference\":\"\"}",
+  )
+  |> should.be_error
+  nexus_api_client.validate_reservation_webhook_reply(
+    created,
+    "{\"ok\":true,\"status\":\"processed\",\"booking_reference\":\"B-1\"}",
+  )
+  |> should.be_error
+  nexus_api_client.validate_reservation_webhook_reply(
+    created,
+    "{\"ok\":true,\"status\":\"processed\",\"booking_reference\":\"11111111-1111-4111-8111-111111111111\",\"total_minor\":12500,\"currency\":\"TRY\",\"expires_at\":\"2026-09-29T12:00:00+03:00\"}",
+  )
+  |> should.be_ok
+}
+
+pub fn status_webhook_receipt_does_not_need_new_booking_reference_test() {
+  nexus_api_client.validate_reservation_webhook_reply(
+    "{\"event_type\":\"reservation.status_changed\"}",
+    "{\"ok\":true,\"status\":\"processed\",\"reservation_status\":\"confirmed\"}",
+  )
+  |> should.be_ok
+}
+
 pub fn fetch_inventory_failure_resilience_test() {
   let inv_res =
     nexus_api_client.fetch_inventory(
       "http://invalid.local",
       "test-key",
+      "tenant-123",
       "prop-123",
     )
   case inv_res {
@@ -64,10 +102,7 @@ pub fn fetch_inventory_failure_resilience_test() {
 
 pub fn fetch_contract_filters_failure_resilience_test() {
   let filter_res =
-    nexus_api_client.fetch_contract_filters(
-      "http://invalid.local",
-      "test-key",
-    )
+    nexus_api_client.fetch_contract_filters("http://invalid.local", "test-key")
   case filter_res {
     Error(err) -> {
       string.contains(err, "NEXUS sözleşme filtreleri çağrısı başarısız")
@@ -76,4 +111,3 @@ pub fn fetch_contract_filters_failure_resilience_test() {
     Ok(_) -> Nil
   }
 }
-

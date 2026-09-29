@@ -68,6 +68,8 @@ pub fn fallback_symbol(code: String) -> String {
     "EUR" -> "€"
     "GBP" -> "£"
     "SAR" -> "﷼"
+    "RUB" -> "₽"
+    "CNY" -> "¥"
     _ -> string.uppercase(string.trim(code))
   }
 }

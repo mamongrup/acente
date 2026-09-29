@@ -1,12 +1,20 @@
+param(
+  [string]$EnvPath = '.env'
+)
+
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$envFile = Join-Path $root '.env'
+$envFile = if ([IO.Path]::IsPathRooted($EnvPath)) { $EnvPath } else { Join-Path $root $EnvPath }
 if (!(Test-Path -LiteralPath $envFile)) { throw 'Önce .env.example dosyasını .env olarak kopyalayıp veritabanı bilgilerini girin.' }
 Get-Content $envFile | ForEach-Object {
   $line = $_.Trim(); $index = $line.IndexOf('=')
   if ($index -gt 0) { Set-Item "Env:$($line.Substring(0,$index).Trim())" $line.Substring($index + 1).Trim() }
 }
-$pg = 'C:/laragon/bin/postgresql/postgresql/bin/psql.exe'
+$pg = if ($env:PSQL_EXECUTABLE) {
+  $env:PSQL_EXECUTABLE
+} else {
+  (Get-Command psql -ErrorAction Stop).Source
+}
 $common = @('-X','-w','-h',$env:PGHOST,'-p',$env:PGPORT,'-U',$env:PGUSER,'-d',$env:PGDATABASE)
 & $pg @common -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA IF NOT EXISTS system; CREATE TABLE IF NOT EXISTS system.schema_migrations (version text PRIMARY KEY, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now());'
 if ($LASTEXITCODE -ne 0) { throw 'Migration takip tablosu oluşturulamadı' }
@@ -26,6 +34,18 @@ foreach ($file in $files) {
     continue
   }
   $content = Get-Content -LiteralPath $file.FullName -Raw -Encoding utf8
+  if ($version -eq '024_runtime_compatibility') {
+    # This legacy migration grants access to the separate NEXUS database.
+    # A standalone agency has no such database. Preserve the source checksum
+    # while omitting only that irrelevant grant during a fresh installation.
+    $nexusDatabase = ((& $pg @common -Atc "SELECT 1 FROM pg_database WHERE datname='nexustraveltech'") | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0) { throw 'Could not check optional NEXUS database.' }
+    if (!$nexusDatabase) {
+      $legacyGrant = 'GRANT CONNECT ON DATABASE nexustraveltech TO agency_app;'
+      if (!$content.Contains($legacyGrant)) { throw 'Legacy migration 024 changed unexpectedly.' }
+      $content = $content.Replace($legacyGrant, '-- Optional NEXUS database is absent on this standalone agency.')
+    }
+  }
   $temp = Join-Path $root '.local/migration.sql'
   New-Item -ItemType Directory -Force -Path (Split-Path $temp) | Out-Null
   try {

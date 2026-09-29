@@ -295,6 +295,24 @@
   display: block !important;
 }
 
+/* The bulk-action host wraps the pricing and availability workspaces. It is
+   structural, not a two-column data-entry form, so the generic `.quick form`
+   grid must not constrain its only child to half of the catalog canvas. */
+#catalog-workspace #bulk-form {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+#catalog-workspace #bulk-form > .sub-workspace-wrapper,
+#catalog-workspace #bulk-form > .sub-workspace-wrapper > .glass-subcard {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
 .catalog-listings-table.editor-mode-hidden {
   display: none !important;
 }
@@ -303,7 +321,13 @@
 .page-builder-heading,.page-builder-toolbar,.page-builder-block-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .page-builder-heading h3{margin:0;color:var(--text-pure)}.page-builder-heading p{margin:5px 0 0}.page-builder-toolbar{margin:16px 0}.page-builder-toolbar select{min-width:220px}
 .page-builder-list{display:grid;gap:10px}.page-builder-block{padding:14px;border:1px solid var(--border-glass);border-radius:var(--radius-md);background:var(--tint-white)}
+.builder-collection-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.builder-collection-field{display:grid;gap:5px;color:var(--text-soft);font-size:13px}.builder-collection-field select,.builder-collection-field input{width:100%;min-height:40px;padding:8px;border:1px solid var(--border-glass-light);border-radius:8px;background:var(--input-fill);color:var(--text-pure)}.builder-collection-options{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 18px;margin:0;padding:12px;border:1px solid var(--border-glass-light);border-radius:8px}.builder-collection-options legend{padding:0 5px;color:var(--text-soft);font-size:13px}.builder-collection-options label{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-pure)}.builder-collection-options input{width:auto}.builder-collection-options small{color:var(--text-soft)}@media(max-width:600px){.builder-collection-settings{grid-template-columns:1fr}}
 .page-builder-block-head{margin-bottom:10px}.page-builder-block-head strong{color:var(--text-soft)}.page-builder-block-head button{margin-left:5px;padding:5px 9px;border-radius:7px;background:var(--tint-white);border:1px solid var(--border-glass-light);color:var(--text-soft);cursor:pointer}.page-builder-block input{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border-glass-light);background:var(--input-fill);color:var(--text-pure)}.page-builder-preview{margin-top:14px;padding:12px;border-radius:10px;color:var(--neon-cyan);background:var(--tint-cyan);font-size:13px}
+.builder-benefits-editor{display:grid;gap:12px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border-glass-light)}
+.builder-benefit-item{display:grid;grid-template-columns:minmax(130px,1fr) minmax(0,2fr);gap:10px;padding:14px;border:1px solid var(--border-glass-light);border-radius:10px}
+.builder-benefit-item-head{grid-column:1/-1;display:flex;align-items:center;gap:6px}.builder-benefit-item-head strong{flex:1}.builder-benefit-item-head button,.builder-benefit-add{padding:7px 10px;border:1px solid var(--border-glass-light);border-radius:8px;background:var(--tint-white);color:var(--text-pure);cursor:pointer}.builder-benefit-item-head button:disabled{opacity:.4;cursor:default}
+.builder-benefit-item .builder-collection-field:last-child{grid-column:1/-1}.builder-benefit-item textarea{width:100%;min-height:64px;padding:10px;border:1px solid var(--border-glass-light);border-radius:8px;background:var(--input-fill);color:var(--text-pure);font:inherit;resize:vertical}.builder-benefit-add{justify-self:start}@media(max-width:600px){.builder-benefit-item{grid-template-columns:1fr}.builder-benefit-item .builder-collection-field:last-child{grid-column:1}}
+.builder-module-note{grid-column:1/-1;margin:0;color:var(--text-soft);font-size:13px;line-height:1.5}
 
 /* Inline Action Wrappers (Code Gen & AI Title) */
 .input-inline-action-wrap {
