@@ -56,6 +56,16 @@ foreach ($file in $files) {
       $content = $content.Replace($legacyGrant, '-- Optional NEXUS database is absent on this standalone agency.')
     }
   }
+  if ($version -eq '072_user_wizard_prefs') {
+    # PostgreSQL cannot replace a RETURNS TABLE function with a new column.
+    # This historical migration omitted the drops used by migrations 071/074.
+    # Keep its recorded checksum intact and repair only the execution text.
+    if (!$content.Contains('CREATE OR REPLACE FUNCTION auth.session(p_token text)') -or
+        !$content.Contains('CREATE OR REPLACE FUNCTION agency_auth.session(p_token text)')) {
+      throw 'Legacy migration 072 changed unexpectedly.'
+    }
+    $content = "DROP FUNCTION IF EXISTS auth.session(text);`nDROP FUNCTION IF EXISTS agency_auth.session(text);`n$content"
+  }
   $temp = Join-Path $root '.local/migration.sql'
   New-Item -ItemType Directory -Force -Path (Split-Path $temp) | Out-Null
   try {
