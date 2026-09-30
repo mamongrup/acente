@@ -1,5 +1,7 @@
 # Panel kapsamı ve kalan işler
 
+> 29 Eylül güncellemesi: Bu belgedeki QNBpay ödeme/iade seçimi tarihsel kayıttır. Güncel karar ParamPOS ile tahsilat/iade, QNB eSolutions ile e-belgedir; bkz. `docs/two-project-roadmap-2026-09-29.md`.
+
 Bu belge `acente` uygulamasındaki üç erişim düzeyini esas alır: `admin` (acente sahibi/yönetici), `supplier` (tedarikçi) ve `sub_agency` (alt acente). `Nexustraveltech` ayrı bir merkezi platformdur; bu uygulama merkezi servis kapalıyken de çalışır.
 
 ## Bu aşamada çalışan alanlar
