@@ -10,7 +10,9 @@
     '<a class="nexus-chat-choice" data-channel="live" href="/iletisim?kanal=canli-destek"><span class="nexus-chat-choice-icon live"><i class="hgi-stroke hgi-headset"></i></span><span>Canlı Destek</span></a>' +
     '<button type="button" class="nexus-chat-choice" data-channel="assistant"><span class="nexus-chat-choice-icon assistant"><i class="hgi-stroke hgi-magic-wand-01"></i></span><span>Seyahat Asistanı</span></button></div>' +
     '<div class="nexus-chat-panel" role="dialog" aria-label="Seyahat Asistanı" hidden><div class="nexus-chat-header"><span class="nexus-chat-header-icon"><i class="hgi-stroke hgi-magic-wand-01"></i></span><span><strong>Seyahat Asistanı</strong><small>Size nasıl yardımcı olabilirim?</small></span><button type="button" class="nexus-chat-close" aria-label="Kapat">×</button></div>' +
-    '<div class="nexus-chat-body"><p class="nexus-chat-status">Size uygun seçenekleri göndermemizi isterseniz iletişim bilgilerinizi paylaşın.</p><div class="nexus-chat-messages" aria-live="polite"></div>' +
+    '<div class="nexus-chat-tabs"><button type="button" class="nexus-chat-tab" data-tab="search" aria-selected="true">İlan ara</button><button type="button" class="nexus-chat-tab" data-tab="message" aria-selected="false">Mesaj gönder</button></div>' +
+    '<div class="nexus-chat-search"><p>Nasıl bir tatil planlıyorsunuz? Yazın, size uygun ilanları bulalım.</p><div class="nexus-chat-search-row"><input type="search" class="nexus-chat-query" aria-label="Seyahat araması" placeholder="Örn. Kaş’ta havuzlu villa"><button type="button" class="nexus-chat-find">Bul</button></div><div class="nexus-chat-search-results" aria-live="polite"></div></div>' +
+    '<div class="nexus-chat-body" hidden><p class="nexus-chat-status">Size uygun seçenekleri göndermemizi isterseniz iletişim bilgilerinizi paylaşın.</p><div class="nexus-chat-messages" aria-live="polite"></div>' +
     '<label class="nexus-chat-field">Ad-soyad<input class="nexus-chat-name" autocomplete="name" placeholder="Ad-soyad" required></label>' +
     '<div class="nexus-chat-contact-row"><label class="nexus-chat-field">E-posta<input class="nexus-chat-email" type="email" autocomplete="email" placeholder="E-posta"></label><label class="nexus-chat-field">WhatsApp<input class="nexus-chat-phone-input" type="tel" autocomplete="tel" placeholder="WhatsApp"></label></div>' +
     '<label class="nexus-chat-consent"><input type="checkbox" class="nexus-chat-consent-input"> İletişim bilgilerimi bu görüşme için kaydet</label>' +
@@ -20,15 +22,41 @@
   var status = box.querySelector('.nexus-chat-status'), submit = box.querySelector('.nexus-chat-submit');
   var nameInput = box.querySelector('.nexus-chat-name'), emailInput = box.querySelector('.nexus-chat-email'), phoneInput = box.querySelector('.nexus-chat-phone-input');
   var messageInput = box.querySelector('.nexus-chat-message'), consentInput = box.querySelector('.nexus-chat-consent-input'), messages = box.querySelector('.nexus-chat-messages');
+  var search = box.querySelector('.nexus-chat-search'), contact = box.querySelector('.nexus-chat-body');
+  var query = box.querySelector('.nexus-chat-query'), find = box.querySelector('.nexus-chat-find'), results = box.querySelector('.nexus-chat-search-results');
   var settings = {}, conversationId = '';
   function close() { box.classList.remove('open','assistant-open'); choices.hidden = true; panel.hidden = true; toggle.setAttribute('aria-expanded','false'); }
   function openChoices() { box.classList.add('open'); box.classList.remove('assistant-open'); choices.hidden = false; panel.hidden = true; toggle.setAttribute('aria-expanded','true'); }
   var accountChecked = false;
-  function openAssistant() { box.classList.add('open','assistant-open'); choices.hidden = true; panel.hidden = false; toggle.setAttribute('aria-expanded','true'); nameInput.focus(); if (!accountChecked) { accountChecked = true; fetch('/api/public/account', {credentials:'same-origin',headers:{Accept:'application/json'}}).then(function(r){return r.ok?r.json():null;}).then(function(account){if(account){nameInput.value=account.name||nameInput.value;emailInput.value=account.email||emailInput.value;phoneInput.value=account.phone||phoneInput.value;}}).catch(function(){}); } }
+  function selectTab(name) { search.hidden = name !== 'search'; contact.hidden = name !== 'message'; box.querySelectorAll('.nexus-chat-tab').forEach(function(tab) { tab.setAttribute('aria-selected', tab.dataset.tab === name ? 'true' : 'false'); }); (name === 'search' ? query : nameInput).focus(); }
+  function openAssistant() { box.classList.add('open','assistant-open'); choices.hidden = true; panel.hidden = false; toggle.setAttribute('aria-expanded','true'); selectTab('search'); if (!accountChecked) { accountChecked = true; fetch('/api/public/account', {credentials:'same-origin',headers:{Accept:'application/json'}}).then(function(r){return r.ok?r.json():null;}).then(function(account){if(account){nameInput.value=account.name||nameInput.value;emailInput.value=account.email||emailInput.value;phoneInput.value=account.phone||phoneInput.value;}}).catch(function(){}); } }
   window.NEXUS_OPEN_TRAVEL_ASSISTANT = openAssistant;
   toggle.addEventListener('click', function () { box.classList.contains('open') ? close() : openChoices(); });
   box.querySelector('[data-channel="assistant"]').addEventListener('click', openAssistant);
   box.querySelector('.nexus-chat-close').addEventListener('click', close);
+  box.querySelectorAll('.nexus-chat-tab').forEach(function(tab) { tab.addEventListener('click', function() { selectTab(tab.dataset.tab); }); });
+  function findListings() {
+    var term = query.value.trim(); if (!term) { query.focus(); return; }
+    results.textContent = 'Uygun ilanlar aranıyor…'; find.disabled = true;
+    fetch('/api/public/concierge?q=' + encodeURIComponent(term), {credentials:'same-origin',headers:{Accept:'application/json'}})
+      .then(function(response) { if (!response.ok) throw new Error('Arama yapılamadı.'); return response.json(); })
+      .then(function(data) {
+        if (!data.ok) throw new Error(data.error || 'Arama yapılamadı.');
+        results.replaceChildren();
+        if (data.parsed && data.parsed.summary) { var summary = document.createElement('p'); summary.textContent = data.parsed.summary; results.appendChild(summary); }
+        if (!Array.isArray(data.listings) || !data.listings.length) { var empty = document.createElement('p'); empty.textContent = 'Uygun ilan bulunamadı. Başka bir arama deneyin.'; results.appendChild(empty); return; }
+        data.listings.forEach(function(item) {
+          var link = document.createElement('a'); link.className = 'nexus-chat-result';
+          link.href = window.NEXUS_LISTING_URL ? window.NEXUS_LISTING_URL(item) : '/urunler/' + encodeURIComponent(item.id || '');
+          var title = document.createElement('strong'); title.textContent = item.title || 'İlan'; link.appendChild(title);
+          var detail = document.createElement('small'); detail.textContent = [item.locality, item.categoryLabel || item.category].filter(Boolean).join(' · '); link.appendChild(detail);
+          results.appendChild(link);
+        });
+      }).catch(function(error) { results.textContent = error.message || 'Arama yapılamadı.'; })
+      .finally(function() { find.disabled = false; });
+  }
+  find.addEventListener('click', findListings);
+  query.addEventListener('keydown', function(event) { if (event.key === 'Enter') findListings(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && box.classList.contains('open')) close(); });
   document.addEventListener('pointerdown', function (e) { if (box.classList.contains('open') && !box.contains(e.target)) close(); });
   function digits(value) { var d = String(value || '').replace(/\D/g,''); return d.length >= 10 && d.length <= 15 ? d : ''; }

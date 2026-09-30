@@ -24,8 +24,8 @@ try {
     & gleam run -m parampos_integration
     if ($LASTEXITCODE -ne 0) { throw 'ParamPOS HTTP integration failed' }
     $counts = Invoke-RestMethod 'http://127.0.0.1:18089/counts'
-    if ($counts.starts -ne 3 -or $counts.pays -ne 1) { throw "Unexpected bank call counts: $($counts | ConvertTo-Json -Compress)" }
-    Write-Output 'Three 3D attempts, exactly one charge; failures, expiry and repeats made no extra charges.'
+    if ($counts.starts -ne 3 -or $counts.pays -ne 1 -or $counts.refunds -ne 1) { throw "Unexpected bank call counts: $($counts | ConvertTo-Json -Compress)" }
+    Write-Output 'Three 3D attempts, exactly one charge and one proven refund; failures, expiry and repeats made no extra charges.'
   } finally { Pop-Location }
 } finally {
   if (!$fixture.HasExited) { Stop-Process -Id $fixture.Id }

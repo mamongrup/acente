@@ -53,6 +53,85 @@ pub type PayResult {
   PayResult(result: Int, message: String, receipt_id: String, bank_code: Int)
 }
 
+pub type RefundResult {
+  RefundResult(
+    result: Int,
+    message: String,
+    bank_code: Int,
+    bank_transaction_id: String,
+    bank_host_reference: String,
+  )
+}
+
+pub fn refund_success(refund: RefundResult) -> Bool {
+  refund.result > 0
+  && refund.bank_code == 0
+  && {
+    string.trim(refund.bank_transaction_id) != ""
+    || string.trim(refund.bank_host_reference) != ""
+  }
+}
+
+pub fn amount_minor_to_parampos(amount_minor: Int) -> Result(String, String) {
+  case amount_minor > 0 {
+    False -> Error("invalid_refund_amount")
+    True -> {
+      let major = int.to_string(amount_minor / 100)
+      let cents = amount_minor % 100
+      let cents_text = case cents < 10 {
+        True -> "0" <> int.to_string(cents)
+        False -> int.to_string(cents)
+      }
+      Ok(major <> "." <> cents_text)
+    }
+  }
+}
+
+pub fn refund(
+  c: Config,
+  order_id: String,
+  amount_minor: Int,
+  action: String,
+) -> Result(RefundResult, String) {
+  case action == "IPTAL" || action == "IADE" {
+    False -> Error("invalid_refund_action")
+    True -> {
+      use amount <- result.try(amount_minor_to_parampos(amount_minor))
+      let body =
+        "<TP_Islem_Iptal_Iade_Kismi2 xmlns=\"https://turkpos.com.tr/\">"
+        <> security(c)
+        <> tag("GUID", c.guid)
+        <> tag("Durum", action)
+        <> tag("Siparis_ID", order_id)
+        <> tag("Tutar", amount)
+        <> "</TP_Islem_Iptal_Iade_Kismi2>"
+      use raw <- result.try(post_xml(
+        c.service_url,
+        envelope(body),
+        "https://turkpos.com.tr/TP_Islem_Iptal_Iade_Kismi2",
+      ))
+      let response = parse_refund(raw)
+      case refund_success(response) {
+        True -> Ok(response)
+        False -> Error("refund_not_confirmed: " <> response.message)
+      }
+    }
+  }
+}
+
+pub fn parse_refund(raw: String) -> RefundResult {
+  RefundResult(
+    int_value(raw, "Sonuc"),
+    xml_value(raw, "Sonuc_Str"),
+    case int.parse(string.trim(xml_value(raw, "Banka_Sonuc_Kod"))) {
+      Ok(code) -> code
+      Error(_) -> -1
+    },
+    xml_value(raw, "Bank_Trans_ID"),
+    xml_value(raw, "Bank_HostRefNum"),
+  )
+}
+
 pub fn md_success(status: String) -> Bool {
   status == "1" || status == "2" || status == "3" || status == "4"
 }

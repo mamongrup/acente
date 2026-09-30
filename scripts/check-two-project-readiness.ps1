@@ -21,6 +21,12 @@ function Invoke-RequiredScript([string]$Path, [string[]]$Arguments = @()) {
 Write-Host '== NEXUS full test suite =='
 Invoke-RequiredScript (Join-Path $NexusRoot 'scripts/test.ps1')
 
+Write-Host '== WP2 true concurrent last-inventory test =='
+Invoke-RequiredScript (Join-Path $agencyRoot 'scripts/check-wp2-concurrent-booking.ps1') @('-NexusEnvPath', (Join-Path $NexusRoot '.env'))
+
+Write-Host '== Agency WP2 sales-chain lifecycle =='
+Invoke-RequiredScript (Join-Path $agencyRoot 'scripts/check-wp2-sales-chain.ps1')
+
 Write-Host '== Agency full release readiness =='
 $previousNexusRoot = $env:NEXUS_PROJECT_ROOT
 try {

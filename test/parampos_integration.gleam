@@ -109,7 +109,8 @@ pub fn main() {
       let response = post(db, "/api/public/checkout/start", form)
       case response.status == 200 {
         True -> Nil
-        False -> io.println("first checkout body: " <> simulate.read_body(response))
+        False ->
+          io.println("first checkout body: " <> simulate.read_body(response))
       }
       response.status |> should.equal(200)
       let assert Ok(session) =
@@ -120,7 +121,8 @@ pub fn main() {
       let repeat = post(db, "/api/public/checkout/start", form)
       case repeat.status == 200 {
         True -> Nil
-        False -> io.println("repeat checkout body: " <> simulate.read_body(repeat))
+        False ->
+          io.println("repeat checkout body: " <> simulate.read_body(repeat))
       }
       repeat.status |> should.equal(200)
       json.parse(
@@ -146,7 +148,8 @@ pub fn main() {
       ]
       let parampos_start = post(db, "/api/public/checkout/parampos/start", card)
       parampos_start.status |> should.equal(200)
-      let duplicate_start = post(db, "/api/public/checkout/parampos/start", card)
+      let duplicate_start =
+        post(db, "/api/public/checkout/parampos/start", card)
       duplicate_start.status |> should.equal(409)
       callback(
         db,
@@ -262,6 +265,11 @@ pub fn main() {
           <> "'",
       )
       |> should.equal("paid")
+      let refund_config =
+        parampos.Config("test", "test", "test", "ABC", "http://127.0.0.1:18089")
+      let assert Ok(refund) =
+        parampos.refund(refund_config, order, 37_035, "IPTAL")
+      refund |> parampos.refund_success |> should.be_true
       // Returning Error intentionally rolls back migration and fixtures.
       Error("verified_rollback")
     })

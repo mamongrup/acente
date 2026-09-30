@@ -8,6 +8,11 @@ DECLARE
   v_post_record record;
   v_policy_id uuid;
   v_event_count integer;
+  v_manual_first uuid;
+  v_manual_second uuid;
+  v_other_tenant uuid;
+  v_isolation_leak integer;
+  v_own_visible integer;
 BEGIN
   -- 1. Test tenantı seç
   SELECT id INTO v_tenant_id FROM agency.tenants WHERE slug = 'nexus-demo' LIMIT 1;
@@ -81,6 +86,53 @@ BEGIN
   END IF;
   IF v_post_record.entity_type <> 'listing' OR v_post_record.entity_id <> v_listing_id THEN
     RAISE EXCEPTION 'İlan entity ilişkilendirmesi hatalı';
+  END IF;
+
+  -- The studio resolves a listing by id, code or title and always scopes the
+  -- lookup to the session tenant (see the `listing` CTE in router.gleam).
+  -- Ask for this agency's listing under a *different* tenant's id: the lookup
+  -- must come back empty. The previous version of this check compared
+  -- v_listing_id against the other tenant, which is false by construction and
+  -- therefore passed without asserting anything.
+  SELECT id INTO v_other_tenant FROM agency.tenants WHERE id <> v_tenant_id LIMIT 1;
+  IF v_other_tenant IS NULL THEN
+    RAISE EXCEPTION 'İzolasyon testi için ikinci bir tenant gerekli';
+  END IF;
+
+  WITH listing AS (
+    SELECT id FROM agency.listings
+    WHERE tenant_id = v_other_tenant::uuid
+      AND (id::text = v_listing_id::text
+           OR code ILIKE '%' || v_listing_id::text || '%'
+           OR title ILIKE '%' || v_listing_id::text || '%')
+    ORDER BY id LIMIT 1
+  )
+  SELECT count(*) INTO v_isolation_leak FROM listing;
+  IF v_isolation_leak <> 0 THEN
+    RAISE EXCEPTION 'Başka tenant bağlamında bu acentinin ilanı çözümlendi';
+  END IF;
+
+  -- The same lookup under the owning tenant must still resolve, otherwise the
+  -- check above would also pass on a lookup that is simply broken.
+  WITH listing AS (
+    SELECT id FROM agency.listings
+    WHERE tenant_id = v_tenant_id::uuid AND id::text = v_listing_id::text
+    LIMIT 1
+  )
+  SELECT count(*) INTO v_own_visible FROM listing;
+  IF v_own_visible <> 1 THEN
+    RAISE EXCEPTION 'Sahibi tenant ilanını göremiyor';
+  END IF;
+
+  -- Manual drafts must not share the tenant UUID as their entity ID.
+  INSERT INTO agency.social_posts(tenant_id, entity_type, entity_id, network, language_code, content, approved_at, moderation_status)
+  VALUES (v_tenant_id, 'manual', gen_random_uuid(), 'facebook', 'tr', 'İlk manuel taslak', NULL, 'pending')
+  RETURNING entity_id INTO v_manual_first;
+  INSERT INTO agency.social_posts(tenant_id, entity_type, entity_id, network, language_code, content, approved_at, moderation_status)
+  VALUES (v_tenant_id, 'manual', gen_random_uuid(), 'facebook', 'tr', 'İkinci manuel taslak', NULL, 'pending')
+  RETURNING entity_id INTO v_manual_second;
+  IF v_manual_first = v_manual_second OR v_manual_first = v_tenant_id OR v_manual_second = v_tenant_id THEN
+    RAISE EXCEPTION 'Manuel taslak entity kimlikleri benzersiz değil';
   END IF;
 
   -- 5. Moderasyon: Gönderiyi onayla (approve)

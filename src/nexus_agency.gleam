@@ -89,10 +89,13 @@ fn start_nexus_listing_sync(agency_db: pog.Connection) {
     })
     |> result.unwrap(env_tenant_id)
   let env_origin = envoy.get("NEXUS_API_ORIGIN") |> result.unwrap("")
-  let env_key =
-    envoy.get("NEXUS_API_KEY")
-    |> result.lazy_or(fn() { envoy.get("NEXUS_CONFIG_KEY") })
-    |> result.unwrap("")
+  // NEXUS_API_KEY is the only credential that authenticates a call to NEXUS.
+  // NEXUS_CONFIG_KEY is this application's master key for sealing stored
+  // secrets; it was previously used as a fallback here, which sent the master
+  // key to the other project as a bearer token on every feed request. NEXUS
+  // rejects that value outright, so the integration failed with 401 while
+  // looking configured.
+  let env_key = envoy.get("NEXUS_API_KEY") |> result.unwrap("")
   let api_origin =
     integration_value(agency_db, tenant_id, "endpoint")
     |> result.unwrap(env_origin)

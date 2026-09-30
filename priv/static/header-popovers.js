@@ -539,7 +539,7 @@
     activity: ['pexels-photo-247532.home.webp', 'pexels-photo-2869499.home.webp', 'pexels-photo-7031413.home.webp', 'pexels-photo-32223288.home.webp']
   };
   var defaultMosaic = mosaicFallback[category] || mosaicFallback.tour;
-  function mosaicImages(items) {
+  function mosaicImages() {
     if (!heroMosaic) return;
     var heroConfig = {};
     document.querySelectorAll('.builder-source-section').forEach(function (block) {
@@ -548,18 +548,12 @@
         if (config.sectionKey === 'hero') heroConfig = config;
       } catch (_) {}
     });
-    var sources = [];
-    (items || []).forEach(function (item) {
-      (Array.isArray(item.images) ? item.images : []).forEach(function (src) {
-        if (src && sources.indexOf(src) < 0) sources.push(src);
-      });
-    });
-    defaultMosaic.forEach(function (name) { sources.push('/static/chisfis/images/' + name); });
     heroMosaic.querySelectorAll('img').forEach(function (image, index) {
       var fallbackUrl = '/static/chisfis/images/' + defaultMosaic[index];
       image.onerror = function () { if (image.src !== new URL(fallbackUrl, location.origin).href) image.src = fallbackUrl; };
       var configured = Array.isArray(heroConfig.images) ? String(heroConfig.images[index] || '').trim() : '';
-      image.src = /^(https?:\/\/|\/(?!\/))/i.test(configured) ? configured : sources[index];
+      var source = /^(https?:\/\/|\/(?!\/))/i.test(configured) ? configured : (image.getAttribute('src') || fallbackUrl);
+      if (image.src !== new URL(source, location.origin).href) image.src = source;
     });
   }
   if (hero && categoryContent) {
@@ -582,7 +576,7 @@
       }
       heroImage.replaceWith(heroMosaic);
     }
-    if (heroMosaic) mosaicImages([]);
+    if (heroMosaic) mosaicImages();
   }
   var titles = {
     hotel: 'Konaklama seçenekleri', holiday_home: 'Tatil seçenekleri',
@@ -1215,7 +1209,6 @@
       if (!Array.isArray(items)) return;
       visibleItems = items;
       main.querySelectorAll('.category-content-section, .category-empty-state').forEach(function (node) { node.remove(); });
-      mosaicImages(items);
       heading.textContent = items.length + ' ' + (categoryContent ? categoryContent.title : 'Seyahat') + ' ilanı';
       description.textContent = 'Fiyatları ve seçenekleri karşılaştırın.';
       head.style.visibility = '';

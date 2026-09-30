@@ -10,7 +10,31 @@ pub fn main() {
   entity_declarations_rejected_test()
   three_d_status_test()
   callback_hash_fixture_test()
-  io.println("6 ParamPOS protocol tests passed.")
+  refund_response_requires_bank_proof_test()
+  refund_amount_format_test()
+  io.println("8 ParamPOS protocol tests passed.")
+}
+
+pub fn refund_response_requires_bank_proof_test() {
+  parampos.parse_refund(
+    "<r><Sonuc>1</Sonuc><Sonuc_Str>Approved</Sonuc_Str><Banka_Sonuc_Kod>0</Banka_Sonuc_Kod><Bank_Trans_ID>TX-123</Bank_Trans_ID></r>",
+  )
+  |> parampos.refund_success
+  |> should.be_true
+  [
+    "<r><Sonuc>1</Sonuc><Banka_Sonuc_Kod>0</Banka_Sonuc_Kod></r>",
+    "<r><Sonuc>1</Sonuc><Banka_Sonuc_Kod>5</Banka_Sonuc_Kod><Bank_Trans_ID>TX-123</Bank_Trans_ID></r>",
+    "<r><Sonuc>-1</Sonuc><Banka_Sonuc_Kod>0</Banka_Sonuc_Kod><Bank_Trans_ID>TX-123</Bank_Trans_ID></r>",
+  ]
+  |> list.each(fn(xml) {
+    parampos.parse_refund(xml) |> parampos.refund_success |> should.be_false
+  })
+}
+
+pub fn refund_amount_format_test() {
+  parampos.amount_minor_to_parampos(37_035) |> should.equal(Ok("370.35"))
+  parampos.amount_minor_to_parampos(101) |> should.equal(Ok("1.01"))
+  parampos.amount_minor_to_parampos(0) |> should.be_error
 }
 
 pub fn successful_payment_test() {

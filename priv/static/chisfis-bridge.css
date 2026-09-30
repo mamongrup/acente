@@ -297,6 +297,19 @@ html.dark .nexus-chat-choices,html.dark .nexus-chat-panel { background:#fff;colo
 .nexus-chat-header-icon { display:grid;place-items:center;flex:none;width:28px;height:28px;border-radius:50%;background:#5952e9;color:#fff; }
 .nexus-chat-header strong { display:block;font-size:13px;line-height:1.2; }.nexus-chat-header small { display:block;color:#97a2b4;font-size:11px; }
 .nexus-chat-close { margin-left:auto;border:0;background:transparent;color:#64748b;font-size:22px;cursor:pointer; }
+.nexus-chat-tabs { display:flex;gap:6px;padding:10px 12px 0; }
+.nexus-chat-tab { flex:1;border:0;border-radius:10px;padding:9px;background:#f1f3fa;color:#536079;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer; }
+.nexus-chat-tab[aria-selected="true"] { background:#5952e9;color:#fff; }
+.nexus-chat-search { padding:12px; }
+.nexus-chat-search>p,.nexus-chat-search-results>p { margin:0 0 10px;color:#536079;font-size:12px;line-height:1.45; }
+.nexus-chat-search-row { display:flex;gap:7px; }
+.nexus-chat-query { min-width:0;flex:1;border:1px solid #d4dbe8;border-radius:10px;padding:10px;background:#fff;color:#172033;font-family:inherit;font-size:13px; }
+.nexus-chat-find { border:0;border-radius:10px;padding:0 14px;background:#5952e9;color:#fff;font-weight:700;cursor:pointer; }
+.nexus-chat-find:disabled { opacity:.6;cursor:wait; }
+.nexus-chat-search-results { display:grid;gap:7px;max-height:270px;overflow:auto;margin-top:12px; }
+.nexus-chat-result { display:grid;gap:3px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;color:#172033;text-decoration:none; }
+.nexus-chat-result:hover { background:#f5f7fb; }
+.nexus-chat-result strong { font-size:12px; }.nexus-chat-result small { color:#66758d;font-size:11px; }
 .nexus-chat-body { padding:12px; }.nexus-chat-status { padding:9px 10px;background:#f7f8fb;border-radius:10px;font-size:12px;line-height:1.45; }
 .nexus-chat-field { display:block;margin:8px 0 0;font-size:11px;font-weight:600;color:#536079; }
 .nexus-chat-panel .nexus-chat-field input,.nexus-chat-panel .nexus-chat-field textarea { display:block;width:100%;margin-top:4px;padding:9px 10px;border:1px solid #d4dbe8;border-radius:10px;background:#fff;color:#172033;font-size:13px;font-family:inherit; }

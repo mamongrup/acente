@@ -44,7 +44,7 @@
     pictures.forEach(function (picture, index) {
       var source = String(sources[index] || '').trim();
       if (!/^(https?:\/\/|\/(?!\/))/i.test(source)) return;
-      picture.src = source;
+      if (picture.src !== new URL(source, location.origin).href) picture.src = source;
       picture.removeAttribute('data-composite');
     });
   }
@@ -82,6 +82,12 @@
     var target = isCategory ? main : homeContainer;
     if (!target) return;
     var used = {};
+    var previousHomeNode = null;
+    function placeHomeNode(node) {
+      var next = previousHomeNode ? previousHomeNode.nextElementSibling : target.firstElementChild;
+      if (node !== next) target.insertBefore(node, next);
+      previousHomeNode = node;
+    }
     Array.prototype.slice.call(root.children).forEach(function (block) {
       if (block.classList.contains('builder-source-section')) {
         var config; try { config = JSON.parse(block.dataset.sectionConfig || '{}'); } catch (_) { config = {}; }
@@ -94,9 +100,9 @@
         if (key === 'hero') updateHeroMosaic(node, config);
         if (isCategory && key === 'benefits') updateBenefits(node, config);
         if (isCategory) target.insertBefore(node, root);
-        else target.appendChild(node);
+        else placeHomeNode(node);
       } else if (!isCategory) {
-        target.appendChild(block);
+        placeHomeNode(block);
       } else {
         target.insertBefore(block, root);
       }

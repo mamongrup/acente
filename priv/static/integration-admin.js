@@ -12,11 +12,11 @@
     button.addEventListener('click', function () {
       var provider = button.getAttribute('data-provider');
       var kind = button.getAttribute('data-kind');
-      button.disabled = true; button.textContent = 'Test ediliyor…';
+      button.disabled = true; button.textContent = 'Kontrol ediliyor…';
       fetch('/admin/integrations/test?provider=' + encodeURIComponent(provider) + '&kind=' + encodeURIComponent(kind), { credentials: 'same-origin', cache: 'no-store' })
         .then(function (r) { return r.json(); })
-        .then(function (data) { button.textContent = data.ok ? '✓ Bilgiler hazır' : '⚠ Bilgi eksik'; button.classList.toggle('is-valid', !!data.ok); })
-        .catch(function () { button.textContent = 'Test başarısız'; })
+        .then(function (data) { button.textContent = data.ok ? '✓ Kayıt var (servis doğrulanmadı)' : '⚠ Bilgi eksik'; button.classList.toggle('is-valid', !!data.ok); })
+        .catch(function () { button.textContent = 'Kontrol başarısız'; })
         .finally(function () { button.disabled = false; });
     });
   });

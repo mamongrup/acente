@@ -16,6 +16,8 @@ DECLARE
   v_session uuid;
   v_chain jsonb;
   v_cancel_res jsonb;
+  v_refund_claim jsonb;
+  v_refund_finish jsonb;
   v_blocked boolean;
   v_req_key text := 'wp2-order-' || gen_random_uuid()::text;
 BEGIN
@@ -140,6 +142,16 @@ BEGIN
     RAISE EXCEPTION 'WP2.3 FAILED: initiated adımı başarısız';
   END IF;
 
+  v_blocked := false;
+  BEGIN
+    PERFORM agency.cancel_and_refund_order(v_tenant, v_admin, v_order_local.id);
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE '%payment_in_progress%' THEN v_blocked := true; END IF;
+  END;
+  IF NOT v_blocked THEN
+    RAISE EXCEPTION 'WP2.3 FAILED: Devam eden ödeme sırasında iptal kabul edildi';
+  END IF;
+
   -- Ödeme onayı
   IF NOT agency.parampos_transition(v_session, 'claim_pay') THEN
     RAISE EXCEPTION 'WP2.3 FAILED: claim_pay adımı başarısız';
@@ -171,6 +183,33 @@ BEGIN
   -- =========================================================================
   -- 4. İptal ve İade İş Akışı (Migration 226: cancel_and_refund_order)
   -- =========================================================================
+  INSERT INTO agency.supplier_settlements(
+    tenant_id,reservation_id,supplier_user_id,gross_minor,commission_minor,
+    net_minor,currency,due_on,created_by,status,paid_at
+  ) VALUES (
+    v_tenant,v_order_local.reservation_id,v_admin,50000,0,
+    50000,'TRY',current_date,v_admin,'paid',now()
+  );
+  v_blocked := false;
+  BEGIN
+    PERFORM agency.cancel_and_refund_order(v_tenant, v_admin, v_order_local.id);
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE '%paid_settlement_requires_manual_reversal%' THEN v_blocked := true; END IF;
+  END;
+  IF NOT v_blocked THEN
+    RAISE EXCEPTION 'WP2.4 FAILED: Ödenmiş hakedişe rağmen iptal kabul edildi';
+  END IF;
+  DELETE FROM agency.supplier_settlements
+  WHERE reservation_id=v_order_local.reservation_id AND tenant_id=v_tenant;
+
+  INSERT INTO agency.supplier_settlements(
+    tenant_id,reservation_id,supplier_user_id,gross_minor,commission_minor,
+    net_minor,currency,due_on,created_by,status
+  ) VALUES (
+    v_tenant,v_order_local.reservation_id,v_admin,50000,0,
+    50000,'TRY',current_date,v_admin,'pending'
+  );
+
   -- Ödenmiş siparişi iptal edip iade sürecini başlatalım
   v_cancel_res := agency.cancel_and_refund_order(
     v_tenant, v_admin, v_order_local.id, 'Müşteri seyahat planı değişti'
@@ -179,13 +218,19 @@ BEGIN
   IF v_cancel_res->>'ok' <> 'true' OR v_cancel_res->>'refund_id' IS NULL THEN
     RAISE EXCEPTION 'WP2.4 FAILED: İptal ve iade başarısız: %', v_cancel_res;
   END IF;
+  IF v_cancel_res->>'settlement_annulled' <> 'true' OR NOT EXISTS (
+    SELECT 1 FROM agency.supplier_settlements
+    WHERE reservation_id=v_order_local.reservation_id AND status='cancelled'
+  ) THEN
+    RAISE EXCEPTION 'WP2.4 FAILED: Bekleyen hakediş iptal edilmedi';
+  END IF;
 
-  -- Rezervasyon cancelled, sipariş refunded olmalıdır
+  -- İade sağlayıcı tarafından işlenene dek sipariş cancelled kalır.
   IF (SELECT status FROM agency.reservations WHERE id=v_order_local.reservation_id) <> 'cancelled' THEN
     RAISE EXCEPTION 'WP2.4 FAILED: Rezervasyon cancelled durumuna geçmedi';
   END IF;
-  IF (SELECT status FROM agency.orders WHERE id=v_order_local.id) <> 'refunded' THEN
-    RAISE EXCEPTION 'WP2.4 FAILED: Sipariş refunded durumuna geçmedi';
+  IF (SELECT status FROM agency.orders WHERE id=v_order_local.id) <> 'cancelled' THEN
+    RAISE EXCEPTION 'WP2.4 FAILED: Bekleyen iade erken tamamlandı sayıldı';
   END IF;
 
   -- agency.refunds tablosunda iade talebi oluştu mu?
@@ -194,6 +239,19 @@ BEGIN
     WHERE id=(v_cancel_res->>'refund_id')::uuid AND amount_minor=50000 AND status='pending'
   ) THEN
     RAISE EXCEPTION 'WP2.4 FAILED: İade kaydı agency.refunds tablosunda doğrulanamadı';
+  END IF;
+
+  PERFORM agency.cancel_and_refund_order(v_tenant, v_admin, v_order_local.id);
+  IF (SELECT count(*) FROM agency.refunds f JOIN agency.payments p ON p.id=f.payment_id
+      WHERE p.order_id=v_order_local.id) <> 1 THEN
+    RAISE EXCEPTION 'WP2.4 FAILED: Tekrarlanan iptal ikinci iade oluşturdu';
+  END IF;
+
+  -- Sağlayıcıdan geciken/tekrarlanan başarı callback'i iptali geri alamaz.
+  PERFORM agency.parampos_transition(v_session, 'paid', '', '999888');
+  IF (SELECT status FROM agency.orders WHERE id=v_order_local.id) <> 'cancelled'
+     OR (SELECT status FROM agency.reservations WHERE id=v_order_local.reservation_id) <> 'cancelled' THEN
+    RAISE EXCEPTION 'WP2.4 FAILED: Gecikmiş callback iptali geri aldı';
   END IF;
 
   -- =========================================================================
@@ -208,6 +266,37 @@ BEGIN
   END;
   IF NOT v_blocked THEN
     RAISE EXCEPTION 'WP2.5 FAILED: Müşteri rolü admin iptal/iade fonksiyonunu çalıştırabildi';
+  END IF;
+
+  -- Sağlayıcı yanıtı burada yalnızca rollback içindeki durum makinesine verilir.
+  -- Gerçek SOAP sonucu test/parampos_integration.gleam fikstüründe doğrulanır.
+  v_refund_claim := agency.claim_parampos_refund(
+    v_tenant,v_admin,(v_cancel_res->>'refund_id')::uuid
+  );
+  IF v_refund_claim->>'order_id' <> v_order_local.id::text
+     OR v_refund_claim->>'amount_minor' <> '50000' THEN
+    RAISE EXCEPTION 'WP2.5 FAILED: İade claim verisi hatalı: %',v_refund_claim;
+  END IF;
+  v_blocked := false;
+  BEGIN
+    PERFORM agency.claim_parampos_refund(
+      v_tenant,v_admin,(v_cancel_res->>'refund_id')::uuid
+    );
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE '%refund_dispatch_already_claimed%' THEN v_blocked := true; END IF;
+  END;
+  IF NOT v_blocked THEN
+    RAISE EXCEPTION 'WP2.5 FAILED: Aynı iade ikinci kez sağlayıcıya gönderilebilir';
+  END IF;
+  v_refund_finish := agency.finish_parampos_refund(
+    v_tenant,v_admin,(v_refund_claim->>'attempt_id')::uuid,
+    'succeeded','fixture-bank-reference','rollback-fixture'
+  );
+  IF v_refund_finish->>'status'<>'succeeded'
+     OR (SELECT status FROM agency.orders WHERE id=v_order_local.id)<>'refunded'
+     OR (SELECT status FROM agency.refunds WHERE id=(v_cancel_res->>'refund_id')::uuid)<>'processed'
+     OR (SELECT payment_status FROM agency.reservations WHERE id=v_order_local.reservation_id)<>'refunded' THEN
+    RAISE EXCEPTION 'WP2.5 FAILED: Kanıtlı iade durum zinciri tamamlanmadı';
   END IF;
 
   -- =========================================================================

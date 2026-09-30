@@ -77,10 +77,15 @@ pub fn webhook_receipt_requires_explicit_success_test() {
 
 pub fn status_webhook_receipt_does_not_need_new_booking_reference_test() {
   nexus_api_client.validate_reservation_webhook_reply(
-    "{\"event_type\":\"reservation.status_changed\"}",
+    "{\"event_type\":\"reservation.status_changed\",\"reservation_status\":\"confirmed\"}",
     "{\"ok\":true,\"status\":\"processed\",\"reservation_status\":\"confirmed\"}",
   )
   |> should.be_ok
+  nexus_api_client.validate_reservation_webhook_reply(
+    "{\"event_type\":\"reservation.status_changed\",\"reservation_status\":\"cancelled\"}",
+    "{\"ok\":true,\"status\":\"processed\",\"reservation_status\":\"confirmed\"}",
+  )
+  |> should.be_error
 }
 
 pub fn fetch_inventory_failure_resilience_test() {

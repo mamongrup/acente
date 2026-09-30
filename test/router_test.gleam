@@ -300,6 +300,34 @@ pub fn storefront_locale_does_not_translate_admin_test() {
   }
 }
 
+pub fn parampos_refund_requires_configured_admin_and_csrf_test() {
+  case real_db() {
+    Error(Nil) -> Nil
+    Ok(db) -> {
+      let session_token = wisp.random_string(48)
+      auth.login(db, "integration-admin@nexus.local", "admin123456", session_token)
+      |> should.be_ok
+      let request =
+        simulate.browser_request(http.Post, "/admin/finance-overview/parampos-refund")
+        |> simulate.cookie("agency_session", session_token, wisp.Signed)
+      let missing_csrf =
+        request
+        |> simulate.form_body([#("refund_id", "00000000-0000-0000-0000-000000000001")])
+        |> router.handle(db, origin)
+      missing_csrf.status |> should.equal(403)
+      let unconfigured =
+        request
+        |> simulate.form_body([
+          #("csrf", csrf.token_for(session_token)),
+          #("refund_id", "00000000-0000-0000-0000-000000000001"),
+        ])
+        |> router.handle(db, origin)
+      unconfigured.status |> should.equal(422)
+      auth.logout(db, session_token)
+    }
+  }
+}
+
 /// Customer accounts are valid credentials but never receive the back-office
 /// panel. This guards the role boundary added to the shared session middleware.
 pub fn customer_role_cannot_access_admin_test() {

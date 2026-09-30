@@ -12,6 +12,9 @@
 //     asla gorunmez kalmaz.
 (function () {
   var html = document.documentElement;
+  // The home hero is already present in the server HTML. Revealing it again
+  // after deferred scripts run makes the whole first screen appear to reload.
+  if (window.location.pathname === '/') return;
   var mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
   if (mq && mq.matches) return;
 

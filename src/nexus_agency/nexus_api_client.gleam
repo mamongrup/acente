@@ -175,25 +175,30 @@ pub fn validate_reservation_webhook_reply(
   payload_json: String,
   reply: String,
 ) -> Result(String, String) {
-  let event = json.parse(from: payload_json, using: {
-    use event_type <- decode.field("event_type", decode.string)
-    decode.success(event_type)
-  })
-  let receipt = json.parse(from: reply, using: {
-    use ok <- decode.field("ok", decode.bool)
-    use status <- decode.field("status", decode.string)
-    decode.success(#(ok, status))
-  })
+  let event =
+    json.parse(from: payload_json, using: {
+      use event_type <- decode.field("event_type", decode.string)
+      decode.success(event_type)
+    })
+  let receipt =
+    json.parse(from: reply, using: {
+      use ok <- decode.field("ok", decode.bool)
+      use status <- decode.field("status", decode.string)
+      decode.success(#(ok, status))
+    })
   case event, receipt {
     Ok("reservation.created"), Ok(#(True, status))
-      if status == "processed" || status == "duplicate_ignored" ->
-      case json.parse(from: reply, using: {
-        use reference <- decode.field("booking_reference", decode.string)
-        use amount <- decode.field("total_minor", decode.int)
-        use currency <- decode.field("currency", decode.string)
-        use expires_at <- decode.field("expires_at", decode.string)
-        decode.success(#(reference, amount, currency, expires_at))
-      }) {
+      if status == "processed" || status == "duplicate_ignored"
+    ->
+      case
+        json.parse(from: reply, using: {
+          use reference <- decode.field("booking_reference", decode.string)
+          use amount <- decode.field("total_minor", decode.int)
+          use currency <- decode.field("currency", decode.string)
+          use expires_at <- decode.field("expires_at", decode.string)
+          decode.success(#(reference, amount, currency, expires_at))
+        })
+      {
         Ok(#(reference, amount, currency, expires_at)) ->
           case
             string.length(string.trim(reference)) == 36,
@@ -207,7 +212,21 @@ pub fn validate_reservation_webhook_reply(
         _ -> Error("NEXUS rezervasyon fiyatı veya süresi eksik")
       }
     Ok("reservation.status_changed"), Ok(#(True, status))
-      if status == "processed" || status == "duplicate_ignored" -> Ok(reply)
+      if status == "processed" || status == "duplicate_ignored"
+    ->
+      case
+        json.parse(from: payload_json, using: {
+          use expected <- decode.field("reservation_status", decode.string)
+          decode.success(expected)
+        }),
+        json.parse(from: reply, using: {
+          use actual <- decode.field("reservation_status", decode.string)
+          decode.success(actual)
+        })
+      {
+        Ok(expected), Ok(actual) if expected == actual -> Ok(reply)
+        _, _ -> Error("NEXUS rezervasyon durum teyidi eşleşmedi")
+      }
     Ok("reservation.created"), _ | Ok("reservation.status_changed"), _ ->
       Error("NEXUS rezervasyon webhook reddedildi: " <> reply)
     _, _ -> Error("NEXUS rezervasyon olayı geçersiz")

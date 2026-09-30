@@ -37,7 +37,7 @@
       if (!mockupCard) return;
       var network = networkSelect ? networkSelect.value : 'instagram';
       var text = contentArea && contentArea.value.trim() ? contentArea.value : 'Yapay zeka ile büyüleyici bir sosyal medya gönderisi üretmek için yukarıdaki butona tıklayın...';
-      var mediaUrl = mediaInput && mediaInput.value.trim() ? mediaInput.value : '/static/placeholder.jpg';
+      var mediaUrl = mediaInput ? mediaInput.value.trim() : '';
       var lang = langSelect ? langSelect.value : 'tr';
 
       // Update badge
@@ -60,10 +60,12 @@
 
       // Update image
       if (mockupImg) {
-        mockupImg.src = mediaUrl;
+        if (mockupImageBox) mockupImageBox.hidden = !mediaUrl;
+        mockupImg.onerror = null;
         mockupImg.onerror = function () {
-          mockupImg.src = '/static/placeholder.jpg';
+          if (mockupImageBox) mockupImageBox.hidden = true;
         };
+        if (mediaUrl) mockupImg.src = mediaUrl;
       }
 
       // Update text
@@ -77,6 +79,9 @@
 
     // Attach listeners for live preview
     if (contentArea) contentArea.addEventListener('input', updatePreview);
+    if (contentArea) contentArea.addEventListener('input', function () {
+      if (aiGeneratedHidden) aiGeneratedHidden.value = 'false';
+    });
     if (mediaInput) mediaInput.addEventListener('input', updatePreview);
     if (networkSelect) networkSelect.addEventListener('change', updatePreview);
     if (langSelect) langSelect.addEventListener('change', updatePreview);
@@ -125,7 +130,7 @@
         var originalBtnText = generateBtn.innerHTML;
         generateBtn.disabled = true;
         generateBtn.classList.add('ai-loading-pulse');
-        generateBtn.innerHTML = '<span class="sparkle-anim">⏳</span> Gemini Yapay Zekası Gönderiyi Hazırlıyor...';
+        generateBtn.innerHTML = '<span class="sparkle-anim">⏳</span> Gönderi hazırlanıyor...';
 
         var bodyParams = new URLSearchParams();
         bodyParams.append('csrf', csrf);
@@ -150,6 +155,7 @@
           })
           .then(function (data) {
             if (data.ok && data.content) {
+              if (data.listing_id && listingInput) listingInput.value = data.listing_id;
               if (contentArea) {
                 contentArea.value = data.content;
                 contentArea.classList.add('ai-highlight');

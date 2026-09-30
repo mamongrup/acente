@@ -43,6 +43,7 @@ import nexus_agency/auth
 import nexus_agency/csrf
 import nexus_agency/i18n
 import nexus_agency/panel
+import nexus_agency/parampos
 import nexus_agency/permissions
 import nexus_agency/secrets
 import nexus_agency/ssr_currency
@@ -74,6 +75,12 @@ fn require_session_api_impl(
   token: Result(String, Nil),
   body: fn() -> Response,
 ) -> Response
+
+@external(erlang, "nexus_agency@router_impl", "parampos_config")
+fn parampos_config_impl(
+  db: pog.Connection,
+  tenant_id: String,
+) -> Result(parampos.Config, String)
 
 /// Ana giriş noktası: tüm HTTP isteklerini kurtarılan router'a iletir.
 ///
@@ -152,6 +159,9 @@ fn handle_application_request(
       too_many_requests()
     }
     False ->
+      case sales_chain_request(req) {
+        True -> handle_sales_chain_request(req, db)
+        False ->
       // Self-service listing wizard (public storefront)
       case ilan_ver_request(req) {
         True -> handle_ilan_ver(req, db)
@@ -291,6 +301,144 @@ fn handle_application_request(
           }
       }
       }
+      }
+  }
+}
+
+fn sales_chain_request(req: wisp.Request) -> Bool {
+  case req.method, http_request.path_segments(req) {
+    http.Get, ["admin", "finance-overview", "chain", _] -> True
+    http.Post, ["admin", "finance-overview", "cancel"] -> True
+    http.Post, ["admin", "finance-overview", "parampos-refund"] -> True
+    _, _ -> False
+  }
+}
+
+fn handle_sales_chain_request(req: wisp.Request, db: pog.Connection) -> Response {
+  case csrf.session_token_from(req) {
+    Error(Nil) -> unauthorized_json()
+    Ok(token) -> case auth.session(db, token) {
+      Error(Nil) -> unauthorized_json()
+      Ok(session) -> case permissions.is_admin_or_owner(session.membership) {
+        False -> wisp.response(403)
+        True -> case req.method, http_request.path_segments(req) {
+          http.Get, ["admin", "finance-overview", "chain", order_id] -> {
+            let decoder = decode.field(0, decode.string, decode.success)
+            case pog.query("select agency.get_sales_chain_details($1::uuid,$2::uuid)::text")
+              |> pog.parameter(pog.text(session.tenant_id))
+              |> pog.parameter(pog.text(order_id))
+              |> pog.returning(decoder)
+              |> pog.execute(db) {
+              Ok(rows) -> case rows.rows {
+                [value, ..] -> wisp.json_response(value, 200)
+                _ -> wisp.response(404)
+              }
+              Error(_) -> wisp.response(400)
+            }
+          }
+          http.Post, ["admin", "finance-overview", "cancel"] ->
+            csrf.require_csrf_form(req, token, fn(clean_req) {
+              case wisp.read_body_bits(clean_req) {
+                Error(_) -> wisp.response(400)
+                Ok(bits) -> case bits |> bit_array.to_string |> result.try(uri.parse_query) {
+                  Error(_) -> wisp.response(400)
+                  Ok(pairs) -> {
+                    let decoder = decode.field(0, decode.string, decode.success)
+                    case pog.query("select agency.cancel_and_refund_order($1::uuid,$2::uuid,$3::uuid,$4)::text")
+                      |> pog.parameter(pog.text(session.tenant_id))
+                      |> pog.parameter(pog.text(session.user_id))
+                      |> pog.parameter(pog.text(form_value(pairs, "order_id")))
+                      |> pog.parameter(pog.text(form_value(pairs, "reason")))
+                      |> pog.returning(decoder)
+                      |> pog.execute(db) {
+                      Ok(_) -> wisp.redirect("/admin/finance-overview")
+                      Error(_) -> wisp.response(422)
+                    }
+                  }
+                }
+              }
+            })
+          http.Post, ["admin", "finance-overview", "parampos-refund"] ->
+            csrf.require_csrf_form(req, token, fn(clean_req) {
+              case wisp.read_body_bits(clean_req) {
+                Error(_) -> wisp.response(400)
+                Ok(bits) -> case bits |> bit_array.to_string |> result.try(uri.parse_query) {
+                  Error(_) -> wisp.response(400)
+                  Ok(pairs) -> process_parampos_refund(
+                    db,
+                    session.tenant_id,
+                    session.user_id,
+                    form_value(pairs, "refund_id"),
+                  )
+                }
+              }
+            })
+          _, _ -> wisp.response(404)
+        }
+      }
+    }
+  }
+}
+
+fn process_parampos_refund(
+  db: pog.Connection,
+  tenant_id: String,
+  actor_id: String,
+  refund_id: String,
+) -> Response {
+  case parampos_config_impl(db, tenant_id) {
+    Error(_) -> wisp.response(422) |> wisp.string_body("ParamPOS bağlantısı yapılandırılmamış.")
+    Ok(config) -> {
+      let decoder = decode.field(0, decode.string, decode.success)
+      case pog.query("select agency.claim_parampos_refund($1::uuid,$2::uuid,$3::uuid)::text")
+        |> pog.parameter(pog.text(tenant_id))
+        |> pog.parameter(pog.text(actor_id))
+        |> pog.parameter(pog.text(refund_id))
+        |> pog.returning(decoder)
+        |> pog.execute(db) {
+        Error(_) -> wisp.response(422) |> wisp.string_body("İade talebi gönderilemedi veya daha önce gönderildi.")
+        Ok(rows) -> case rows.rows {
+          [claim, ..] -> case json.parse(from: claim, using: {
+            use attempt <- decode.field("attempt_id", decode.string)
+            use order <- decode.field("order_id", decode.string)
+            use amount <- decode.field("amount_minor", decode.int)
+            use action <- decode.field("action", decode.string)
+            decode.success(#(attempt, order, amount, action))
+          }) {
+            Error(_) -> wisp.response(500)
+            Ok(#(attempt, order, amount, action)) -> {
+              let outcome = parampos.refund(config, order, amount, action)
+              let #(status, reference, summary) = case outcome {
+                Ok(proof) -> {
+                  let ref = case proof.bank_transaction_id {
+                    "" -> proof.bank_host_reference
+                    value -> value
+                  }
+                  #("succeeded", ref, proof.message)
+                }
+                Error(_) -> #("unknown", "", "Provider confirmation unavailable")
+              }
+              case pog.query("select agency.finish_parampos_refund($1::uuid,$2::uuid,$3::uuid,$4,$5,$6)::text")
+                |> pog.parameter(pog.text(tenant_id))
+                |> pog.parameter(pog.text(actor_id))
+                |> pog.parameter(pog.text(attempt))
+                |> pog.parameter(pog.text(status))
+                |> pog.parameter(pog.text(reference))
+                |> pog.parameter(pog.text(summary))
+                |> pog.returning(decoder)
+                |> pog.execute(db) {
+                Error(_) -> wisp.response(503) |> wisp.string_body("İade sonucu kaydedilemedi; işlem inceleme gerektiriyor.")
+                Ok(_) -> case status {
+                  "succeeded" -> wisp.redirect("/admin/finance-overview")
+                  _ -> wisp.response(502) |> wisp.string_body("ParamPOS iade sonucu belirsiz; tekrar göndermeden önce mutabakat yapın.")
+                }
+              }
+            }
+          }
+          _ -> wisp.response(500)
+        }
+      }
+    }
   }
 }
 
@@ -410,7 +558,7 @@ fn handle_ai_health_request(req: wisp.Request, db: pog.Connection) -> Response {
 
 fn get_tenant_ai_config(db: pog.Connection, tenant_id: String) -> ai_client.AIConfig {
   let ai_cfg_query =
-    "select coalesce(row_to_json(x)::text,'') from (select coalesce(provider,'google') as provider,coalesce(api_key_encrypted,'') as api_key,coalesce(model,'gemini-2.5-flash') as model from agency.ai_key_pool where tenant_id=$1::uuid and active and api_key_encrypted<>'' and (cooldown_until is null or cooldown_until<=now()) and (daily_limit=0 or daily_used<daily_limit) order by case when provider='google' then 0 else 1 end,priority,id limit 1) x"
+    "select coalesce(row_to_json(x)::text,'') from (select coalesce(provider,'google') as provider,coalesce(api_key_encrypted,'') as api_key,coalesce(model,'') as model from agency.ai_key_pool where tenant_id=$1::uuid and active and api_key_encrypted<>'' and (cooldown_until is null or cooldown_until<=now()) and (daily_limit=0 or daily_used<daily_limit) order by priority,id limit 1) x"
     |> pog.query()
     |> pog.parameter(pog.text(tenant_id))
     |> pog.returning(decode.field(0, decode.string, fn(r) { decode.success(r) }))
@@ -467,7 +615,7 @@ fn handle_ai_social_generate(req: wisp.Request, db: pog.Connection) -> Response 
                       "" -> ""
                       id -> {
                         let q =
-                          "select coalesce(row_to_json(x)::text,'') from (select title,category,coalesce(description,'') as description,coalesce(images->0->>'url','') as media_url from agency.listings where tenant_id=$1::uuid and (id::text=$2 or code ilike $2 or title ilike '%'||$2||'%') order by case when id::text=$2 then 0 when code ilike $2 then 1 else 2 end,id limit 1) x"
+                          "select coalesce(row_to_json(x)::text,'') from (select id,title,category,coalesce(description,'') as description,coalesce(images->0->>'url','') as media_url from agency.listings where tenant_id=$1::uuid and (id::text=$2 or code ilike $2 or title ilike '%'||$2||'%') order by case when id::text=$2 then 0 when code ilike $2 then 1 else 2 end,id limit 1) x"
                           |> pog.query()
                           |> pog.parameter(pog.text(session.tenant_id))
                           |> pog.parameter(pog.text(id))
@@ -484,24 +632,28 @@ fn handle_ai_social_generate(req: wisp.Request, db: pog.Connection) -> Response 
                     }
 
                     let listing_decoder = {
+                      use resolved_id <- decode.field("id", decode.string)
                       use title <- decode.field("title", decode.string)
                       use category <- decode.field("category", decode.string)
                       use description <- decode.field("description", decode.string)
                       use media_url <- decode.field("media_url", decode.string)
-                      decode.success(#(title, category, description, media_url))
+                      decode.success(#(resolved_id, title, category, description, media_url))
                     }
 
-                    let #(title, category, desc, media_url) = case json.parse(listing_json, listing_decoder) {
+                    let #(resolved_id, title, category, desc, media_url) = case json.parse(listing_json, listing_decoder) {
                       Ok(tup) -> tup
                       Error(_) -> {
                         let t = case form_value(pairs, "title") {
                           "" -> "Özel Tatil Fırsatı"
                           val -> val
                         }
-                        #(t, "holiday_home", custom_prompt, "")
+                        #( "", t, "holiday_home", custom_prompt, "")
                       }
                     }
 
+                    case listing_id != "" && resolved_id == "" {
+                      True -> wisp.json_response("{\"ok\":false,\"error\":\"İlan bu acentede bulunamadı\"}", 404)
+                      False -> {
                     let cfg = get_tenant_ai_config(db, session.tenant_id)
 
                     case ai_client.generate_social_post(cfg, network, category, title, desc, lang, tone) {
@@ -513,6 +665,7 @@ fn handle_ai_social_generate(req: wisp.Request, db: pog.Connection) -> Response 
                             #("media_url", json.string(media_url)),
                             #("title", json.string(title)),
                             #("category", json.string(category)),
+                            #("listing_id", json.string(resolved_id)),
                           ])
                           |> json.to_string
                         wisp.json_response(resp, 200)
@@ -525,6 +678,8 @@ fn handle_ai_social_generate(req: wisp.Request, db: pog.Connection) -> Response 
                           ])
                           |> json.to_string
                         wisp.json_response(resp, 500)
+                      }
+                    }
                       }
                     }
                   }
@@ -1302,12 +1457,12 @@ fn handle_social_compose(req: wisp.Request, db: pog.Connection) -> Response {
                     let approval =
                       form_value(pairs, "approval_required") == "true"
                     let daily_limit = form_int(pairs, "daily_limit")
-                    case content == "" {
+                    case string.trim(content) == "" || daily_limit < 0 || daily_limit > 1000 {
                       True ->
                         wisp.response(422)
                         |> wisp.string_body("Gönderi metni boş olamaz")
                       False ->
-                        "with policy as (insert into agency.social_automation_policies(tenant_id,network,language_code,daily_limit,auto_generate,approval_required,updated_at) values($1::uuid,$2,$3,$4,$5::boolean,$6::boolean,now()) on conflict(tenant_id,network,language_code,market_code) do update set daily_limit=excluded.daily_limit,auto_generate=excluded.auto_generate,approval_required=excluded.approval_required,updated_at=now() returning id) insert into agency.social_posts(tenant_id,entity_type,entity_id,network,language_code,content,scheduled_at,metadata,approved_at,ai_generated) select $1::uuid,case when nullif($10,'') is not null then 'listing' else 'manual' end,coalesce(nullif($10,'')::uuid,$1::uuid),$2,$3,$7,nullif($8,'')::timestamptz,jsonb_build_object('media_url',$9,'approval_required',$6::boolean,'listing_id',nullif($10,''),'ai_generated',$11::boolean),case when $6::boolean then null else now() end,$11::boolean from policy"
+                        "with listing as (select id from agency.listings where tenant_id=$1::uuid and (id::text=$10 or code ilike $10 or title ilike $10) order by case when id::text=$10 then 0 when code ilike $10 then 1 else 2 end,id limit 1), policy as (insert into agency.social_automation_policies(tenant_id,network,language_code,daily_limit,auto_generate,approval_required,updated_at) select $1::uuid,$2,$3,$4,$5::boolean,$6::boolean,now() where $10='' or exists(select 1 from listing) on conflict(tenant_id,network,language_code,market_code) do update set daily_limit=excluded.daily_limit,auto_generate=excluded.auto_generate,approval_required=excluded.approval_required,updated_at=now() returning id) insert into agency.social_posts(tenant_id,entity_type,entity_id,network,language_code,content,scheduled_at,metadata,approved_at,moderation_status,ai_generated) select $1::uuid,case when $10<>'' then 'listing' else 'manual' end,coalesce((select id from listing),gen_random_uuid()),$2,$3,$7,nullif($8,'')::timestamptz,jsonb_build_object('media_url',$9,'approval_required',$6::boolean,'listing_id',(select id::text from listing),'ai_generated',$11::boolean),case when $6::boolean then null else now() end,case when $6::boolean then 'pending' else 'approved' end,$11::boolean from policy returning id::text"
                         |> pog.query()
                         |> pog.parameter(pog.text(session.tenant_id))
                         |> pog.parameter(pog.text(network))
@@ -1324,8 +1479,14 @@ fn handle_social_compose(req: wisp.Request, db: pog.Connection) -> Response {
                         |> pog.parameter(pog.text(media))
                         |> pog.parameter(pog.text(listing_id))
                         |> pog.parameter(pog.bool(ai_gen))
+                        |> pog.returning(decode.field(0, decode.string, decode.success))
                         |> pog.execute(db)
-                        |> result.map(fn(_) { wisp.redirect("/admin/ai#social-review") })
+                        |> result.map(fn(rows) {
+                          case rows.rows {
+                            [] -> wisp.response(422) |> wisp.string_body("İlan bu acentede bulunamadı")
+                            _ -> wisp.redirect("/admin/ai#social-review")
+                          }
+                        })
                         |> result.unwrap(
                           wisp.response(500)
                           |> wisp.string_body(
@@ -1584,18 +1745,22 @@ fn handle_integration_admin_request(
             case provider == "parampos" && kind == "payment" {
               True -> save_parampos_integration(clean_req, db, session, pairs)
               False ->
-                case provider == "social" {
-                  True -> save_social_integration(db, session, pairs)
+                case provider == "qnb_esolutions" && kind == "document" {
+                  True -> save_qnb_esolutions_integration(clean_req, db, session, pairs)
                   False ->
-                    save_search_engine_integration(
-                      clean_req,
-                      db,
-                      session,
-                      pairs,
-                      provider,
-                      kind,
-                      origin,
-                    )
+                    case provider == "social" {
+                      True -> save_social_integration(db, session, pairs)
+                      False ->
+                        save_search_engine_integration(
+                          clean_req,
+                          db,
+                          session,
+                          pairs,
+                          provider,
+                          kind,
+                          origin,
+                        )
+                    }
                 }
             }
           }
@@ -1707,6 +1872,61 @@ fn save_search_engine_integration(
         Error(_) ->
           wisp.response(500)
           |> wisp.string_body("Entegrasyon ayarı kaydedilemedi")
+      }
+    }
+  }
+}
+
+fn save_qnb_esolutions_integration(
+  req: wisp.Request,
+  db: pog.Connection,
+  session: auth.Session,
+  pairs: List(#(String, String)),
+) -> Response {
+  case permissions.is_admin_or_owner(session.membership) {
+    False -> wisp.response(403)
+    True -> {
+      let endpoint = string.trim(form_value(pairs, "endpoint"))
+      case endpoint == "" || secrets.valid_https(endpoint) {
+        False -> wisp.response(422) |> wisp.string_body("QNB servis adresi HTTPS olmalı.")
+        True ->
+          case
+            seal_optional(session.tenant_id, "qnb_esolutions.password", form_value(pairs, "password")),
+            seal_optional(session.tenant_id, "qnb_esolutions.api_key", form_value(pairs, "api_key"))
+          {
+            Ok(password_sealed), Ok(api_key_sealed) -> {
+              let active = case form_value(pairs, "active") {
+                "true" -> "true"
+                _ -> "false"
+              }
+              let sql =
+                "insert into agency.integrations(tenant_id,provider,kind,credentials,active,updated_at)
+                 values($1::uuid,'qnb_esolutions','document',jsonb_build_object(
+                   'username',$2,'password_sealed',$3,'api_key_sealed',$4,'endpoint',$5),$6::boolean,now())
+                 on conflict(tenant_id,provider,kind) do update set
+                   credentials=coalesce(agency.integrations.credentials,'{}'::jsonb)
+                     || coalesce((select jsonb_object_agg(k,v) from jsonb_each_text(excluded.credentials) where v<>''),'{}'::jsonb),
+                   active=excluded.active,updated_at=now()"
+              case sql
+                |> pog.query()
+                |> pog.parameter(pog.text(session.tenant_id))
+                |> pog.parameter(pog.text(string.trim(form_value(pairs, "username"))))
+                |> pog.parameter(pog.text(password_sealed))
+                |> pog.parameter(pog.text(api_key_sealed))
+                |> pog.parameter(pog.text(endpoint))
+                |> pog.parameter(pog.text(active))
+                |> pog.execute(db)
+              {
+                Ok(_) -> {
+                  record_audit(req, db, session.tenant_id, session.user_id,
+                    "integration.qnb_esolutions.updated", "integration", "qnb_esolutions")
+                  wisp.redirect("/admin/integrations")
+                }
+                Error(_) -> wisp.response(500) |> wisp.string_body("QNB ayarları kaydedilemedi.")
+              }
+            }
+            _, _ -> wisp.response(500) |> wisp.string_body("QNB gizli bilgileri şifrelenemedi.")
+          }
       }
     }
   }

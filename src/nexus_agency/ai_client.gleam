@@ -1,6 +1,7 @@
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
+import gleam/list
 import gleam/string
 import gleam/uri
 
@@ -16,12 +17,59 @@ pub type AIConfig {
   AIConfig(provider: String, api_key: String, model: String)
 }
 
-pub fn default_model(provider: String) -> String {
+/// The providers `call_llm/4` can actually reach, as a stable key and a label
+/// for the UI. The panel builds its provider selector from this list, so a
+/// provider that has no client implementation can no longer be offered to the
+/// user: it used to save fine and then fail with `unsupported_provider` on the
+/// next call. `default_model/1`, `provider_endpoint/1` and the panel all
+/// resolve through here, so one list decides which providers exist.
+pub fn supported_providers() -> List(#(String, String)) {
+  [
+    #("deepseek", "DeepSeek"),
+    #("openai", "OpenAI"),
+    #("glm", "GLM"),
+    #("google", "Google"),
+  ]
+}
+
+/// `zhipu` and `gemini` are spellings users still have saved in settings, so
+/// they keep resolving to the provider they always meant.
+fn canonical_provider(provider: String) -> String {
   case string.lowercase(string.trim(provider)) {
+    "zhipu" -> "glm"
+    "gemini" -> "google"
+    other -> other
+  }
+}
+
+pub fn is_supported_provider(provider: String) -> Bool {
+  let key = canonical_provider(provider)
+  list.any(supported_providers(), fn(entry) { entry.0 == key })
+}
+
+pub fn default_model(provider: String) -> String {
+  case canonical_provider(provider) {
+    "glm" -> "glm-4.5-flash"
     "deepseek" -> "deepseek-chat"
-    "google" | "gemini" -> "gemini-2.5-flash"
+    "google" -> "gemini-2.5-flash"
     "openai" -> "gpt-4o-mini"
-    _ -> "gemini-2.5-flash"
+    _ -> ""
+  }
+}
+
+pub fn provider_endpoint(provider: String) -> Result(String, String) {
+  let key = canonical_provider(provider)
+  case is_supported_provider(key) {
+    False -> Error("unsupported_provider")
+    True ->
+      case key {
+        "openai" -> Ok("https://api.openai.com/v1/chat/completions")
+        "deepseek" -> Ok("https://api.deepseek.com/chat/completions")
+        "glm" -> Ok("https://open.bigmodel.cn/api/paas/v4/chat/completions")
+        "google" ->
+          Ok("https://generativelanguage.googleapis.com/v1beta/models/")
+        _ -> Error("unsupported_provider")
+      }
   }
 }
 
@@ -146,10 +194,14 @@ fn text_from_gemini_decoder() -> decode.Decoder(String) {
 
 pub fn parse_gemini_response(raw: String) -> Result(String, String) {
   case json.parse(raw, text_from_gemini_decoder()) {
-    Ok(first_part) -> Ok(first_part)
+    Ok(first_part) ->
+      case string.trim(first_part) {
+        "" -> Error("Gemini yanıtı boş")
+        _ -> Ok(first_part)
+      }
     Error(_) -> {
       case string.contains(raw, "error") {
-        True -> Error(raw)
+        True -> Error("Gemini API yanıtı hata içeriyor")
         False -> Error("Gemini yanıtı çözümlenemedi")
       }
     }
@@ -203,6 +255,46 @@ fn call_deepseek(
   }
 }
 
+fn call_openai_compatible(
+  url: String,
+  provider: String,
+  api_key: String,
+  model: String,
+  system_prompt: String,
+  user_prompt: String,
+) -> Result(String, String) {
+  let selected_model = case string.trim(model) {
+    "" -> default_model(provider)
+    value -> value
+  }
+  let payload =
+    json.object([
+      #("model", json.string(selected_model)),
+      #(
+        "messages",
+        json.array(
+          [
+            json.object([
+              #("role", json.string("system")),
+              #("content", json.string(system_prompt)),
+            ]),
+            json.object([
+              #("role", json.string("user")),
+              #("content", json.string(user_prompt)),
+            ]),
+          ],
+          of: fn(x) { x },
+        ),
+      ),
+      #("max_tokens", json.int(2048)),
+    ])
+    |> json.to_string
+  case post_json(url, payload, "Bearer " <> string.trim(api_key), 40_000) {
+    Ok(response) -> parse_openai_compatible_response(response)
+    Error(_) -> Error(provider <> " API isteği başarısız")
+  }
+}
+
 fn text_from_openai_decoder() -> decode.Decoder(String) {
   decode.field(
     "choices",
@@ -224,8 +316,12 @@ fn text_from_openai_decoder() -> decode.Decoder(String) {
 
 pub fn parse_openai_compatible_response(raw: String) -> Result(String, String) {
   case json.parse(raw, text_from_openai_decoder()) {
-    Ok(first_choice) -> Ok(first_choice)
-    Error(_) -> Error("AI yanıtı okunamadı: " <> raw)
+    Ok(first_choice) ->
+      case string.trim(first_choice) {
+        "" -> Error("AI yanıtı boş")
+        _ -> Ok(first_choice)
+      }
+    Error(_) -> Error("AI yanıtı okunamadı")
   }
 }
 
@@ -245,8 +341,26 @@ pub fn call_llm(
         "deepseek" ->
           call_deepseek(cfg.api_key, cfg.model, system_prompt, user_prompt)
         "openai" ->
-          call_deepseek(cfg.api_key, cfg.model, system_prompt, user_prompt)
-        _ -> call_gemini(cfg.api_key, cfg.model, system_prompt, user_prompt)
+          call_openai_compatible(
+            "https://api.openai.com/v1/chat/completions",
+            "openai",
+            cfg.api_key,
+            cfg.model,
+            system_prompt,
+            user_prompt,
+          )
+        "glm" | "zhipu" ->
+          call_openai_compatible(
+            "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+            "glm",
+            cfg.api_key,
+            cfg.model,
+            system_prompt,
+            user_prompt,
+          )
+        "google" | "gemini" ->
+          call_gemini(cfg.api_key, cfg.model, system_prompt, user_prompt)
+        _ -> Error("unsupported_provider")
       }
     }
   }
@@ -422,7 +536,8 @@ pub fn generate_social_post(
 
   let tone_rules = case string.lowercase(string.trim(tone)) {
     "luxury" -> "Ton: Ultra lüks, prestijli, ayrıcalıklı ve konfor odaklı."
-    "romantic" -> "Ton: Romantik, balayı çiftlerine özel, büyüleyici ve huzur dolu."
+    "romantic" ->
+      "Ton: Romantik, balayı çiftlerine özel, büyüleyici ve huzur dolu."
     "adventurous" -> "Ton: Heyecan verici, maceracı, dinamik ve enerjik."
     _ -> "Ton: Çekici, samimi, güven veren ve fırsat odaklı."
   }
@@ -484,7 +599,13 @@ pub fn generate_campaign_offer(
   case call_llm(cfg, sys, user) {
     Ok(text) -> Ok(string.trim(text))
     Error("no_api_key") ->
-      Ok("🎉 " <> campaign_name <> ": " <> benefit <> " fırsatını kaçırmayın! Hemen rezervasyon yapın.")
+      Ok(
+        "🎉 "
+        <> campaign_name
+        <> ": "
+        <> benefit
+        <> " fırsatını kaçırmayın! Hemen rezervasyon yapın.",
+      )
     Error(e) -> Error(e)
   }
 }
@@ -561,7 +682,8 @@ pub fn generate_inquiry_reply(
 
   case call_llm(cfg, sys, user) {
     Ok(text) -> Ok(string.trim(clean_html_fences(text)))
-    Error("no_api_key") -> Ok(fallback_inquiry_reply(customer_name, listing_title))
+    Error("no_api_key") ->
+      Ok(fallback_inquiry_reply(customer_name, listing_title))
     Error(e) -> Error(e)
   }
 }
@@ -601,7 +723,11 @@ pub fn test_connection(cfg: AIConfig) -> Result(String, String) {
   }
 }
 
-fn fallback_social_post(network: String, title: String, category: String) -> String {
+fn fallback_social_post(
+  network: String,
+  title: String,
+  category: String,
+) -> String {
   case network {
     "instagram" ->
       "✨ Hayalinizdeki tatil burada başlıyor: "
@@ -780,7 +906,10 @@ pub fn fallback_listing_specs(category: String, raw_text: String) -> String {
   <> "\",\"property_type\":\"Standart\",\"bedroom_count\":2,\"bathroom_count\":1,\"guest_capacity\":4,\"price_estimate\":10000}"
 }
 
-pub fn fallback_inquiry_reply(customer_name: String, listing_title: String) -> String {
+pub fn fallback_inquiry_reply(
+  customer_name: String,
+  listing_title: String,
+) -> String {
   let name = case string.trim(customer_name) {
     "" -> "Değerli Misafirimiz"
     n -> "Sayın " <> n
@@ -791,7 +920,10 @@ pub fn fallback_inquiry_reply(customer_name: String, listing_title: String) -> S
   <> " hakkındaki rezervasyon talebiniz için çok teşekkür ederiz. İlgilendiğiniz tarihler ve özel şartlarınız kayıt altına alınmıştır. Ekibimiz en kısa sürede sizinle iletişime geçerek detayları paylaşacaktır.\n\nKeyifli bir tatil dileriz!"
 }
 
-pub fn fallback_destination_guide(destination: String, category: String) -> String {
+pub fn fallback_destination_guide(
+  destination: String,
+  category: String,
+) -> String {
   "<h2>"
   <> destination
   <> " Seyahat ve Tatil Rehberi</h2>\n"
@@ -905,9 +1037,12 @@ pub fn fallback_pricing_optimization(
   }
 
   let action = case occupancy_rate {
-    r if r >= 80 -> "Doluluk %80 üzeri; son boş tarihler için minimum gece sayısını artırın ve kâr marjını yükseltin."
-    r if r < 40 -> "Doluluk %40 altında; erken rezervasyon promosyonu ve hafta içi özel indirimler uygulayın."
-    _ -> "Doluluk dengeli seviyede; hafta sonu çarpanını koruyarak istikrarlı satışları sürdürün."
+    r if r >= 80 ->
+      "Doluluk %80 üzeri; son boş tarihler için minimum gece sayısını artırın ve kâr marjını yükseltin."
+    r if r < 40 ->
+      "Doluluk %40 altında; erken rezervasyon promosyonu ve hafta içi özel indirimler uygulayın."
+    _ ->
+      "Doluluk dengeli seviyede; hafta sonu çarpanını koruyarak istikrarlı satışları sürdürün."
   }
 
   "{\"base_price_suggested\":"
