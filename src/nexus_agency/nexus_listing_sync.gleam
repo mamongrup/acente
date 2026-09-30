@@ -6,7 +6,6 @@ import gleam/json
 import gleam/list
 import gleam/result
 import gleam/string
-import nexus_agency/net
 import nexus_agency/nexus_api_client
 import pog
 
@@ -18,42 +17,11 @@ pub fn start_api_sync(
   api_origin: String,
   api_key: String,
   tenant_id: String,
-) -> Bool {
-  case tenant_id {
-    "" -> {
-      io.println(
-        "NEXUS listing API sync: NEXUS_TENANT_ID not configured, sync disabled",
-      )
-      False
-    }
-    _ -> {
-      case net.url_reachable(api_origin, 750) {
-        False -> standalone_mode()
-        True ->
-          case nexus_api_client.fetch_contract_state(api_origin, api_key) {
-            Error(_) -> standalone_mode()
-            Ok(_) -> {
-              io.println(
-                "NEXUS listing sync: running via REST API ("
-                <> api_origin
-                <> ")",
-              )
-              process.spawn(fn() {
-                api_loop(agency_db, api_origin, api_key, tenant_id)
-              })
-              True
-            }
-          }
-      }
-    }
-  }
-}
-
-fn standalone_mode() -> Bool {
-  io.println(
-    "NEXUS listing sync: remote unavailable; agency continues in standalone mode",
-  )
-  False
+  remote_tenant_id: String,
+) -> process.Pid {
+  process.spawn_unlinked(fn() {
+    api_loop(agency_db, api_origin, api_key, tenant_id, remote_tenant_id)
+  })
 }
 
 fn api_loop(
@@ -61,10 +29,11 @@ fn api_loop(
   api_origin: String,
   api_key: String,
   tenant_id: String,
+  remote_tenant_id: String,
 ) {
-  api_sync(agency_db, api_origin, api_key, tenant_id)
+  api_sync(agency_db, api_origin, api_key, tenant_id, remote_tenant_id)
   process.sleep(sync_interval_ms)
-  api_loop(agency_db, api_origin, api_key, tenant_id)
+  api_loop(agency_db, api_origin, api_key, tenant_id, remote_tenant_id)
 }
 
 pub fn api_sync(
@@ -72,11 +41,61 @@ pub fn api_sync(
   api_origin: String,
   api_key: String,
   tenant_id: String,
+  remote_tenant_id: String,
 ) {
   case api_sync_contract_compatible(agency_db, api_origin, api_key, tenant_id) {
-    False -> Nil
-    True -> do_api_sync(agency_db, api_origin, api_key, tenant_id)
+    False -> suspend_nexus_catalog(agency_db, tenant_id)
+    True -> do_api_sync(agency_db, api_origin, api_key, tenant_id, remote_tenant_id)
   }
+}
+
+/// Remote stock is never sellable after a failed feed or a disabled connection.
+/// Local listings and their availability are outside this update.
+pub fn suspend_nexus_catalog(db: pog.Connection, tenant_id: String) -> Nil {
+  let outcome = pog.transaction(db, fn(tx) {
+    use _ <- result.try(
+      pog.query(
+        "update agency.availability a set units_available=0,closed=true
+         from agency.listings l where a.listing_id=l.id
+           and l.tenant_id=$1::uuid and l.source='nexus' and a.day>=current_date",
+      )
+      |> pog.parameter(pog.text(tenant_id))
+      |> pog.execute(tx),
+    )
+    use _ <- result.try(
+      pog.query(
+        "update agency.listings set status='paused',updated_at=now()
+         where tenant_id=$1::uuid and source='nexus' and status='published'",
+      )
+      |> pog.parameter(pog.text(tenant_id))
+      |> pog.execute(tx),
+    )
+    Ok(Nil)
+  })
+  case outcome {
+    Ok(_) -> Nil
+    Error(_) -> io.println("NEXUS listing sync: could not suspend stale catalog for tenant " <> tenant_id)
+  }
+}
+
+fn suspend_nexus_listing(db: pog.Connection, tenant_id: String, external_id: String) -> Nil {
+  let _ = pog.query(
+    "update agency.availability a set units_available=0,closed=true
+     from agency.listings l where a.listing_id=l.id
+       and l.tenant_id=$1::uuid and l.source='nexus'
+       and l.code=upper($2) and a.day>=current_date",
+  )
+  |> pog.parameter(pog.text(tenant_id))
+  |> pog.parameter(pog.text("NEXUS-" <> external_id))
+  |> pog.execute(db)
+  let _ = pog.query(
+    "update agency.listings set status='paused',updated_at=now()
+     where tenant_id=$1::uuid and source='nexus' and code=upper($2)",
+  )
+  |> pog.parameter(pog.text(tenant_id))
+  |> pog.parameter(pog.text("NEXUS-" <> external_id))
+  |> pog.execute(db)
+  Nil
 }
 
 fn api_sync_contract_compatible(
@@ -146,49 +165,48 @@ fn do_api_sync(
   api_origin: String,
   api_key: String,
   tenant_id: String,
+  remote_tenant_id: String,
 ) {
-  case nexus_api_client.fetch_listings_feed(api_origin, api_key, tenant_id) {
+  case nexus_api_client.fetch_listings_feed(api_origin, api_key, remote_tenant_id) {
     Ok(rows) -> {
       let row_count = list.length(rows)
-      let upserted =
-        rows
-        |> list.fold(0, fn(count, row) {
-          case upsert(agency_db, row, tenant_id) {
-            True -> count + 1
-            False -> count
-          }
-        })
-
-      // Önce bütün satırları doğrula/yaz. Tek bir satır bile yerel sözleşmeden
-      // geçemezse mevcut yayındaki veriye dokunma. Tam başarıdan sonra uzak
-      // feed'i kaynak gerçekliği olarak uygula ve güncel satırları yeniden aç.
-      case upserted == row_count {
-        True -> {
-          let _ =
-            pog.query(
-              "update agency.listings set status='paused',updated_at=now() where tenant_id=$1::uuid and source='nexus' and status='published'",
-            )
-            |> pog.parameter(pog.text(tenant_id))
-            |> pog.execute(agency_db)
+      // Pause and publish share one transaction. A bad row or collision rolls
+      // the entire feed back, leaving the prior catalogue visible.
+      let published = pog.transaction(agency_db, fn(tx) {
+        use _ <- result.try(
+          pog.query(
+            "update agency.availability a set units_available=0,closed=true
+             from agency.listings l where a.listing_id=l.id
+               and l.tenant_id=$1::uuid and l.source='nexus' and a.day>=current_date",
+          )
+          |> pog.parameter(pog.text(tenant_id))
+          |> pog.execute(tx)
+          |> result.map_error(fn(_) { Nil }),
+        )
+        use _ <- result.try(
+          pog.query(
+            "update agency.listings set status='paused',updated_at=now() where tenant_id=$1::uuid and source='nexus' and status='published'",
+          )
+          |> pog.parameter(pog.text(tenant_id))
+          |> pog.execute(tx)
+          |> result.map_error(fn(_) { Nil }),
+        )
+        case list.all(rows, fn(row) { upsert(tx, row, tenant_id) }) {
+          True -> Ok(Nil)
+          False -> Error(Nil)
+        }
+      })
+      case published {
+        Ok(_) ->
           rows
           |> list.each(fn(row) {
-            let _ = upsert(agency_db, row, tenant_id)
             sync_inventory_for_listing(
-              agency_db,
-              api_origin,
-              api_key,
-              tenant_id,
-              row,
+              agency_db, api_origin, api_key, tenant_id, remote_tenant_id, row,
             )
-            Nil
           })
-        }
-        False -> {
-          let message =
-            "feed validation failed: received="
-            <> int.to_string(row_count)
-            <> " upserted="
-            <> int.to_string(upserted)
+        Error(_) -> {
+          let message = "feed publication failed; previous catalogue retained"
+          suspend_nexus_catalog(agency_db, tenant_id)
           record_sync_failure(agency_db, tenant_id, message)
           io.println("NEXUS listing API sync: " <> message)
         }
@@ -196,13 +214,14 @@ fn do_api_sync(
       io.println(
         "NEXUS listing API sync: "
         <> int.to_string(row_count)
-        <> " published listing(s), "
-        <> int.to_string(upserted)
+        <> " feed listing(s), "
+        <> case published { Ok(_) -> int.to_string(row_count) Error(_) -> "0" }
         <> " upserted for tenant "
         <> tenant_id,
       )
     }
     Error(err) -> {
+      suspend_nexus_catalog(agency_db, tenant_id)
       record_sync_failure(agency_db, tenant_id, err)
       io.println("NEXUS listing API sync error: " <> err)
     }
@@ -214,10 +233,11 @@ fn sync_inventory_for_listing(
   api_origin: String,
   api_key: String,
   tenant_id: String,
+  remote_tenant_id: String,
   row: nexus_api_client.ListingTuple,
 ) {
   let #(id, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = row
-  case nexus_api_client.fetch_inventory(api_origin, api_key, tenant_id, id) {
+  case nexus_api_client.fetch_inventory(api_origin, api_key, remote_tenant_id, id) {
     Ok(days) -> {
       case list.length(days) {
         0 -> {
@@ -302,6 +322,7 @@ fn sync_inventory_for_listing(
       }
     }
     Error(err) -> {
+      suspend_nexus_listing(agency_db, tenant_id, id)
       record_sync_failure(
         agency_db,
         tenant_id,
@@ -435,6 +456,40 @@ fn upsert(
     contact_policy,
     cancellation_policy,
   ) = row
+  let category = canonical_feed_category(category)
+  case category {
+    Error(_) -> {
+      io.println("NEXUS listing sync: invalid category for listing " <> id)
+      False
+    }
+    Ok(category) -> upsert_canonical(agency_db, tenant_id, id, title, locality, region, category, capacity, price, currency, description, short_description, images, contract_fields_json, price_unit, availability_mode, contact_policy, cancellation_policy)
+  }
+}
+
+pub fn canonical_feed_category(category: String) -> Result(String, Nil) {
+  case string.lowercase(string.trim(category)) {
+    "hotel" | "otel" -> Ok("hotel")
+    "holiday_home" | "villa" -> Ok("holiday_home")
+    "yacht" | "yat" -> Ok("yacht")
+    "tour" | "tur" -> Ok("tour")
+    "activity" | "aktivite" -> Ok("activity")
+    "flight" | "ucus" -> Ok("flight")
+    "car" | "arac" -> Ok("car")
+    "cruise" | "kruvaziyer" -> Ok("cruise")
+    "pilgrimage" | "hac_umre" -> Ok("pilgrimage")
+    "visa" | "vize" -> Ok("visa")
+    "ferry" | "feribot" -> Ok("ferry")
+    "transfer" -> Ok("transfer")
+    "beach" | "sezlong" -> Ok("beach")
+    "cinema" | "sinema" -> Ok("cinema")
+    "event" | "etkinlik" -> Ok("event")
+    "restaurant" | "restoran" -> Ok("restaurant")
+    "bus" | "otobus" -> Ok("bus")
+    _ -> Error(Nil)
+  }
+}
+
+fn upsert_canonical(agency_db, tenant_id, id, title, locality, region, category, capacity, price, currency, description, short_description, images, contract_fields_json, price_unit, availability_mode, contact_policy, cancellation_policy) -> Bool {
   case
     pog.query(
       "insert into agency.listings(

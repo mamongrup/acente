@@ -1,4 +1,4 @@
-param([string]$NexusEnvPath = 'C:\laragon\www\Nexustraveltech\.env')
+param([string]$NexusEnvPath = (Join-Path $PSScriptRoot '..\..\Nexustraveltech\.env'))
 
 $ErrorActionPreference = 'Stop'
 $nexusSettings = @{}

@@ -51,12 +51,13 @@ pub fn landing_page_renders_test() {
   // real connection; the critical browser suite covers it in every local run.
   case real_db() {
     Ok(db) -> {
-      let _ = simulate.browser_request(http.Get, "/")
+      let _ =
+        simulate.browser_request(http.Get, "/")
         |> router.handle(db, origin)
         |> should_status(200)
       Nil
     }
-    Error(_) -> Nil
+    Error(_) -> panic as database_required()
   }
 }
 
@@ -169,6 +170,19 @@ import nexus_agency/auth
 
 import envoy
 
+/// Database backed tests must fail loudly when the database is unreachable.
+///
+/// Every test below used to read `case real_db() { Error(Nil) -> panic as database_required() ... }`,
+/// which is indistinguishable from a passing test: a missing database, wrong
+/// credentials or a stopped Postgres all produced a green suite that asserted
+/// nothing. The integration suite is exactly where silent green is most
+/// dangerous, because these are the only tests that exercise routing,
+/// authentication and role boundaries end to end. If the database is not
+/// there, that is a failure to fix, not a reason to skip.
+fn database_required() -> String {
+  "bu test gercek bir veritabani gerektirir: gleam test oncesinde acente veritabanini baslatin (scripts/run-dev.ps1)"
+}
+
 fn real_db() -> Result(pog.Connection, Nil) {
   // Read connection details from environment (set by .env via run-dev.ps1).
   // Falls back to sensible dev defaults.  pog.start is lazy — it starts a
@@ -243,7 +257,7 @@ fn real_db() -> Result(pog.Connection, Nil) {
 /// /admin and verify the dashboard renders with the user's name.
 pub fn login_and_access_admin_test() {
   case real_db() {
-    Error(Nil) -> Nil
+    Error(Nil) -> panic as database_required()
     // skip
     Ok(db) -> {
       // 1. Attempt login --------------------------------------------------------
@@ -280,10 +294,15 @@ pub fn login_and_access_admin_test() {
 /// Vitrin dili çerezi panelin seçili dilini değiştiremez.
 pub fn storefront_locale_does_not_translate_admin_test() {
   case real_db() {
-    Error(Nil) -> Nil
+    Error(Nil) -> panic as database_required()
     Ok(db) -> {
       let session_token = wisp.random_string(48)
-      auth.login(db, "integration-admin@nexus.local", "admin123456", session_token)
+      auth.login(
+        db,
+        "integration-admin@nexus.local",
+        "admin123456",
+        session_token,
+      )
       |> should.be_ok
       let resp =
         simulate.browser_request(http.Get, "/admin")
@@ -302,17 +321,27 @@ pub fn storefront_locale_does_not_translate_admin_test() {
 
 pub fn parampos_refund_requires_configured_admin_and_csrf_test() {
   case real_db() {
-    Error(Nil) -> Nil
+    Error(Nil) -> panic as database_required()
     Ok(db) -> {
       let session_token = wisp.random_string(48)
-      auth.login(db, "integration-admin@nexus.local", "admin123456", session_token)
+      auth.login(
+        db,
+        "integration-admin@nexus.local",
+        "admin123456",
+        session_token,
+      )
       |> should.be_ok
       let request =
-        simulate.browser_request(http.Post, "/admin/finance-overview/parampos-refund")
+        simulate.browser_request(
+          http.Post,
+          "/admin/finance-overview/parampos-refund",
+        )
         |> simulate.cookie("agency_session", session_token, wisp.Signed)
       let missing_csrf =
         request
-        |> simulate.form_body([#("refund_id", "00000000-0000-0000-0000-000000000001")])
+        |> simulate.form_body([
+          #("refund_id", "00000000-0000-0000-0000-000000000001"),
+        ])
         |> router.handle(db, origin)
       missing_csrf.status |> should.equal(403)
       let unconfigured =
@@ -332,7 +361,7 @@ pub fn parampos_refund_requires_configured_admin_and_csrf_test() {
 /// panel. This guards the role boundary added to the shared session middleware.
 pub fn customer_role_cannot_access_admin_test() {
   case real_db() {
-    Error(Nil) -> Nil
+    Error(Nil) -> panic as database_required()
     Ok(db) -> {
       let customer_fixture =
         "INSERT INTO agency.users(tenant_id, email, display_name, membership_type, active, password_hash) VALUES ('00000000-0000-0000-0000-000000000001', 'integration-customer@nexus.local', 'Test Customer', 'customer', true, crypt('customer123456', gen_salt('bf'))) ON CONFLICT (tenant_id, email) DO UPDATE SET membership_type = excluded.membership_type, active = true, password_hash = excluded.password_hash, failed_login_attempts = 0, locked_until = NULL;"
@@ -363,7 +392,7 @@ pub fn customer_role_cannot_access_admin_test() {
 /// error instead of selecting an arbitrary agency account.
 pub fn ambiguous_email_returns_specific_error_test() {
   case real_db() {
-    Error(Nil) -> Nil
+    Error(Nil) -> panic as database_required()
     Ok(db) -> {
       let email = "integration-ambiguous@nexus.local"
       let tenant_fixture =
@@ -418,7 +447,7 @@ pub fn ambiguous_email_returns_specific_error_test() {
 /// Verify that a bad password returns 401 on the login POST.
 pub fn login_wrong_password_returns_401_test() {
   case real_db() {
-    Error(Nil) -> Nil
+    Error(Nil) -> panic as database_required()
     Ok(db) -> {
       let resp =
         simulate.browser_request(http.Post, "/login")
@@ -440,7 +469,7 @@ pub fn login_wrong_password_returns_401_test() {
 /// A valid login POST redirects to /admin and sets the session cookie.
 pub fn login_success_redirects_to_admin_test() {
   case real_db() {
-    Error(Nil) -> Nil
+    Error(Nil) -> panic as database_required()
     Ok(db) -> {
       let resp =
         simulate.browser_request(http.Post, "/login")
@@ -470,7 +499,7 @@ pub fn login_success_redirects_to_admin_test() {
 /// Verify that the account locks after 5 failed attempts.
 pub fn account_locks_after_failed_attempts_test() {
   case real_db() {
-    Error(Nil) -> Nil
+    Error(Nil) -> panic as database_required()
     Ok(db) -> {
       // 1. Reset the account's failed attempts counter -------------------------
       pog.query(
@@ -560,7 +589,7 @@ fn reset_currency_pref(db: pog.Connection) -> Nil {
 /// Geçerli oturum + CSRF token ile gelen POST tercihi hesaba yazmalı (204).
 pub fn currency_preference_persisted_to_account_test() {
   case real_db() {
-    Error(Nil) -> Nil
+    Error(Nil) -> panic as database_required()
     Ok(db) -> {
       let session_token = wisp.random_string(48)
       auth.login(db, pref_email, "admin123456", session_token) |> should.be_ok
@@ -588,7 +617,7 @@ pub fn currency_preference_persisted_to_account_test() {
 /// CSRF token olmadan gelen POST reddedilmeli ve hesap değişmemeli.
 pub fn currency_preference_requires_csrf_test() {
   case real_db() {
-    Error(Nil) -> Nil
+    Error(Nil) -> panic as database_required()
     Ok(db) -> {
       let session_token = wisp.random_string(48)
       auth.login(db, pref_email, "admin123456", session_token) |> should.be_ok
@@ -614,7 +643,7 @@ pub fn currency_preference_requires_csrf_test() {
 /// Yanlış CSRF token'ı da reddedilmeli (fail-closed).
 pub fn currency_preference_rejects_wrong_csrf_test() {
   case real_db() {
-    Error(Nil) -> Nil
+    Error(Nil) -> panic as database_required()
     Ok(db) -> {
       let session_token = wisp.random_string(48)
       auth.login(db, pref_email, "admin123456", session_token) |> should.be_ok
@@ -670,7 +699,7 @@ pub fn translate_text_respects_word_boundaries_test() {
 /// içinde eşleşip "Активностьler" gibi melez metin üretmemeli.
 pub fn ssr_localized_listing_page_test() {
   case real_db() {
-    Error(Nil) -> Nil
+    Error(Nil) -> panic as database_required()
     Ok(db) -> {
       // SSR yerelleştirme uygulamanın handle_localized sarmalayıcısında;
       // router.handle doğrudan çağrılırsa çeviri uygulanmaz.
@@ -707,7 +736,7 @@ pub fn ssr_localized_listing_page_test() {
 /// (Турlar / Турlar) doğmamalı.
 pub fn ssr_translation_respects_word_boundaries_test() {
   case real_db() {
-    Error(Nil) -> Nil
+    Error(Nil) -> panic as database_required()
     Ok(db) -> {
       let de =
         simulate.browser_request(http.Get, "/urunler?kategori=tour")
@@ -735,7 +764,7 @@ pub fn ssr_translation_respects_word_boundaries_test() {
 /// Başarılı giriş, kayıtlı tercihi JS-okunur nexus_currency çerezine damgalar.
 pub fn login_stamps_currency_cookie_test() {
   case real_db() {
-    Error(Nil) -> Nil
+    Error(Nil) -> panic as database_required()
     Ok(db) -> {
       // Hesaba tercihi doğrudan yaz, sonra giriş yap.
       "update agency.users set currency_pref=$1 where lower(email)=lower($2)"

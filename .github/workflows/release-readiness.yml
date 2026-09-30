@@ -9,7 +9,29 @@ on:
 
 jobs:
   readiness:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      APP_ENV: development
+      APP_PORT: "8082"
+      APP_ORIGIN: http://127.0.0.1:8082
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGDATABASE: nexus_agency
+      SECRET_KEY_BASE: ci-test-secret-key-base-0123456789-abcdefghijklmnopqrstuvwxyz
+      NEXUS_CONFIG_KEY: ci-test-config-key-0123456789-abcdefghijklmnopqrstuvwxyz
+      NEXUS_API_KEY: ci-test-callback-key
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,9 +46,39 @@ jobs:
         shell: pwsh
         run: gleam build
 
-      - name: Gleam unit tests
+      - name: Prepare integration database
+        shell: bash
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE agency_app LOGIN PASSWORD 'ci-agency-test';"
+          psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE nexus_agency;"
+          printf 'PGHOST=%s\nPGPORT=%s\nPGDATABASE=%s\nPGUSER=postgres\nPGPASSWORD=postgres\n' "$PGHOST" "$PGPORT" "$PGDATABASE" > .env
+
+      - name: Apply migrations
         shell: pwsh
-        run: gleam test
+        run: ./scripts/migrate.ps1
+
+      - name: Gleam tests against running application
+        shell: bash
+        env:
+          PGUSER: agency_app
+          PGPASSWORD: ci-agency-test
+        run: |
+          gleam run > "$RUNNER_TEMP/agency-server.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:8082/ >/dev/null; then ready=1; break; fi
+            sleep 2
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -n 80 "$RUNNER_TEMP/agency-server.log"
+            exit 1
+          fi
+          gleam test
+          gleam run -m nexus_connection_callback_test
 
       - name: Static release script parse
         shell: pwsh
@@ -39,13 +91,16 @@ jobs:
             "scripts/check-worker-hygiene.ps1",
             "scripts/check-nexus-callback-flow.ps1",
             "scripts/check-nexus-rest-contract.ps1",
+            "scripts/migrate.ps1",
             "scripts/rebaseline-migration.ps1",
             "scripts/check-runtime-health.ps1",
             "scripts/run-audit-retention.ps1",
             "scripts/backup-restore-drill.ps1",
             "scripts/check-nexus-reservation-queue.ps1",
             "scripts/test-parampos.ps1",
-            "scripts/run-e2e-simulation.ps1"
+            "scripts/run-e2e-simulation.ps1",
+            "scripts/check-wp2-concurrent-booking.ps1",
+            "scripts/check-wp2-sales-chain.ps1"
           )
           foreach ($file in $files) {
             if (!(Test-Path $file)) { throw "Missing script: $file" }
@@ -76,6 +131,6 @@ jobs:
           TRUSTED_PROXY_SECURE_COOKIES=false
           EDGE_RATE_LIMIT_ENABLED=false
           "@ | Set-Content -LiteralPath $envFile -Encoding UTF8
-          powershell -ExecutionPolicy Bypass -File scripts/check-production-gates.ps1 -EnvPath $envFile
+          pwsh -NoProfile -File scripts/check-production-gates.ps1 -EnvPath $envFile
           if ($LASTEXITCODE -eq 0) { throw "Production gate unexpectedly passed for unsafe env." }
           Write-Host "Unsafe production env rejected as expected."

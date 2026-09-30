@@ -10,7 +10,7 @@ pub fn contract_state_json_decoding_test() {
       string.contains(err, "NEXUS sözleşme API çağrısı başarısız")
       |> should.be_true
     }
-    Ok(_) -> Nil
+    Ok(_) -> panic as "invalid contract origin unexpectedly succeeded"
   }
 }
 
@@ -26,7 +26,7 @@ pub fn listings_feed_url_and_fallback_test() {
       string.contains(err, "NEXUS ilan feed API çağrısı başarısız")
       |> should.be_true
     }
-    Ok(_) -> Nil
+    Ok(_) -> panic as "invalid listing origin unexpectedly succeeded"
   }
 }
 
@@ -42,7 +42,7 @@ pub fn webhook_payload_dispatch_failure_resilience_test() {
       string.contains(err, "NEXUS rezervasyon webhook hatası")
       |> should.be_true
     }
-    Ok(_) -> Nil
+    Ok(_) -> panic as "invalid webhook origin unexpectedly succeeded"
   }
 }
 
@@ -101,7 +101,7 @@ pub fn fetch_inventory_failure_resilience_test() {
       string.contains(err, "NEXUS envanter çağrısı başarısız")
       |> should.be_true
     }
-    Ok(_) -> Nil
+    Ok(_) -> panic as "invalid inventory origin unexpectedly succeeded"
   }
 }
 
@@ -113,6 +113,6 @@ pub fn fetch_contract_filters_failure_resilience_test() {
       string.contains(err, "NEXUS sözleşme filtreleri çağrısı başarısız")
       |> should.be_true
     }
-    Ok(_) -> Nil
+    Ok(_) -> panic as "invalid filter origin unexpectedly succeeded"
   }
 }

@@ -18,6 +18,7 @@
 //// bağlamak tercih edilmelidir.
 
 import gleam/bit_array
+import gleam/crypto
 import gleam/dict
 import gleam/dynamic/decode
 import gleam/erlang/process
@@ -58,6 +59,9 @@ fn router_handle_impl(
   db: pog.Connection,
   origin: String,
 ) -> Response
+
+@external(erlang, "nexus_agency@router_impl", "public_tenant_selector")
+fn public_tenant_selector(req: wisp.Request) -> String
 
 /// Panel rotaları için oturum middleware'i: geçerli `agency_session` çerezi
 /// yoksa istek /login'e yönlendirilir, varsa gövde `session` ile çalışır.
@@ -2109,13 +2113,14 @@ fn handle_nexus_connection_approval(
     |> result.unwrap("")
     |> string.trim
   let expected = envoy.get("NEXUS_API_KEY") |> result.unwrap("") |> string.trim
+  let bearer_expected = "Bearer " <> expected
   let authorized =
     expected != ""
     && {
-      auth_header == expected
-      || auth_header == "Bearer " <> expected
-      || api_header == expected
-      || api_header == "Bearer " <> expected
+      crypto.secure_compare(<<auth_header:utf8>>, <<expected:utf8>>)
+      || crypto.secure_compare(<<auth_header:utf8>>, <<bearer_expected:utf8>>)
+      || crypto.secure_compare(<<api_header:utf8>>, <<expected:utf8>>)
+      || crypto.secure_compare(<<api_header:utf8>>, <<bearer_expected:utf8>>)
     }
 
   case authorized {
@@ -2123,8 +2128,6 @@ fn handle_nexus_connection_approval(
       let key =
         "nexus-callback:"
         <> request_client_id(req)
-        <> ":"
-        <> string.slice(auth_header <> api_header, 0, 64)
       case rate_limited(key, 30, 300_000.0) {
         True -> too_many_requests()
         False ->
@@ -2199,15 +2202,19 @@ fn save_nexus_connection_approval(
             Ok(sealed_api_key) -> {
               let decoder = decode.field(0, decode.string, decode.success)
               case
-                "with updated as (
+                "with pending_request as (
+                   select tenant_id from agency.nexus_connection_requests
+                    where tenant_id=$1::uuid and status='pending'
+                    for update
+                 ), updated as (
                    insert into agency.integrations(tenant_id,provider,kind,credentials,active)
-                   values(
-                     $1::uuid,
+                   select
+                     pending_request.tenant_id,
                      'nexus',
                      'connectivity',
                      jsonb_build_object('api_key_sealed',$2::text,'agency_code',$1::text),
                      true
-                   )
+                   from pending_request
                    on conflict(tenant_id,provider,kind) do update set
                      credentials=(coalesce(agency.integrations.credentials,'{}'::jsonb) - 'api_key')
                        || jsonb_build_object('api_key_sealed',$2::text,'agency_code',$1::text),
@@ -2218,27 +2225,33 @@ fn save_nexus_connection_approval(
                       set status='approved',
                           message='NEXUS bağlantısı onaylandı ve API anahtarı güvenli saklandı.',
                           updated_at=now()
-                    where tenant_id=$1::uuid
+                    where tenant_id in (select tenant_id from updated)
                     returning tenant_id
                  )
-                 select 'ok'"
+                 select tenant_id::text from request_update"
                 |> pog.query()
                 |> pog.parameter(pog.text(agency_id))
                 |> pog.parameter(pog.text(sealed_api_key))
                 |> pog.returning(decoder)
                 |> pog.execute(db)
               {
-                Ok(_) -> {
-                  record_audit(
-                    req,
-                    db,
-                    agency_id,
-                    "",
-                    "integration.nexus.connection_approved",
-                    "integration",
-                    "nexus",
+                Ok(result) -> case result.rows {
+                  [] -> wisp.json_response(
+                    "{\"ok\":false,\"error\":\"Bekleyen bağlantı isteği bulunamadı\"}",
+                    409,
                   )
-                  wisp.json_response("{\"ok\":true}", 200)
+                  _ -> {
+                    record_audit(
+                      req,
+                      db,
+                      agency_id,
+                      "",
+                      "integration.nexus.connection_approved",
+                      "integration",
+                      "nexus",
+                    )
+                    wisp.json_response("{\"ok\":true}", 200)
+                  }
                 }
                 Error(_) -> {
                   wisp.json_response(
@@ -3295,7 +3308,7 @@ fn handle_category_filter_request(
 
 fn public_concierge_json(req: wisp.Request, db: pog.Connection) -> Response {
   let query = wisp.get_query(req)
-  let tenant_selector = query_value(query, "tenant")
+  let tenant_selector = public_tenant_selector(req)
   let user_q = case query_value(query, "q") {
     "" -> query_value(query, "query")
     val -> val
@@ -3329,7 +3342,7 @@ fn public_concierge_json(req: wisp.Request, db: pog.Connection) -> Response {
     }
     q -> {
       let tenant_sql =
-        "with resolved_tenant as (select coalesce((select id::text from agency.tenants where (($1 <> '' and (lower(slug)=lower($1) or id::text=$1))) limit 1),(select t.id::text from agency.tenants t where lower(t.slug)='nexus-demo' and exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') limit 1),(select t.id::text from agency.tenants t where exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') order by t.created_at limit 1),(select id::text from agency.tenants order by created_at limit 1),'') as id) select id from resolved_tenant limit 1"
+        "with resolved_tenant as (select agency.resolve_public_tenant($1) as id) select coalesce(id::text,'') from resolved_tenant limit 1"
 
       let tenant_id =
         tenant_sql
@@ -3370,7 +3383,7 @@ fn public_concierge_json(req: wisp.Request, db: pog.Connection) -> Response {
         }
 
       let listings_sql =
-        "with resolved_tenant as (select coalesce((select id::text from agency.tenants where (($1 <> '' and (lower(slug)=lower($1) or id::text=$1))) limit 1),(select t.id::text from agency.tenants t where lower(t.slug)='nexus-demo' and exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') limit 1),(select t.id::text from agency.tenants t where exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') order by t.created_at limit 1),(select id::text from agency.tenants order by created_at limit 1),'') as id) select coalesce(json_agg(json_build_object('id', l.id::text, 'title', l.title, 'category', l.category, 'categoryLabel', case l.category when 'hotel' then 'Otel' when 'holiday_home' then 'Tatil Evi' when 'yacht' then 'Yat' when 'tour' then 'Tur' when 'activity' then 'Aktivite' when 'flight' then 'Uçuş' when 'bus' then 'Otobüs' when 'car' then 'Araç' else l.category end, 'locality', coalesce(l.locality,''), 'description', coalesce(l.description,''), 'currency', l.currency, 'priceMinor', l.price_minor::text, 'images', coalesce(l.images,'[]'::jsonb), 'propertyType', coalesce(l.metadata->'contract_fields'->>'property_type',l.metadata->'contract_fields'->>'yacht_type',l.metadata->'contract_fields'->>'tour_subcategory',l.metadata->'contract_fields'->>'type',l.metadata->>'property_type',l.metadata->>'yacht_type',''), 'guestCount', coalesce(l.metadata->'contract_fields'->>'guest_capacity',l.metadata->>'guests','')) order by case when ($3 <> '' and l.locality ilike '%' || $3 || '%') and l.category=$4 then 0 when l.category=$4 then 1 when ($3 <> '' and l.locality ilike '%' || $3 || '%') then 2 else 3 end, l.updated_at desc), '[]'::json)::text from agency.listings l join resolved_tenant rt on l.tenant_id=rt.id::uuid where l.status='published' and (($3='' or l.locality ilike '%' || $3 || '%') or ($4='' or l.category=$4)) limit 12"
+        "with resolved_tenant as (select agency.resolve_public_tenant($1) as id) select coalesce(json_agg(json_build_object('id', l.id::text, 'title', l.title, 'category', l.category, 'categoryLabel', case l.category when 'hotel' then 'Otel' when 'holiday_home' then 'Tatil Evi' when 'yacht' then 'Yat' when 'tour' then 'Tur' when 'activity' then 'Aktivite' when 'flight' then 'Uçuş' when 'bus' then 'Otobüs' when 'car' then 'Araç' else l.category end, 'locality', coalesce(l.locality,''), 'description', coalesce(l.description,''), 'currency', l.currency, 'priceMinor', l.price_minor::text, 'images', coalesce(l.images,'[]'::jsonb), 'propertyType', coalesce(l.metadata->'contract_fields'->>'property_type',l.metadata->'contract_fields'->>'yacht_type',l.metadata->'contract_fields'->>'tour_subcategory',l.metadata->'contract_fields'->>'type',l.metadata->>'property_type',l.metadata->>'yacht_type',''), 'guestCount', coalesce(l.metadata->'contract_fields'->>'guest_capacity',l.metadata->>'guests','')) order by case when ($3 <> '' and l.locality ilike '%' || $3 || '%') and l.category=$4 then 0 when l.category=$4 then 1 when ($3 <> '' and l.locality ilike '%' || $3 || '%') then 2 else 3 end, l.updated_at desc), '[]'::json)::text from agency.listings l join resolved_tenant rt on l.tenant_id=rt.id where l.status='published' and (($3='' or l.locality ilike '%' || $3 || '%') or ($4='' or l.category=$4)) limit 12"
 
       let listings_json =
         listings_sql
@@ -3408,9 +3421,9 @@ fn public_concierge_json(req: wisp.Request, db: pog.Connection) -> Response {
 }
 
 fn public_campaigns_json(req: wisp.Request, db: pog.Connection) -> Response {
-  let tenant_selector = query_value(wisp.get_query(req), "tenant")
+  let tenant_selector = public_tenant_selector(req)
   let sql =
-    "with resolved_tenant as (select coalesce((select id::text from agency.tenants where $1 <> '' and (lower(slug)=lower($1) or id::text=$1) limit 1),(select t.id::text from agency.tenants t where lower(t.slug)='nexus-demo' and exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') limit 1),(select t.id::text from agency.tenants t where exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') order by t.created_at limit 1),'') as id) select coalesce(json_agg(json_build_object('id',c.id::text,'name',c.name) order by c.name),'[]'::json)::text from agency.campaigns c join resolved_tenant rt on c.tenant_id=rt.id::uuid where c.active and (c.starts_at is null or c.starts_at<=now()) and (c.ends_at is null or c.ends_at>=now())"
+    "with resolved_tenant as (select agency.resolve_public_tenant($1) as id) select coalesce(json_agg(json_build_object('id',c.id::text,'name',c.name) order by c.name),'[]'::json)::text from agency.campaigns c join resolved_tenant rt on c.tenant_id=rt.id where c.active and (c.starts_at is null or c.starts_at<=now()) and (c.ends_at is null or c.ends_at>=now())"
   case
     sql
     |> pog.query()
@@ -3429,14 +3442,14 @@ fn public_campaigns_json(req: wisp.Request, db: pog.Connection) -> Response {
 
 fn public_listings_json(req: wisp.Request, db: pog.Connection) -> Response {
   let query = wisp.get_query(req)
-  let tenant_selector = query_value(query, "tenant")
+  let tenant_selector = public_tenant_selector(req)
   let search = query_value(query, "q")
   let locality = query_value(query, "konum")
   let category = canonical_category(query_value(query, "kategori"))
   let filter_key = query_value(query, "filter_key")
   let filter_value = query_value(query, "filter_value")
   let sql =
-    "with resolved_tenant as (select coalesce((select id::text from agency.tenants where (($1 <> '' and (lower(slug)=lower($1) or id::text=$1))) limit 1),(select t.id::text from agency.tenants t where lower(t.slug)='nexus-demo' and exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') limit 1),(select t.id::text from agency.tenants t where exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') order by t.created_at limit 1),(select id::text from agency.tenants order by created_at limit 1),'') as id) select coalesce(json_agg(json_build_object('id', l.id::text, 'title', l.title, 'category', l.category, 'categoryLabel', case l.category when 'hotel' then 'Otel' when 'holiday_home' then 'Tatil Evi' when 'yacht' then 'Yat' when 'tour' then 'Tur' when 'activity' then 'Aktivite' when 'flight' then 'Uçuş' when 'bus' then 'Otobüs' when 'car' then 'Araç' else l.category end, 'locality', coalesce(l.locality,''), 'description', coalesce(l.description,''), 'currency', l.currency, 'priceMinor', l.price_minor::text, 'images', coalesce(l.images,'[]'::jsonb), 'amenities', coalesce(l.amenities,'[]'::jsonb), 'favoriteCount', (select count(*) from agency.favorites f where f.listing_id=l.id), 'reviewCount', (select count(*) from agency.reviews rv where rv.tenant_id=l.tenant_id and rv.listing_id=l.id and rv.status='approved'), 'ratingAverage', (select round(avg(rv.rating)::numeric, 1)::text from agency.reviews rv where rv.tenant_id=l.tenant_id and rv.listing_id=l.id and rv.status='approved'), 'propertyType', coalesce(l.metadata->'contract_fields'->>'property_type',l.metadata->'contract_fields'->>'yacht_type',l.metadata->'contract_fields'->>'tour_subcategory',l.metadata->'contract_fields'->>'type',l.metadata->>'property_type',l.metadata->>'yacht_type',''), 'guestCount', coalesce(l.metadata->'contract_fields'->>'guest_capacity',l.metadata->>'guests',''), 'bedroomCount', coalesce(l.metadata->'contract_fields'->>'bedroom_count',l.metadata->>'bedrooms',''), 'bathroomCount', coalesce(l.metadata->'contract_fields'->>'bathroom_count',l.metadata->>'bathrooms',''), 'latitude', coalesce(l.metadata->'geo'->>'latitude',l.metadata->>'latitude',r.latitude::text,''), 'longitude', coalesce(l.metadata->'geo'->>'longitude',l.metadata->>'longitude',r.longitude::text,'')) order by l.updated_at desc), '[]'::json)::text from agency.listings l join resolved_tenant rt on l.tenant_id=rt.id::uuid left join agency.regions r on r.id=l.region_id and r.tenant_id=l.tenant_id where l.status='published' and ($2='' or l.title ilike '%' || $2 || '%' or l.description ilike '%' || $2 || '%') and ($3='' or l.locality ilike '%' || $3 || '%') and ($4='' or l.category=$4) and ($5='' or ($5='amenities' and coalesce(l.amenities,'[]'::jsonb) ? $6) or ($5<>'amenities' and lower(coalesce(l.metadata->'contract_fields'->>$5, l.metadata->>$5, '')) = lower($6))) limit 100"
+    "with resolved_tenant as (select agency.resolve_public_tenant($1) as id) select coalesce(json_agg(json_build_object('id', l.id::text, 'title', l.title, 'category', l.category, 'categoryLabel', case l.category when 'hotel' then 'Otel' when 'holiday_home' then 'Tatil Evi' when 'yacht' then 'Yat' when 'tour' then 'Tur' when 'activity' then 'Aktivite' when 'flight' then 'Uçuş' when 'bus' then 'Otobüs' when 'car' then 'Araç' else l.category end, 'locality', coalesce(l.locality,''), 'description', coalesce(l.description,''), 'currency', l.currency, 'priceMinor', l.price_minor::text, 'images', coalesce(l.images,'[]'::jsonb), 'amenities', coalesce(l.amenities,'[]'::jsonb), 'favoriteCount', (select count(*) from agency.favorites f where f.listing_id=l.id), 'reviewCount', (select count(*) from agency.reviews rv where rv.tenant_id=l.tenant_id and rv.listing_id=l.id and rv.status='approved'), 'ratingAverage', (select round(avg(rv.rating)::numeric, 1)::text from agency.reviews rv where rv.tenant_id=l.tenant_id and rv.listing_id=l.id and rv.status='approved'), 'propertyType', coalesce(l.metadata->'contract_fields'->>'property_type',l.metadata->'contract_fields'->>'yacht_type',l.metadata->'contract_fields'->>'tour_subcategory',l.metadata->'contract_fields'->>'type',l.metadata->>'property_type',l.metadata->>'yacht_type',''), 'guestCount', coalesce(l.metadata->'contract_fields'->>'guest_capacity',l.metadata->>'guests',''), 'bedroomCount', coalesce(l.metadata->'contract_fields'->>'bedroom_count',l.metadata->>'bedrooms',''), 'bathroomCount', coalesce(l.metadata->'contract_fields'->>'bathroom_count',l.metadata->>'bathrooms',''), 'latitude', coalesce(l.metadata->'geo'->>'latitude',l.metadata->>'latitude',r.latitude::text,''), 'longitude', coalesce(l.metadata->'geo'->>'longitude',l.metadata->>'longitude',r.longitude::text,'')) order by l.updated_at desc), '[]'::json)::text from agency.listings l join resolved_tenant rt on l.tenant_id=rt.id left join agency.regions r on r.id=l.region_id and r.tenant_id=l.tenant_id where l.status='published' and ($2='' or l.title ilike '%' || $2 || '%' or l.description ilike '%' || $2 || '%') and ($3='' or l.locality ilike '%' || $3 || '%') and ($4='' or l.category=$4) and ($5='' or ($5='amenities' and coalesce(l.amenities,'[]'::jsonb) ? $6) or ($5<>'amenities' and lower(coalesce(l.metadata->'contract_fields'->>$5, l.metadata->>$5, '')) = lower($6))) limit 100"
   case
     sql
     |> pog.query()
@@ -3515,13 +3528,13 @@ fn public_category_filters_json(
 ) -> Response {
   let query = wisp.get_query(req)
   let category = canonical_category(query_value(query, "category"))
-  let tenant_selector = query_value(query, "tenant")
+  let tenant_selector = public_tenant_selector(req)
   let lang = public_lang(req, query)
   case category {
     "" -> wisp.json_response("[]", 200)
     _ -> {
       let sql =
-        "with resolved_tenant as (select coalesce((select id::text from agency.tenants where (($1 <> '' and (lower(slug)=lower($1) or id::text=$1))) limit 1),(select t.id::text from agency.tenants t where lower(t.slug)='nexus-demo' and exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') limit 1),(select t.id::text from agency.tenants t where exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') order by t.created_at limit 1),(select id::text from agency.tenants order by created_at limit 1),'') as id), groups as (select g.* from agency.category_filter_groups g join resolved_tenant rt on g.tenant_id=rt.id::uuid where g.category_code=$2 and g.active) select coalesce(json_agg(json_build_object('id', g.id::text, 'category', g.category_code, 'key', g.group_key, 'title', coalesce(nullif(gt.title,''), g.title), 'helpText', coalesce(nullif(gt.help_text,''), g.help_text, ''), 'displayType', g.display_type, 'multiple', g.multiple, 'sortOrder', g.sort_order, 'items', coalesce((select json_agg(json_build_object('id', i.id::text, 'key', i.item_key, 'title', coalesce(nullif(it.title,''), i.title), 'helpText', coalesce(nullif(it.help_text,''), i.help_text, ''), 'contractFieldKey', coalesce(i.contract_field_key, ''), 'contractValue', coalesce(i.contract_value, ''), 'sortOrder', i.sort_order) order by i.sort_order, i.title) from agency.category_filter_items i left join agency.category_filter_translations it on it.entity_type='item' and it.entity_id=i.id and it.language_code=$3 and it.status in ('translated','approved','published') where i.group_id=g.id and i.active), '[]'::json)) order by g.sort_order, g.title), '[]'::json)::text from groups g left join agency.category_filter_translations gt on gt.entity_type='group' and gt.entity_id=g.id and gt.language_code=$3 and gt.status in ('translated','approved','published')"
+        "with resolved_tenant as (select agency.resolve_public_tenant($1) as id), groups as (select g.* from agency.category_filter_groups g join resolved_tenant rt on g.tenant_id=rt.id where g.category_code=$2 and g.active) select coalesce(json_agg(json_build_object('id', g.id::text, 'category', g.category_code, 'key', g.group_key, 'title', coalesce(nullif(gt.title,''), g.title), 'helpText', coalesce(nullif(gt.help_text,''), g.help_text, ''), 'displayType', g.display_type, 'multiple', g.multiple, 'sortOrder', g.sort_order, 'items', coalesce((select json_agg(json_build_object('id', i.id::text, 'key', i.item_key, 'title', coalesce(nullif(it.title,''), i.title), 'helpText', coalesce(nullif(it.help_text,''), i.help_text, ''), 'contractFieldKey', coalesce(i.contract_field_key, ''), 'contractValue', coalesce(i.contract_value, ''), 'sortOrder', i.sort_order) order by i.sort_order, i.title) from agency.category_filter_items i left join agency.category_filter_translations it on it.entity_type='item' and it.entity_id=i.id and it.language_code=$3 and it.status in ('translated','approved','published') where i.group_id=g.id and i.active), '[]'::json)) order by g.sort_order, g.title), '[]'::json)::text from groups g left join agency.category_filter_translations gt on gt.entity_type='group' and gt.entity_id=g.id and gt.language_code=$3 and gt.status in ('translated','approved','published')"
       case
         sql
         |> pog.query()

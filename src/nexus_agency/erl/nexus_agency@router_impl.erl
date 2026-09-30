@@ -1,6 +1,6 @@
 -module(nexus_agency@router_impl).
 -compile([no_auto_import, nowarn_ignored, nowarn_unused_vars, nowarn_unused_function, nowarn_nomatch, inline]).
--export([require_session/3, require_session_api/3, handle/3, parampos_config/2]).
+-export([require_session/3, require_session_api/3, handle/3, parampos_config/2, public_tenant_selector/1]).
 -export_type([catalog_listing_item/0, ai_pool_key/0]).
 
 -type catalog_listing_item() :: {catalog_listing_item, binary(), binary(), binary(), binary(), binary(), binary(), binary(), binary(), binary(), binary(), binary(), binary()}.
@@ -502,7 +502,7 @@ public_tenant_id_from_selector(Db, Selector) ->
         end)
     end,
     case begin
-        _pipe = ~"select coalesce((select id::text from agency.tenants where (lower(slug)=lower($1) or id::text=$1) limit 1),(select t.id::text from agency.tenants t where lower(t.slug)='nexus-demo' and exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') limit 1),(select t.id::text from agency.tenants t where exists(select 1 from agency.listings l where l.tenant_id=t.id and l.status='published') order by t.created_at limit 1),(select id::text from agency.tenants order by created_at limit 1),'')",
+        _pipe = ~"select coalesce(agency.resolve_public_tenant($1)::text,'')",
         _pipe@1 = pog:'query'(_pipe),
         _pipe@2 = pog:parameter(_pipe@1, pog_ffi:coerce(Selector)),
         _pipe@3 = pog:returning(_pipe@2, Decoder),

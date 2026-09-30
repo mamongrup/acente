@@ -54,7 +54,6 @@ pub fn main() {
   let assert Ok(_) = pog.start(config)
   let db = pog.named_connection(name)
   currency_worker.start(db)
-  start_nexus_listing_sync(db)
   weekly_digest_scheduler.start(db)
   email_worker.start(db)
   wisp.configure_logger()
@@ -70,7 +69,17 @@ pub fn main() {
     |> mist.port(env_int("APP_PORT", 8082))
     |> mist.start
   io.println("NEXUS Agency: " <> origin)
+  // Remote discovery can wait for an HTTP timeout; it must not delay the site.
+  process.spawn(fn() { start_nexus_listing_sync(db) })
   process.sleep_forever()
+}
+
+type SyncConfig {
+  SyncConfig(local_id: String, remote_id: String, origin: String, key: String)
+}
+
+type ActiveSync {
+  ActiveSync(config: SyncConfig, listing_pid: process.Pid, reservation_pid: process.Pid)
 }
 
 fn env_int(key: String, fallback: Int) -> Int {
@@ -78,16 +87,118 @@ fn env_int(key: String, fallback: Int) -> Int {
 }
 
 fn start_nexus_listing_sync(agency_db: pog.Connection) {
+  sync_supervisor(agency_db, [])
+}
+
+fn sync_supervisor(agency_db: pog.Connection, running: List(ActiveSync)) {
+  let next = case discover_sync_configs(agency_db) {
+    Error(_) -> running
+    Ok(configs) -> {
+      running |> list.each(fn(worker) {
+        case list.any(configs, fn(config) { config == worker.config })
+          && process.is_alive(worker.listing_pid)
+          && process.is_alive(worker.reservation_pid) {
+          True -> Nil
+          False -> stop_sync(agency_db, worker)
+        }
+      })
+      configs |> list.map(fn(config) {
+        case list.find(running, fn(worker) {
+          worker.config == config
+          && process.is_alive(worker.listing_pid)
+          && process.is_alive(worker.reservation_pid)
+        }) {
+          Ok(worker) -> worker
+          Error(_) -> start_sync(agency_db, config)
+        }
+      })
+    }
+  }
+  let discovery_ms = env_int("NEXUS_SYNC_DISCOVERY_MS", 60_000)
+  process.sleep(case discovery_ms < 1_000 { True -> 1_000 False -> discovery_ms })
+  sync_supervisor(agency_db, next)
+}
+
+fn stop_sync(agency_db: pog.Connection, worker: ActiveSync) {
+  process.kill(worker.listing_pid)
+  process.kill(worker.reservation_pid)
+  nexus_listing_sync.suspend_nexus_catalog(agency_db, worker.config.local_id)
+  io.println("NEXUS sync stopped for tenant " <> worker.config.local_id)
+}
+
+fn start_sync(agency_db: pog.Connection, config: SyncConfig) -> ActiveSync {
+  io.println("NEXUS sync started for tenant " <> config.local_id)
+  let reservation_pid = nexus_reservation_worker.start(
+    agency_db, config.origin, config.key, config.local_id, config.remote_id,
+  )
+  let listing_pid = nexus_listing_sync.start_api_sync(
+    agency_db, config.origin, config.key, config.local_id, config.remote_id,
+  )
+  ActiveSync(config, listing_pid, reservation_pid)
+}
+
+fn discover_sync_configs(agency_db: pog.Connection) -> Result(List(SyncConfig), Nil) {
+  let active_tenants =
+    pog.query(
+      "select tenant_id::text from agency.integrations where provider='nexus' and kind='connectivity' and active order by tenant_id",
+    )
+    |> pog.returning(decode.field(0, decode.string, decode.success))
+    |> pog.execute(agency_db)
+  case active_tenants {
+    Ok(result) -> {
+      let configured = result.rows |> list.filter_map(fn(tenant_id) {
+        tenant_sync_config(agency_db, tenant_id, False)
+      })
+      case env_sync_config(agency_db) {
+        Ok(env_config) ->
+          case list.any(result.rows, fn(id) { id == env_config.local_id }) {
+            True -> Ok(configured)
+            False -> Ok([env_config, ..configured])
+          }
+        Error(_) -> Ok(configured)
+      }
+    }
+    Error(_) -> {
+      io.println("NEXUS listing sync: integration discovery unavailable; agency remains online")
+      Error(Nil)
+    }
+  }
+}
+
+fn env_sync_config(agency_db: pog.Connection) -> Result(SyncConfig, Nil) {
   let env_tenant_id = envoy.get("NEXUS_TENANT_ID") |> result.unwrap("")
-  let tenant_id =
-    integration_value(agency_db, env_tenant_id, "agency_code")
+  case string.trim(env_tenant_id) {
+    "" -> Error(Nil)
+    tenant_id -> {
+      let existing =
+        pog.query(
+          "select '1' from agency.integrations where tenant_id=$1::uuid and provider='nexus' and kind='connectivity' limit 1",
+        )
+        |> pog.parameter(pog.text(tenant_id))
+        |> pog.returning(decode.field(0, decode.string, decode.success))
+        |> pog.execute(agency_db)
+      case existing {
+        Ok(result) ->
+          case result.rows {
+            [] -> tenant_sync_config(agency_db, tenant_id, True)
+            _ -> Error(Nil)
+          }
+        Error(_) -> Error(Nil)
+      }
+    }
+  }
+}
+
+fn tenant_sync_config(agency_db: pog.Connection, local_tenant_id: String, allow_env: Bool) -> Result(SyncConfig, Nil) {
+  let remote_tenant_id =
+    integration_value(agency_db, local_tenant_id, "agency_code")
     |> result.try(fn(value) {
       case string.trim(value) {
         "" -> Error(Nil)
         selected -> Ok(selected)
       }
     })
-    |> result.unwrap(env_tenant_id)
+    |> result.unwrap(local_tenant_id)
   let env_origin = envoy.get("NEXUS_API_ORIGIN") |> result.unwrap("")
   // NEXUS_API_KEY is the only credential that authenticates a call to NEXUS.
   // NEXUS_CONFIG_KEY is this application's master key for sealing stored
@@ -96,43 +207,18 @@ fn start_nexus_listing_sync(agency_db: pog.Connection) {
   // rejects that value outright, so the integration failed with 401 while
   // looking configured.
   let env_key = envoy.get("NEXUS_API_KEY") |> result.unwrap("")
+  let origin_fallback = case allow_env { True -> env_origin False -> "" }
+  let key_fallback = case allow_env { True -> env_key False -> "" }
   let api_origin =
-    integration_value(agency_db, tenant_id, "endpoint")
-    |> result.unwrap(env_origin)
+    integration_value(agency_db, local_tenant_id, "endpoint")
+    |> result.unwrap(origin_fallback)
   let api_key =
-    integration_value(agency_db, tenant_id, "api_key") |> result.unwrap(env_key)
-  case string.trim(api_origin) {
-    "" -> {
-      io.println(
-        "NEXUS listing sync: NEXUS_API_ORIGIN is not configured; agency remains in standalone mode",
-      )
-    }
-    _ -> {
-      case string.trim(tenant_id), string.trim(api_key) {
-        "", _ ->
-          io.println(
-            "NEXUS listing sync: NEXUS_TENANT_ID is not configured; agency remains in standalone mode",
-          )
-        _, "" ->
-          io.println(
-            "NEXUS listing sync: API key is not configured; agency remains in standalone mode",
-          )
-        _, _ -> {
-          let sync_started =
-            nexus_listing_sync.start_api_sync(
-              agency_db,
-              api_origin,
-              api_key,
-              tenant_id,
-            )
-          case sync_started {
-            True ->
-              nexus_reservation_worker.start(agency_db, api_origin, api_key)
-            False -> Nil
-          }
-        }
-      }
-    }
+    integration_value(agency_db, local_tenant_id, "api_key") |> result.unwrap(key_fallback)
+  case string.trim(api_origin), string.trim(api_key), string.trim(remote_tenant_id) {
+    "", _, _ -> Error(Nil)
+    _, "", _ -> Error(Nil)
+    _, _, "" -> Error(Nil)
+    origin, key, remote_id -> Ok(SyncConfig(local_tenant_id, remote_id, origin, key))
   }
 }
 
@@ -148,7 +234,7 @@ fn integration_value(
   }
   case
     pog.query(
-      "select coalesce(credentials->>$2,''), coalesce(credentials->>'api_key_sealed','') from agency.integrations where tenant_id=$1::uuid and provider='nexus' and kind='connectivity' limit 1",
+      "select coalesce(credentials->>$2,''), coalesce(credentials->>'api_key_sealed','') from agency.integrations where tenant_id=$1::uuid and provider='nexus' and kind='connectivity' and active limit 1",
     )
     |> pog.parameter(pog.text(tenant_id))
     |> pog.parameter(pog.text(key))

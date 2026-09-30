@@ -29,19 +29,19 @@ type Delivery =
     String,
   )
 
-pub fn start(db: pog.Connection, api_origin: String, api_key: String) {
-  process.spawn(fn() { loop(db, api_origin, api_key) })
+pub fn start(db: pog.Connection, api_origin: String, api_key: String, tenant_id: String, remote_tenant_id: String) {
+  let pid = process.spawn_unlinked(fn() { loop(db, api_origin, api_key, tenant_id, remote_tenant_id) })
   io.println("NEXUS reservation worker: started")
-  Nil
+  pid
 }
 
-fn loop(db: pog.Connection, api_origin: String, api_key: String) {
-  process_queue(db, api_origin, api_key)
+fn loop(db: pog.Connection, api_origin: String, api_key: String, tenant_id: String, remote_tenant_id: String) {
+  process_queue(db, api_origin, api_key, tenant_id, remote_tenant_id)
   process.sleep(poll_interval_ms)
-  loop(db, api_origin, api_key)
+  loop(db, api_origin, api_key, tenant_id, remote_tenant_id)
 }
 
-fn process_queue(db: pog.Connection, api_origin: String, api_key: String) {
+fn process_queue(db: pog.Connection, api_origin: String, api_key: String, tenant_id: String, remote_tenant_id: String) {
   let decoder = {
     use delivery_id <- decode.field(0, decode.string)
     use reservation_id <- decode.field(1, decode.string)
@@ -84,7 +84,7 @@ fn process_queue(db: pog.Connection, api_origin: String, api_key: String) {
                 next_attempt_at=case when attempts >= 8 then next_attempt_at else now() end,
                 last_error=case when attempts >= 8 then 'Maksimum deneme sayısına ulaşıldı.' else 'Rezervasyon işçisi yeniden başlatıldığı için kuyruk yeniden açıldı.' end,
                 updated_at=now()
-          where status='processing'
+          where tenant_id=$1::uuid and status='processing'
             and (started_at is null or started_at < now() - interval '10 minutes')
          returning id
        ),
@@ -93,7 +93,7 @@ fn process_queue(db: pog.Connection, api_origin: String, api_key: String) {
            from agency.nexus_reservation_deliveries d
            join agency.reservations r on r.id=d.reservation_id and r.tenant_id=d.tenant_id
            join agency.listings l on l.id=r.listing_id and l.tenant_id=r.tenant_id
-          where d.status in ('pending','failed')
+          where d.tenant_id=$1::uuid and d.status in ('pending','failed')
             and d.next_attempt_at<=now()
             and (d.attempts<8 or (d.event_type='reservation.status_changed'
               and r.payment_status='paid' and d.attempts<100))
@@ -136,12 +136,13 @@ fn process_queue(db: pog.Connection, api_origin: String, api_key: String) {
        order by c.id
        ",
     )
+    |> pog.parameter(pog.text(tenant_id))
     |> pog.returning(decoder)
     |> pog.execute(db)
   {
     Ok(result) ->
       result.rows
-      |> list.each(fn(delivery) { deliver(db, api_origin, api_key, delivery) })
+      |> list.each(fn(delivery) { deliver(db, api_origin, api_key, remote_tenant_id, delivery) })
     Error(error) ->
       io.println(
         "NEXUS reservation worker: queue unavailable: "
@@ -168,12 +169,13 @@ fn deliver(
   db: pog.Connection,
   api_origin: String,
   api_key: String,
+  remote_tenant_id: String,
   delivery: Delivery,
 ) {
   let #(
     delivery_id,
     reservation_id,
-    agency_id,
+    _agency_id,
     nexus_listing_id,
     guest_name,
     guest_email,
@@ -200,7 +202,7 @@ fn deliver(
     json.object([
       #("idempotency_key", json.string(idempotency_key)),
       #("event_type", json.string(event_type)),
-      #("agency_id", json.string(agency_id)),
+      #("agency_id", json.string(remote_tenant_id)),
       #("listing_id", json.string(nexus_listing_id)),
       #("reservation_id", json.string(reservation_id)),
       #("reservation_status", json.string(reservation_status)),

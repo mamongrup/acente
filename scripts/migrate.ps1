@@ -27,10 +27,20 @@ $files | ForEach-Object { if ($_.BaseName -match '^(\d{3})_') { [pscustomobject]
   }
 foreach ($file in $files) {
   $version = $file.BaseName
-  $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
+  $rawHash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
+  # Git can check out the same SQL as CRLF on Windows and LF on Linux. Keep
+  # accepting hashes already recorded from raw bytes while recording a stable
+  # checksum for new migrations on either platform.
+  $normalized = [IO.File]::ReadAllText($file.FullName, [Text.Encoding]::UTF8).Replace("`r`n", "`n").Replace("`r", "`n")
+  $sha = [Security.Cryptography.SHA256]::Create()
+  try {
+    $hash = [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($normalized))).Replace('-', '')
+  } finally {
+    $sha.Dispose()
+  }
   $old = ((& $pg @common -Atc "SELECT checksum FROM system.schema_migrations WHERE version='$version'") | Out-String).Trim()
   if ($old) {
-    if ($old -ne $hash) { throw "Uygulanmış migration değişmiş: $version" }
+    if ($old -ne $hash -and $old -ne $rawHash) { throw "Uygulanmış migration değişmiş: $version" }
     continue
   }
   $content = Get-Content -LiteralPath $file.FullName -Raw -Encoding utf8

@@ -63,6 +63,14 @@ pub fn main() {
           "insert into agency.tenants(legal_name,brand_name,slug) values('Callback Test','Callback Test','callback-'||gen_random_uuid()) returning id::text",
         )
       let issued_key = "nx_callback_test_" <> string.slice(tenant, 0, 8)
+      post_callback(db, tenant, callback_key, issued_key).status
+      |> should.equal(409)
+      sql(
+        db,
+        "insert into agency.nexus_connection_requests(tenant_id,status) values('"
+          <> tenant
+          <> "','pending') returning id::text",
+      )
       let response = post_callback(db, tenant, callback_key, issued_key)
       case response.status == 200 {
         True -> Nil
@@ -72,6 +80,8 @@ pub fn main() {
       simulate.read_body(response)
       |> string.contains("\"ok\":true")
       |> should.be_true
+      post_callback(db, tenant, callback_key, issued_key).status
+      |> should.equal(409)
       let assert Ok(request_id) = list.key_find(response.headers, "x-request-id")
       string.trim(request_id) |> should.not_equal("")
 

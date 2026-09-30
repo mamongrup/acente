@@ -18,35 +18,64 @@
 ////
 //// Bulgular test mesajında sayfa/selector + ölçüm ile listelenir.
 
-import gleam/erlang/process
 import gleam/float
-import gleam/http
+import gleam/bit_array
+import gleam/dynamic/decode
 import gleam/int
+import gleam/json
 import gleam/list
 import gleam/result
 import gleam/string
 import gleeunit/should
-import nexus_agency/router
-import pog
 import simplifile
-import wisp/simulate
 
 const origin = "http://localhost:8082"
 
-fn fake_db() -> pog.Connection {
-  pog.named_connection(process.new_name("lighthouse_audit_db"))
-}
+@external(erlang, "agency_test_http", "get")
+fn http_get(url: String) -> Result(BitArray, a)
 
+/// Fetch a page from the running application over real HTTP.
+///
+/// The audit used to render pages through `wisp/simulate` into
+/// `pog.named_connection("lighthouse_audit_db")` — a pool that was never
+/// started, so the router's queries failed, the pages came out empty, and the
+/// audit measured an empty catalogue. `heading_order` and
+/// `body_images_lazy_or_sized` in particular could never fail, because a page
+/// with no listings has no <img> and no deep heading chain. The 15
+/// `Noproc(PgoPool)` errors in the log were that, not a flake.
+///
+/// Pointing it at a real database was not enough either: `simulate` hands the
+/// request straight to `router.handle/3`, skipping the middleware a browser
+/// actually goes through, and the home page then crashed with
+/// `CaseClause(Undefined)` while the same URL answered 200 over real HTTP.
+/// So the audit now measures what the application really serves.
+///
+/// A missing server or a non-200 response fails loudly. Returning an empty
+/// string here would recreate exactly the false confidence this change
+/// removes.
 fn get_html(path: String) -> String {
-  simulate.browser_request(http.Get, path)
-  |> router.handle(fake_db(), origin)
-  |> simulate.read_body
+  let url = origin <> path
+  let missing =
+    "lighthouse denetimi gercek HTTP uzerinden calisiyor ve "
+    <> url
+    <> " 200 donmedi: acente sunucusunu baslatin (scripts/run-dev.ps1)"
+  case http_get(url) {
+    Ok(body) -> bit_array.to_string(body) |> result.unwrap("")
+    Error(_) -> panic as missing
+  }
 }
 
-/// Denetlenen halka açık sayfalar: #(ad, HTML). Tümü DB'siz render edilir.
+/// Denetlenen halka açık sayfalar: #(ad, HTML). Hepsi çalışan sunucudan gerçek
+/// HTTP yanıtıdır; boş ya da hatalı render edilmiş sayfalar denetlenmez.
 fn audit_pages() -> List(#(String, String)) {
-  let detail =
-    "/urunler/6381a4d4-af56-4263-b2d1-b274da897487?tenant=ca43626b-4d77-41d8-898c-317576e991b5"
+  let listing_decoder = decode.list(decode.field("id", decode.string, decode.success))
+  let assert Ok(listings) = json.parse(
+    from: get_html("/api/public/listings?tenant=nexus-demo"),
+    using: listing_decoder,
+  ) as "lighthouse denetimi için yayınlanmış demo ilanı gerekli"
+  let assert Ok(listing_id) = list.first(listings)
+    as "lighthouse denetimi için yayınlanmış demo ilanı gerekli"
+  let detail = "/urunler/" <> listing_id <> "?tenant=nexus-demo"
   [
     #("home", get_html("/")),
     #("iletisim", get_html("/iletisim")),
