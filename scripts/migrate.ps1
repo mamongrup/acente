@@ -66,6 +66,14 @@ foreach ($file in $files) {
     }
     $content = "DROP FUNCTION IF EXISTS auth.session(text);`nDROP FUNCTION IF EXISTS agency_auth.session(text);`n$content"
   }
+  if ($version -eq '192_seed_new_tenant_catalog') {
+    # The initial tenant may be the only canonical source on a fresh install.
+    # Let an already complete tenant seed itself; a new tenant still selects
+    # another complete tenant because it has no categories yet.
+    $legacySource = 'WHERE c.tenant_id<>p_tenant AND c.parent_id IS NULL AND c.active'
+    if (!$content.Contains($legacySource)) { throw 'Legacy migration 192 changed unexpectedly.' }
+    $content = $content.Replace($legacySource, 'WHERE c.parent_id IS NULL AND c.active')
+  }
   $temp = Join-Path $root '.local/migration.sql'
   New-Item -ItemType Directory -Force -Path (Split-Path $temp) | Out-Null
   try {
