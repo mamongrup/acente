@@ -28,7 +28,7 @@ jobs:
       APP_ORIGIN: http://127.0.0.1:8082
       PGHOST: 127.0.0.1
       PGPORT: "5432"
-      PGDATABASE: nexus_agency
+      PGDATABASE: nexustraveltech
       SECRET_KEY_BASE: ci-test-secret-key-base-0123456789-abcdefghijklmnopqrstuvwxyz
       NEXUS_CONFIG_KEY: ci-test-config-key-0123456789-abcdefghijklmnopqrstuvwxyz
       NEXUS_API_KEY: ci-test-callback-key
@@ -53,7 +53,8 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE agency_app LOGIN PASSWORD 'ci-agency-test';"
-          psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE nexus_agency;"
+          psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE nexus_owner NOLOGIN;"
+          psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE nexustraveltech;"
           printf 'PGHOST=%s\nPGPORT=%s\nPGDATABASE=%s\nPGUSER=postgres\nPGPASSWORD=postgres\n' "$PGHOST" "$PGPORT" "$PGDATABASE" > .env
 
       - name: Apply migrations
