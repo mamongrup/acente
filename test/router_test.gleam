@@ -436,6 +436,7 @@ pub fn ambiguous_email_returns_specific_error_test() {
                 "DELETE FROM agency.tenants WHERE id='00000000-0000-0000-0000-000000000002'",
               )
               |> pog.execute(db)
+              |> should.be_ok
               |> fn(_) { Nil }
             }
           }

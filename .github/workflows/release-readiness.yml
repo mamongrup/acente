@@ -136,3 +136,4 @@ jobs:
           pwsh -NoProfile -File scripts/check-production-gates.ps1 -EnvPath $envFile
           if ($LASTEXITCODE -eq 0) { throw "Production gate unexpectedly passed for unsafe env." }
           Write-Host "Unsafe production env rejected as expected."
+          exit 0
