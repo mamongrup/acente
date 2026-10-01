@@ -56,6 +56,41 @@
   }
   var images = [];
   var roomTypes = [];
+  // Editorial sections only: these do not change category validation rules.
+  var hotelSections = [];
+  var hotelContract = '';
+  var hotelHouseRules = {};
+  var hotelSectionTitles = ['Konsept', 'Otel Olanakları', 'Yeme & İçme', 'Spor & Eğlence', 'Plaj', 'Çocuk & Bebek', 'Spa & Wellness', 'Balayı'];
+  function renderHotelSections() {
+    var anchor = document.getElementById('room-types-container');
+    if (!anchor) return;
+    var editor = document.getElementById('hotel-sections-editor');
+    if (!editor) { editor = document.createElement('section'); editor.id = 'hotel-sections-editor'; anchor.after(editor); }
+    editor.replaceChildren();
+    var contractLabel = document.createElement('label'); contractLabel.textContent = 'Otele ait sözleşme';
+    var contractInput = document.createElement('textarea'); contractInput.value = hotelContract; contractInput.rows = 6; contractInput.setAttribute('aria-label', 'Otele ait sözleşme'); contractInput.style.cssText = 'display:block;width:100%;margin:10px 0 24px'; contractInput.addEventListener('input', function () { hotelContract = contractInput.value; }); contractLabel.appendChild(contractInput); editor.appendChild(contractLabel);
+    [['children', 'Çocuklara uygun'], ['pets', 'Evcil hayvan kabul edilir'], ['events', 'Etkinliklere uygun'], ['smoking', 'İç mekanda sigara içilir']].forEach(function (rule) {
+      var label = document.createElement('label'); label.textContent = rule[1] + ' '; label.style.cssText = 'display:block;margin:12px 0';
+      var select = document.createElement('select'); select.setAttribute('aria-label', rule[1]);
+      [['', 'Belirtilmedi'], ['yes', 'Evet'], ['no', 'Hayır']].forEach(function (option) { var node = document.createElement('option'); node.value = option[0]; node.textContent = option[1]; select.appendChild(node); });
+      select.value = hotelHouseRules[rule[0]] || ''; select.addEventListener('change', function () { hotelHouseRules[rule[0]] = select.value; }); label.appendChild(select); editor.appendChild(label);
+    });
+    var heading = document.createElement('h3'); heading.textContent = 'Tesis bilgi bölümleri'; editor.appendChild(heading);
+    hotelSections.forEach(function (entry, index) {
+      var row = document.createElement('div'); row.style.cssText = 'padding:16px;border:1px solid #e5e7eb;border-radius:12px;margin:12px 0';
+      var title = document.createElement('input'); title.value = entry.title || ''; title.placeholder = 'Bölüm başlığı'; title.setAttribute('aria-label', 'Bölüm başlığı');
+      title.addEventListener('input', function () { entry.title = title.value; });
+      var body = document.createElement('textarea'); body.value = entry.content || ''; body.placeholder = 'Bölüm açıklaması'; body.rows = 4; body.setAttribute('aria-label', 'Bölüm açıklaması'); body.style.cssText = 'display:block;width:100%;margin:10px 0'; body.addEventListener('input', function () { entry.content = body.value; });
+      row.append(title, body);
+      [['Yukarı', -1], ['Aşağı', 1], ['Sil', 0]].forEach(function (action) {
+        var button = document.createElement('button'); button.type = 'button'; button.textContent = action[0]; button.style.marginRight = '10px';
+        button.addEventListener('click', function () { if (!action[1]) hotelSections.splice(index, 1); else { var target = index + action[1]; if (target < 0 || target >= hotelSections.length) return; var item = hotelSections.splice(index, 1)[0]; hotelSections.splice(target, 0, item); } renderHotelSections(); }); row.appendChild(button);
+      }); editor.appendChild(row);
+    });
+    var add = document.createElement('button'); add.type = 'button'; add.textContent = 'Bölüm ekle'; add.addEventListener('click', function () { hotelSections.push({title: '', content: ''}); renderHotelSections(); }); editor.appendChild(add);
+  }
+  hotelSections = hotelSectionTitles.map(function (title) { return {title: title, content: ''}; });
+  setTimeout(renderHotelSections, 0);
 
   var stepLabels = [
     isYacht ? 'Kalkış Limanı & Rota →' : isTransfer ? 'Güzergâh & Bölgeler →' : 'Konum & Lokasyon →',
@@ -1790,7 +1825,7 @@
     var c = (cat || '').toLowerCase();
     if (c === 'hotel') return 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80';
     if (c === 'villa') return 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80';
-    if (c === 'yacht') return 'https://images.unsplash.com/photo-1569263979104-865ab7cd8d17?auto=format&fit=crop&w=800&q=80';
+    if (c === 'yacht') return 'https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=800&q=80';
     if (c === 'tour') return 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=800&q=80';
     if (c === 'car_rental' || c === 'car') return 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80';
     if (c === 'bungalow') return 'https://images.unsplash.com/photo-1518780664697-55e3ad937233?auto=format&fit=crop&w=800&q=80';
@@ -2075,6 +2110,10 @@
       meta = listing.metadata;
     }
 
+    hotelContract = typeof meta.extra_metadata?.hotel_contract === 'string' ? meta.extra_metadata.hotel_contract : '';
+    hotelHouseRules = Object.assign({}, meta.extra_metadata?.hotel_house_rules || {});
+    hotelSections = Array.isArray(meta.extra_metadata?.hotel_sections) ? meta.extra_metadata.hotel_sections.map(function (entry) { return Object.assign({}, entry); }) : hotelSectionTitles.map(function (title) { return {title: title, content: ''}; });
+    renderHotelSections();
     // Populate metadata fields
     var guestsInput = document.getElementById('input-guests');
     var bedroomsInput = document.getElementById('input-bedrooms');
@@ -3005,6 +3044,9 @@
     var extraMetaInput = document.getElementById('wizard-extra-metadata-input');
     if (extraMetaInput) {
       var extraData = {
+        hotel_sections: hotelSections.filter(function (entry) { return entry.title.trim(); }),
+        hotel_contract: hotelContract,
+        hotel_house_rules: hotelHouseRules,
         damage_deposit: document.getElementById('input-damage-deposit')?.value || '',
         short_stay_fee: document.getElementById('input-short-stay-fee')?.value || '',
         short_stay_min_nights: document.getElementById('input-short-stay-nights')?.value || '',

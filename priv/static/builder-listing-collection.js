@@ -31,7 +31,9 @@
     var type = document.createElement('small'); type.className = 'category-content-card-type'; type.textContent = item.propertyType || item.categoryLabel || ''; copy.appendChild(type);
     var name = document.createElement('a'); name.className = 'category-card-name'; name.href = link.href; name.textContent = item.title || 'İlan'; copy.appendChild(name);
     var locationText = document.createElement('small'); locationText.className = 'category-content-card-location'; locationText.textContent = item.locality || ''; copy.appendChild(locationText);
-    var facts = [item.guestCount && item.guestCount + ' misafir', item.bedroomCount && item.bedroomCount + ' oda', item.bathroomCount && item.bathroomCount + ' banyo'].filter(Boolean);
+    var isYacht = item.category === 'yacht';
+    var cabins = item.cabinCount || item.bedroomCount;
+    var facts = [item.guestCount && item.guestCount + ' misafir', cabins && cabins + (isYacht ? ' kabin' : ' oda'), item.bathroomCount && item.bathroomCount + ' banyo'].filter(Boolean);
     if (facts.length) { var details = document.createElement('small'); details.className = 'category-content-card-details'; details.textContent = facts.join(' · '); copy.appendChild(details); }
     var footer = document.createElement('div'); footer.className = 'category-content-card-footer';
     if (Number(item.priceMinor) > 0) { var amount = document.createElement('span'); amount.className = 'category-content-card-price'; amount.textContent = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: item.currency || 'TRY', maximumFractionDigits: 0 }).format(price(item)); footer.appendChild(amount); }

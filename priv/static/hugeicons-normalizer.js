@@ -79,7 +79,7 @@
   }
 
   function replaceKnownSvg(svg) {
-    if (!svg || !svg.parentNode || svg.closest('[data-mm-logo],.mm-logo,.trend-chart,.sparkline')) return;
+    if (!svg || !svg.parentNode || svg.closest('[data-mm-logo],.mm-logo,.trend-chart,.sparkline,[data-keep-symbols]')) return;
     // The hero search already has vector icons in the first HTML response.
     // Replacing them with the icon font changes their apparent size after paint.
     if (svg.closest('.hero-search-form form')) return;
