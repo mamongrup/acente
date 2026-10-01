@@ -16,6 +16,12 @@ $pg = if ($env:PSQL_EXECUTABLE) {
   (Get-Command psql -ErrorAction Stop).Source
 }
 $common = @('-X','-w','-h',$env:PGHOST,'-p',$env:PGPORT,'-U',$env:PGUSER,'-d',$env:PGDATABASE)
+# Wrong-database guard: the NEXUS platform's root schema is 'catalog'. If it
+# exists in the target database, .env points at a platform database and the
+# agency migration chain must never touch it.
+$foreignSchema = ((& $pg @common -Atc "SELECT count(*) FROM pg_namespace WHERE nspname='catalog'") | Out-String).Trim()
+if ($LASTEXITCODE -ne 0) { throw 'Yanlış veritabanı kontrolü çalıştırılamadı' }
+if ($foreignSchema -ne '0') { throw "Hedef veritabanı bir NEXUS platform veritabanı gibi görünüyor: 'catalog' şeması mevcut ($($env:PGDATABASE)). Acente migration'ları uygulanmadı; .env içindeki PGDATABASE/PGPORT değerlerini kontrol edin." }
 & $pg @common -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA IF NOT EXISTS system; CREATE TABLE IF NOT EXISTS system.schema_migrations (version text PRIMARY KEY, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now());'
 if ($LASTEXITCODE -ne 0) { throw 'Migration takip tablosu oluşturulamadı' }
 $files = Get-ChildItem (Join-Path $root 'db/migrations') -Filter '*.sql' | Sort-Object Name
