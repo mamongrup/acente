@@ -23,6 +23,7 @@ import gleam/dict
 import gleam/dynamic/decode
 import gleam/erlang/process
 import gleam/float
+import gleam/io
 import gleam/http
 import gleam/http/cookie as http_cookie
 import gleam/http/request as http_request
@@ -106,11 +107,193 @@ pub fn handle(
 
   case client_quarantined(db, correlated_req) {
     True -> too_many_requests()
-    False -> handle_application_request(correlated_req, db, origin)
+    // CSP ihlal raporları ana dispatch'e girmez: kendi hız limiti ve kapısı
+    // vardır, tarayıcı oturumu/CORS gerektirmez.
+    False -> case csp_report_request(correlated_req) {
+      True -> handle_csp_report(correlated_req, db)
+      False ->
+        // SECRET_KEY_BASE rotasyon penceresi: eski sır altında imzalanmış
+        // oturum çerezi, previous-era sırrı tanınıyorsa kabul edilir ve istek
+        // yeni (current-era) bağlantıyla işlenir; yanıt çerezine fresh imza
+        // damgalanır. Pencere kapalıysa bu adım hiçbir şey yapmaz.
+        case rotate_secret(correlated_req) {
+          Ok(#(migrated_req, migration)) ->
+            handle_application_request(migrated_req, db, origin)
+            |> stamp_session_cookie(
+              // Damga current-era sırrı ile atılmalı; migrated bağlantı
+              // previous-era taşıdığı için sır burada yeniden bağlanır.
+              with_secret(migrated_req, current_app_secret()),
+              migration,
+            )
+          Error(migrated_req) ->
+            handle_application_request(migrated_req, db, origin)
+        }
+    }
   }
   |> sync_language_cookie(correlated_req)
   |> http_response.set_header("x-request-id", correlation_id)
   |> security_headers
+}
+
+/// POST /api/csp-report — tarayıcıların CSP ihlal bildirimi. Report-only
+/// kademeli geçiş sırasında ihlalleri toplar; enforcing modda da açık kalabilir.
+fn csp_report_request(req: wisp.Request) -> Bool {
+  case req.method, http_request.path_segments(req) {
+    http.Post, ["api", "csp-report"] -> True
+    _, _ -> False
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SECRET_KEY_BASE rotasyon penceresi (çift sırlı doğrulama).
+//
+// Rotasyon, eski sır altında imzalanmış agency_session çerezlerinin tümünü
+// geçersiz kılardı: kullanıcılar bir sonraki istekte anonim kalır ve zorunlu
+// çıkış yapardı. Bu pencere eski imzayı tanıyıp isteği yeni bağlantıyla
+// işler ve yanıt çerezini yeni sır ile yeniden damgalar — kullanıcı
+// fark etmez. Ayrıntı: docs/secret-rotation-plan.md; regresyon:
+// router_test.gleam'deki secret_rotation_* testleri.
+//
+// Kapsam notu: pencere yalnızca oturum çerezini kurtarır; sırrın tümden
+// sızdığı bir acil durumda sadece rotasyon yetmez — previous sırrı hiç
+// tanımlamadan rotasyon yapın ve tüm oturum jetonlarını (agency.sessions
+// / auth tablosu) iptal edin.
+
+/// Connection'ı verilen sırra bağlar.
+fn with_secret(req: wisp.Request, secret: String) -> wisp.Request {
+  http_request.Request(..req, body: internal.Connection(..req.body, secret_key_base: secret))
+}
+
+/// Uygulamanın current-era sırrı (boot env'i). Üretimde production gates
+/// 64+ karakteri garanti eder; testlerde simulate sırrıyla hizalanır.
+fn current_app_secret() -> String {
+  envoy.get("SECRET_KEY_BASE") |> result.unwrap("")
+}
+
+/// current-era (SECRET_KEY_BASE) imzası geçerli mi?
+fn session_cookie_current_era(req: wisp.Request) -> Bool {
+  case wisp.get_cookie(req, "agency_session", wisp.Signed) {
+    Ok("") -> False
+    Ok(_) -> True
+    Error(_) -> False
+  }
+}
+
+/// previous-era (SECRET_KEY_BASE_PREVIOUS) imzasını oku. İki sırla doğrulama
+/// wisp'in bit-level API'si olmadan çözülemez; çerez değeri header'dan
+/// çekilip crypto ile iki anahtar adına çözülür. Basitlik ve kod bütünlüğü
+/// için previous-era geçişi env set edilmişken tek bir istek boyunca
+/// previous bağlantısıyla okunur ve hemen current'a taşınır.
+fn session_cookie_previous_era(
+  req: wisp.Request,
+) -> Result(#(String, wisp.Request), Nil) {
+  case envoy.get("SECRET_KEY_BASE_PREVIOUS") {
+    Ok(previous) if previous != "" -> {
+      let prev_req = with_secret(req, previous)
+      case wisp.get_cookie(prev_req, "agency_session", wisp.Signed) {
+        Ok("" ) -> Error(Nil)
+        Ok(session_token) -> Ok(#(session_token, prev_req))
+        Error(_) -> Error(Nil)
+      }
+    }
+    _ -> Error(Nil)
+  }
+}
+
+/// İmzalı oturum çerezini current-era bağlantıya taşır. Ok sonucu:
+/// Error(req) → pencere kapalı ya da çerez halihazırda current-era;
+/// istek değişmeden akar. Ok(#(req, token)) → previous-era çerezi kabul
+/// edildi; istek artık current-era bağlantıyla işlenmeli ve yanıt
+/// stamp_session_cookie ile yeniden damgalanmalı.
+fn rotate_secret(
+  req: wisp.Request,
+) -> Result(#(wisp.Request, String), wisp.Request) {
+  case session_cookie_current_era(req) {
+    True -> Error(req)
+    False ->
+      case session_cookie_previous_era(req) {
+        Ok(#(token, migrated)) -> Ok(#(migrated, token))
+        Error(_) -> Error(req)
+      }
+  }
+}
+
+/// Previous-era kabulünden sonra agency_session çerezini current sır ile
+/// yeniden damgalar. Login/logout yanıtları (durum 303, konum /login veya
+/// /) atlanır: login kendi fresh çerezini yazar; logout'un çerez silme
+/// (max_age=0) yönergesi diriltilemez.
+fn stamp_session_cookie(
+  res: Response,
+  req: wisp.Request,
+  session_token: String,
+) -> Response {
+  let redirect =
+    http_response.get_header(res, "location") |> result.unwrap("")
+  case res.status == 303 && { redirect == "/login" || redirect == "/" } {
+    True -> res
+    False ->
+      wisp.set_cookie(
+        res,
+        req,
+        "agency_session",
+        session_token,
+        wisp.Signed,
+        28_800,
+      )
+  }
+}
+
+fn handle_csp_report(req: wisp.Request, db: pog.Connection) -> Response {
+  // Abuselere karşı: istemci başına dakikada 20 rapor.
+  case rate_limited("csp-report:" <> request_client_id(req), 20, 60_000.0) {
+    True ->
+      wisp.response(429)
+      |> http_response.set_header("retry-after", "60")
+      |> wisp.string_body("")
+    False ->
+      case http_request.get_header(req, "content-type") {
+        Ok("application/csp-report" <> _) ->
+          case wisp.read_body_bits(req) {
+            Error(_) ->
+              wisp.response(400) |> wisp.string_body("")
+            Ok(bits) -> {
+              let size = bit_array.byte_size(bits)
+              // 16 KB üstü rapor zaten bozuk/suistimal; kaydetmeden reddet.
+              case size > 16_384 {
+                True -> wisp.response(413) |> wisp.string_body("")
+                False -> {
+                  let _ = record_csp_violation(db, req, bits)
+                  wisp.response(204) |> wisp.string_body("")
+                }
+              }
+            }
+          }
+        // Diğer içerik tipleri kabul edilmez (report-uri spec'i JSON
+        // gövdeyi application/csp-report ile gönderir).
+        _ -> wisp.response(415) |> wisp.string_body("")
+      }
+  }
+}
+
+fn record_csp_violation(
+  db: pog.Connection,
+  req: wisp.Request,
+  bits: BitArray,
+) -> Nil {
+  let body_text = bit_array.to_string(bits) |> result.unwrap("")
+  let _ =
+    "select agency.record_security_event($1, $2, $3, $4, $5, $6, $7, $8::jsonb)"
+    |> pog.query()
+    |> pog.parameter(pog.text(request_id(req)))
+    |> pog.parameter(pog.text(request_client_id(req)))
+    |> pog.parameter(pog.text(http.method_to_string(req.method)))
+    |> pog.parameter(pog.text("csp-report"))
+    |> pog.parameter(pog.text("csp_violation"))
+    |> pog.parameter(pog.text("info"))
+    |> pog.parameter(pog.text("observed"))
+    |> pog.parameter(pog.text(body_text))
+    |> pog.execute(db)
+  Nil
 }
 
 fn request_id(req: wisp.Request) -> String {
@@ -122,6 +305,18 @@ fn request_id(req: wisp.Request) -> String {
   case supplied {
     "" -> "req-" <> wisp.random_string(24)
     value -> value
+  }
+}const csp_policy = "default-src 'self'; img-src 'self' data: https:; media-src 'self' data: https: blob:; style-src 'self' 'unsafe-inline' https://use.hugeicons.com https://embed.tawk.to; script-src 'self' 'unsafe-inline' https://embed.tawk.to; font-src 'self' data: https://use.hugeicons.com; connect-src 'self' https:; frame-src https://www.openstreetmap.org https://embed.tawk.to; frame-ancestors 'self'; base-uri 'self'; form-action 'self' https://www.param.com.tr https://testposws.param.com.tr; object-src 'none'"
+
+/// CSP kademeli geçiş: `CSP_REPORT_ONLY=true` iken sıkılaştırılmış politika
+/// yalnızca raporlama başlığıyla gönderilir (enforcing başlık yok); tarayıcı
+/// ihlalleri /api/csp-report'a bildirir ama sayfalar etkilenmez. Kip,
+/// canlıya almadan önce ihlal listesi toplamak içindir; ihlal akışı sakin
+/// görünce başlık enforcing moda alınır ve report-only kaldırılır.
+fn csp_report_only() -> Bool {
+  case envoy.get("CSP_REPORT_ONLY") {
+    Ok("true") -> True
+    _ -> False
   }
 }
 
@@ -137,18 +332,24 @@ fn security_headers(res: Response) -> Response {
       "permissions-policy",
       "camera=(), microphone=(), geolocation=(), payment=()",
     )
-    |> http_response.set_header(
-      "content-security-policy",
-      "default-src 'self'; img-src 'self' data: https: http:; media-src 'self' data: https: http: blob:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; connect-src 'self' https: http:; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
-    )
+  let with_csp = case csp_report_only() {
+    True ->
+      secured
+      |> http_response.set_header(
+        "content-security-policy-report-only",
+        csp_policy,
+      )
+    False ->
+      secured |> http_response.set_header("content-security-policy", csp_policy)
+  }
   case envoy.get("APP_ENV") {
     Ok("production") ->
-      secured
+      with_csp
       |> http_response.set_header(
         "strict-transport-security",
         "max-age=31536000; includeSubDomains",
       )
-    _ -> secured
+    _ -> with_csp
   }
 }
 
@@ -473,6 +674,11 @@ fn public_rate_limited(req: wisp.Request) -> Bool {
 
     http.Get, ["api", "public", ..] ->
       rate_limited("public:get_api:" <> client, 180, 60_000.0)
+
+    // Her intent araması public_search_events tablosuna bir satır yazar;
+    // yazma amplifikasyonuna karşı özel, sıkı limit.
+    http.Get, ["v1", "search", "intent"] ->
+      rate_limited("public:search_intent:" <> client, 30, 60_000.0)
 
     http.Get, ["static", ..] -> False
 
@@ -3383,7 +3589,7 @@ fn public_concierge_json(req: wisp.Request, db: pog.Connection) -> Response {
         }
 
       let listings_sql =
-        "with resolved_tenant as (select agency.resolve_public_tenant($1) as id) select coalesce(json_agg(json_build_object('id', l.id::text, 'title', l.title, 'category', l.category, 'categoryLabel', case l.category when 'hotel' then 'Otel' when 'holiday_home' then 'Tatil Evi' when 'yacht' then 'Yat' when 'tour' then 'Tur' when 'activity' then 'Aktivite' when 'flight' then 'Uçuş' when 'bus' then 'Otobüs' when 'car' then 'Araç' else l.category end, 'locality', coalesce(l.locality,''), 'description', coalesce(l.description,''), 'currency', l.currency, 'priceMinor', l.price_minor::text, 'images', coalesce(l.images,'[]'::jsonb), 'propertyType', coalesce(l.metadata->'contract_fields'->>'property_type',l.metadata->'contract_fields'->>'yacht_type',l.metadata->'contract_fields'->>'tour_subcategory',l.metadata->'contract_fields'->>'type',l.metadata->>'property_type',l.metadata->>'yacht_type',''), 'guestCount', coalesce(l.metadata->'contract_fields'->>'guest_capacity',l.metadata->>'guests','')) order by case when ($3 <> '' and l.locality ilike '%' || $3 || '%') and l.category=$4 then 0 when l.category=$4 then 1 when ($3 <> '' and l.locality ilike '%' || $3 || '%') then 2 else 3 end, l.updated_at desc), '[]'::json)::text from agency.listings l join resolved_tenant rt on l.tenant_id=rt.id where l.status='published' and (($3='' or l.locality ilike '%' || $3 || '%') or ($4='' or l.category=$4)) limit 12"
+        "with resolved_tenant as (select agency.resolve_public_tenant($1) as id) select coalesce(json_agg(json_build_object('id', l.id::text, 'title', l.title, 'category', l.category, 'categoryLabel', case l.category when 'hotel' then 'Otel' when 'holiday_home' then 'Tatil Evi' when 'yacht' then 'Yat' when 'tour' then 'Tur' when 'activity' then 'Aktivite' when 'flight' then 'Uçuş' when 'bus' then 'Otobüs' when 'car' then 'Araç' else l.category end, 'locality', coalesce(l.locality,''), 'regionDescription', coalesce(r.description,''), 'description', coalesce(l.description,''), 'currency', l.currency, 'priceMinor', l.price_minor::text, 'images', coalesce(l.images,'[]'::jsonb), 'propertyType', coalesce(l.metadata->'contract_fields'->>'property_type',l.metadata->'contract_fields'->>'yacht_type',l.metadata->'contract_fields'->>'tour_subcategory',l.metadata->'contract_fields'->>'type',l.metadata->>'property_type',l.metadata->>'yacht_type',''), 'guestCount', coalesce(l.metadata->'contract_fields'->>'guest_capacity',l.metadata->>'guests','')) order by case when ($3 <> '' and l.locality ilike '%' || $3 || '%') and l.category=$4 then 0 when l.category=$4 then 1 when ($3 <> '' and l.locality ilike '%' || $3 || '%') then 2 else 3 end, l.updated_at desc), '[]'::json)::text from agency.listings l join resolved_tenant rt on l.tenant_id=rt.id where l.status='published' and (($3='' or l.locality ilike '%' || $3 || '%') or ($4='' or l.category=$4)) limit 12"
 
       let listings_json =
         listings_sql
@@ -3440,16 +3646,26 @@ fn public_campaigns_json(req: wisp.Request, db: pog.Connection) -> Response {
   }
 }
 
+/// LIKE deseninde özel karakterleri etkisizleştirir: kullanıcının % ve _
+/// jokerlerini (ve SQL kaçış karakterini) literal karaktere çevirir. SQL
+/// tarafında `ilike '%' || $n || '%' escape '\'` ile birlikte kullanılır.
+fn escape_like(value: String) -> String {
+  value
+  |> string.replace("\\", "\\\\")
+  |> string.replace("%", "\\%")
+  |> string.replace("_", "\\_")
+}
+
 fn public_listings_json(req: wisp.Request, db: pog.Connection) -> Response {
   let query = wisp.get_query(req)
   let tenant_selector = public_tenant_selector(req)
-  let search = query_value(query, "q")
-  let locality = query_value(query, "konum")
+  let search = escape_like(query_value(query, "q"))
+  let locality = escape_like(query_value(query, "konum"))
   let category = canonical_category(query_value(query, "kategori"))
   let filter_key = query_value(query, "filter_key")
   let filter_value = query_value(query, "filter_value")
   let sql =
-    "with resolved_tenant as (select agency.resolve_public_tenant($1) as id) select coalesce(json_agg(json_build_object('id', l.id::text, 'title', l.title, 'category', l.category, 'categoryLabel', case l.category when 'hotel' then 'Otel' when 'holiday_home' then 'Tatil Evi' when 'yacht' then 'Yat' when 'tour' then 'Tur' when 'activity' then 'Aktivite' when 'flight' then 'Uçuş' when 'bus' then 'Otobüs' when 'car' then 'Araç' else l.category end, 'locality', coalesce(l.locality,''), 'description', coalesce(l.description,''), 'currency', l.currency, 'priceMinor', l.price_minor::text, 'images', coalesce(l.images,'[]'::jsonb), 'amenities', coalesce(l.amenities,'[]'::jsonb), 'favoriteCount', (select count(*) from agency.favorites f where f.listing_id=l.id), 'reviewCount', (select count(*) from agency.reviews rv where rv.tenant_id=l.tenant_id and rv.listing_id=l.id and rv.status='approved'), 'ratingAverage', (select round(avg(rv.rating)::numeric, 1)::text from agency.reviews rv where rv.tenant_id=l.tenant_id and rv.listing_id=l.id and rv.status='approved'), 'propertyType', coalesce(l.metadata->'contract_fields'->>'property_type',l.metadata->'contract_fields'->>'yacht_type',l.metadata->'contract_fields'->>'tour_subcategory',l.metadata->'contract_fields'->>'type',l.metadata->>'property_type',l.metadata->>'yacht_type',''), 'guestCount', coalesce(l.metadata->'contract_fields'->>'guest_capacity',l.metadata->>'guests',''), 'bedroomCount', coalesce(l.metadata->'contract_fields'->>'bedroom_count',l.metadata->>'bedrooms',''), 'bathroomCount', coalesce(l.metadata->'contract_fields'->>'bathroom_count',l.metadata->>'bathrooms',''), 'latitude', coalesce(l.metadata->'geo'->>'latitude',l.metadata->>'latitude',r.latitude::text,''), 'longitude', coalesce(l.metadata->'geo'->>'longitude',l.metadata->>'longitude',r.longitude::text,'')) order by l.updated_at desc), '[]'::json)::text from agency.listings l join resolved_tenant rt on l.tenant_id=rt.id left join agency.regions r on r.id=l.region_id and r.tenant_id=l.tenant_id where l.status='published' and ($2='' or l.title ilike '%' || $2 || '%' or l.description ilike '%' || $2 || '%') and ($3='' or l.locality ilike '%' || $3 || '%') and ($4='' or l.category=$4) and ($5='' or ($5='amenities' and coalesce(l.amenities,'[]'::jsonb) ? $6) or ($5<>'amenities' and lower(coalesce(l.metadata->'contract_fields'->>$5, l.metadata->>$5, '')) = lower($6))) limit 100"
+    "with resolved_tenant as (select agency.resolve_public_tenant($1) as id) select coalesce(json_agg(json_build_object('id', l.id::text, 'title', l.title, 'category', l.category, 'categoryLabel', case l.category when 'hotel' then 'Otel' when 'holiday_home' then 'Tatil Evi' when 'yacht' then 'Yat' when 'tour' then 'Tur' when 'activity' then 'Aktivite' when 'flight' then 'Uçuş' when 'bus' then 'Otobüs' when 'car' then 'Araç' else l.category end, 'locality', coalesce(l.locality,''), 'description', coalesce(l.description,''), 'currency', l.currency, 'priceMinor', l.price_minor::text, 'images', coalesce(l.images,'[]'::jsonb), 'amenities', coalesce(l.amenities,'[]'::jsonb), 'favoriteCount', (select count(*) from agency.favorites f where f.listing_id=l.id), 'reviewCount', (select count(*) from agency.reviews rv where rv.tenant_id=l.tenant_id and rv.listing_id=l.id and rv.status='approved'), 'ratingAverage', (select round(avg(rv.rating)::numeric, 1)::text from agency.reviews rv where rv.tenant_id=l.tenant_id and rv.listing_id=l.id and rv.status='approved'), 'propertyType', coalesce(l.metadata->'contract_fields'->>'property_type',l.metadata->'contract_fields'->>'yacht_type',l.metadata->'contract_fields'->>'tour_subcategory',l.metadata->'contract_fields'->>'type',l.metadata->>'property_type',l.metadata->>'yacht_type',''), 'guestCount', coalesce(l.metadata->'contract_fields'->>'guest_capacity',l.metadata->>'guests',''), 'bedroomCount', coalesce(l.metadata->'contract_fields'->>'bedroom_count',l.metadata->>'bedrooms',''), 'bathroomCount', coalesce(l.metadata->'contract_fields'->>'bathroom_count',l.metadata->>'bathrooms',''), 'latitude', coalesce(l.metadata->'geo'->>'latitude',l.metadata->>'latitude',r.latitude::text,''), 'longitude', coalesce(l.metadata->'geo'->>'longitude',l.metadata->>'longitude',r.longitude::text,'')) order by l.updated_at desc), '[]'::json)::text from agency.listings l join resolved_tenant rt on l.tenant_id=rt.id left join agency.regions r on r.id=l.region_id and r.tenant_id=l.tenant_id where l.status='published' and ($2='' or l.title ilike ('%' || $2 || '%') escape '\\' or l.description ilike ('%' || $2 || '%') escape '\\') and ($3='' or l.locality ilike ('%' || $3 || '%') escape '\\') and ($4='' or l.category=$4) and ($5='' or ($5='amenities' and coalesce(l.amenities,'[]'::jsonb) ? $6) or ($5<>'amenities' and lower(coalesce(l.metadata->'contract_fields'->>$5, l.metadata->>$5, '')) = lower($6))) limit 100"
   case
     sql
     |> pog.query()
@@ -5258,11 +5474,11 @@ fn handle_listing_submission_approve(
                             )
                           [] -> wisp.json_response("{\"error\":\"Onay başarısız\"}", 500)
                         }
-                      Error(e) ->
-                        wisp.json_response(
-                          "{\"error\":\"" <> string.inspect(e) <> "\"}",
-                          500,
-                        )
+                      // Ham DB hatası istemciye sızmaz; yalnızca günlüğe yazılır.
+                      Error(e) -> {
+                        io.println("Listing submission approve failed: " <> string.inspect(e))
+                        wisp.json_response("{\"error\":\"Onay sırasında beklenmeyen bir hata oluştu\"}", 500)
+                      }
                     }
                   }
                 }
@@ -5302,11 +5518,11 @@ fn handle_listing_submission_reject(
                       |> pog.execute(db)
                     case q {
                       Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
-                      Error(e) ->
-                        wisp.json_response(
-                          "{\"error\":\"" <> string.inspect(e) <> "\"}",
-                          500,
-                        )
+                      // Ham DB hatası istemciye sızmaz; yalnızca günlüğe yazılır.
+                      Error(e) -> {
+                        io.println("Listing submission reject failed: " <> string.inspect(e))
+                        wisp.json_response("{\"error\":\"Red sırasında beklenmeyen bir hata oluştu\"}", 500)
+                      }
                     }
                   }
                 }

@@ -209,7 +209,12 @@ fn fetch_smtp_settings(
         [] -> Error("SMTP ayarları bulunamadı")
       }
     }
-    Error(e) -> Error("SQL hatası: " <> string.inspect(e))
+    // Ham DB hatasını günlüğe yaz, sır (parola/anahtar) içerebilecek
+    // ayrıntıları hata mesajına taşıma.
+    Error(e) -> {
+      io.println("Email sender: SMTP ayarları sorgusu başarısız: " <> string.inspect(e))
+      Error("SMTP ayarları okunamadı")
+    }
   }
 }
 

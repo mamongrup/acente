@@ -396,13 +396,51 @@ chisfis_head_assets() ->
 
 -file("src\\nexus_agency\\router.gleam", 4767).
 -spec csrf_token_for(gleam@http@request:request(wisp@internal:connection())) -> binary().
+%% Public form CSRF token'ı. Kullanıcı oturumu varsa token oturumdan
+%% türetilir (nexus_agency@csrf:token_for — HMAC) ve public doğrulaması
+%% nexus_agency@csrf:verify ile sabit zamanlı yapılır; oturumsuz ziyaretçi
+%% için rastgele double-submit token'ı üretilir. Böylece imzalı
+%% agency_session çerezi taşıyan tarayıcıda double-submit cookie
+%% enjeksiyonuyla CSRF bypass edilemez.
 csrf_token_for(Req) ->
-    case wisp:get_cookie(Req, ~"agency_csrf", plain_text) of
-        {ok, Value} when Value =/= ~"" ->
-            Value;
+    case wisp:get_cookie(Req, ~"agency_session", signed) of
+        {ok, Session_token} when Session_token =/= ~"" ->
+            nexus_agency@csrf:token_for(Session_token);
 
         _ ->
-            wisp:random_string(32)
+            case wisp:get_cookie(Req, ~"agency_csrf", plain_text) of
+                {ok, Value} when Value =/= ~"" ->
+                    Value;
+
+                _ ->
+                    wisp:random_string(32)
+            end
+    end.
+
+%% Public form POST'ları için birleşik CSRF doğrulaması:
+%% 1) Kullanıcının imzalı agency_session çerezi varsa formdaki token
+%%    oturumdan türetilen HMAC ile sabit zamanlı karşılaştırılır.
+%% 2) Oturum yoksa double-submit modeli: agency_csrf çerezi ile form alanı
+%%    eşit mi (sabit zamanlı)? İkisi de boş olamaz.
+public_csrf_valid(Req, Candidate) ->
+    case Candidate =:= ~"" of
+        true ->
+            false;
+
+        false ->
+            case wisp:get_cookie(Req, ~"agency_session", signed) of
+                {ok, Session_token} when Session_token =/= ~"" ->
+                    nexus_agency@csrf:verify(Candidate, Session_token);
+
+                _ ->
+                    case wisp:get_cookie(Req, ~"agency_csrf", plain_text) of
+                        {ok, Cookie_value} ->
+                            gleam@crypto:secure_compare(Cookie_value, Candidate);
+
+                        {error, _} ->
+                            false
+                    end
+            end
     end.
 
 -file("src\\nexus_agency\\router.gleam", 4190).
@@ -831,13 +869,7 @@ public_inquiry(Req, Db) ->
         Idempotency_key = form_value(erlang:element(2, Form), ~"idempotency_key"),
         Tenant_selector = gleam@string:trim(form_value(erlang:element(2, Form), ~"tenant")),
         Csrf_form = form_value(erlang:element(2, Form), ~"csrf_token"),
-        Csrf_valid = case wisp:get_cookie(Req, ~"agency_csrf", plain_text) of
-            {ok, Value} ->
-                (Value /= ~"") andalso (Value =:= Csrf_form);
-
-            {error, _} ->
-                false
-        end,
+        Csrf_valid = public_csrf_valid(Req, Csrf_form),
         Check_in = form_value(erlang:element(2, Form), ~"check_in"),
         Check_out = form_value(erlang:element(2, Form), ~"check_out"),
         Guests = form_int(erlang:element(2, Form), ~"guest_count"),
@@ -1544,13 +1576,7 @@ public_chat(Req, Db) ->
                 Value
         end,
         Csrf_form = form_value(erlang:element(2, Form), ~"csrf_token"),
-        Csrf_valid = case wisp:get_cookie(Req, ~"agency_csrf", plain_text) of
-            {ok, Value@1} ->
-                (Value@1 /= ~"") andalso (Value@1 =:= Csrf_form);
-
-            {error, _} ->
-                false
-        end,
+        Csrf_valid = public_csrf_valid(Req, Csrf_form),
         Email_valid = (Email =:= ~"") orelse (gleam_stdlib:contains_string(Email, ~"@") andalso (string:length(Email) =< 320)),
         Phone_valid = phone_format_valid(Phone),
         Contact_valid = Email_valid andalso Phone_valid,
@@ -1977,24 +2003,45 @@ digits_between(Value, Minimum, Maximum) ->
 
 -file("src\\nexus_agency\\router.gleam", 252).
 -spec request_client_ip(gleam@http@request:request(wisp@internal:connection())) -> binary().
+%% ParamPOS'a iletilecek istemci IP'si. X-Real-IP / X-Forwarded-For yalnızca
+%% TRUST_PROXY_HEADERS=true (veya production dışında varsayılan açık) iken
+%% okunur; aksi halde sahteciliğe açık başlıklar yok sayılır (0.0.0.0).
+%% Gleam tarafındaki request_client_id/1 ile aynı kapı sözleşmesi.
 request_client_ip(Req) ->
-    case gleam@list:key_find(erlang:element(3, Req), ~"x-real-ip") of
-        {ok, Value} ->
-            gleam@string:trim(Value);
+    case proxy_headers_trusted() of
+        false ->
+            ~"0.0.0.0";
 
-        {error, _} ->
-            case gleam@list:key_find(erlang:element(3, Req), ~"x-forwarded-for") of
-                {ok, Value@1} ->
-                    case gleam@string:split(Value@1, ~",") of
-                        [First | _] ->
-                            gleam@string:trim(First);
-
-                        [] ->
-                            ~"0.0.0.0"
-                    end;
+        true ->
+            case gleam@list:key_find(erlang:element(3, Req), ~"x-real-ip") of
+                {ok, Value} ->
+                    gleam@string:trim(Value);
 
                 {error, _} ->
-                    ~"0.0.0.0"
+                    case gleam@list:key_find(erlang:element(3, Req), ~"x-forwarded-for") of
+                        {ok, Value@1} ->
+                            case gleam@string:split(Value@1, ~",") of
+                                [First | _] ->
+                                    gleam@string:trim(First);
+
+                                [] ->
+                                    ~"0.0.0.0"
+                            end;
+
+                        {error, _} ->
+                            ~"0.0.0.0"
+                    end
+            end
+    end.
+
+proxy_headers_trusted() ->
+    case envoy:get(~"TRUST_PROXY_HEADERS") of
+        {ok, ~"true"} -> true;
+        {ok, _} -> false;
+        {error, _} ->
+            case envoy:get(~"APP_ENV") of
+                {ok, ~"production"} -> false;
+                _ -> true
             end
     end.
 
@@ -2074,13 +2121,7 @@ public_parampos_start(Req, Db, Origin) ->
     wisp:require_form(Req, fun(Form) ->
         Session_id = gleam@string:trim(form_value(erlang:element(2, Form), ~"session_id")),
         Csrf_form = form_value(erlang:element(2, Form), ~"csrf_token"),
-        Csrf_valid = case wisp:get_cookie(Req, ~"agency_csrf", plain_text) of
-            {ok, Value} ->
-                (Value /= ~"") andalso (Value =:= Csrf_form);
-
-            {error, _} ->
-                false
-        end,
+        Csrf_valid = public_csrf_valid(Req, Csrf_form),
         case not Csrf_valid of
             true ->
                 _pipe = wisp:response(403),
@@ -2467,13 +2508,7 @@ public_checkout_start(Req, Db) ->
             _ -> ~""
         end,
         Csrf_form = form_value(erlang:element(2, Form), ~"csrf_token"),
-        Csrf_valid = case wisp:get_cookie(Req, ~"agency_csrf", plain_text) of
-            {ok, Value} ->
-                (Value /= ~"") andalso (Value =:= Csrf_form);
-
-            {error, _} ->
-                false
-        end,
+        Csrf_valid = public_csrf_valid(Req, Csrf_form),
         Valid_dates = ((iso_date_valid(Check_in) andalso iso_date_valid(Check_out)) andalso (Check_in /= Check_out)) andalso (iso_date_key(Check_out) > iso_date_key(Check_in)),
         Email_valid = (Email =:= ~"") orelse (gleam_stdlib:contains_string(Email, ~"@") andalso (string:length(Email) =< 320)),
         Phone_valid = phone_format_valid(Phone),
@@ -3061,7 +3096,7 @@ public_product_detail_page(Req, Db, Origin, Listing_id) ->
                 {ok, {Id, Title, Category, Locality, Description, Currency, Price, Images}} ->
                     Public_url = public_listing_url(Category, Title),
                     Detail_data_query = begin
-                        D0 = pog:'query'(~"select jsonb_build_object('metadata',jsonb_build_object('room_types',coalesce((select jsonb_agg(jsonb_build_object('title',room->>'title','adults',room->>'adults','children',room->>'children','bed',room->>'bed','size_m2',room->>'size_m2','view_type',room->>'view_type','images',room->'images')) from jsonb_array_elements(case when jsonb_typeof(metadata->'room_types')='array' then metadata->'room_types' else '[]'::jsonb end) room),'[]'::jsonb),'hotel_stars',metadata->>'hotel_stars','board_type',metadata->>'board_type','check_in_time',metadata->>'check_in_time','check_out_time',metadata->>'check_out_time','child_policy_1',metadata->>'child_policy_1','child_policy_2_discount',metadata->>'child_policy_2_discount'),'policy',jsonb_build_object('policy',cancellation_policy->>'policy'),'ownerName',coalesce(owner_info->>'name',''))::text from agency.listings where id=$1::uuid and tenant_id=$2::uuid and status='published'"),
+                        D0 = pog:'query'(~"select jsonb_build_object('metadata',jsonb_build_object('season_rules',metadata->>'season_rules','yacht_type',metadata->>'yacht_type','capacity',metadata->>'capacity','cabin_count',metadata->>'cabin_count','departure_port',metadata->>'departure_port','route',metadata->>'route','captain_included',metadata->>'captain_included','fuel_policy',metadata->>'fuel_policy','tour_type',metadata->>'tour_type','tour_subcategory',metadata->>'tour_subcategory','duration',metadata->>'duration','start_point',metadata->>'start_point','end_point',metadata->>'end_point','guide_languages',metadata->>'guide_languages','group_size_min',metadata->>'group_size_min','group_size_max',metadata->>'group_size_max','activity_type',metadata->>'activity_type','difficulty',metadata->>'difficulty','age_limit',metadata->>'age_limit','equipment_included',metadata->>'equipment_included','meeting_point',metadata->>'meeting_point','room_types',coalesce((select jsonb_agg(jsonb_build_object('title',room->>'title','adults',room->>'adults','children',room->>'children','bed',room->>'bed','size_m2',room->>'size_m2','view_type',room->>'view_type','images',room->'images')) from jsonb_array_elements(case when jsonb_typeof(metadata->'room_types')='array' then metadata->'room_types' else '[]'::jsonb end) room),'[]'::jsonb),'hotel_stars',metadata->>'hotel_stars','board_type',metadata->>'board_type','ministry_license_no',metadata->>'ministry_license_no','check_in_time',metadata->>'check_in_time','check_out_time',metadata->>'check_out_time','pool_dimensions',metadata->>'pool_dimensions','sheltered_pool',metadata->>'sheltered_pool','min_stay_days',metadata->>'min_stay_days','cleaning_fee',metadata->>'cleaning_fee','deposit_percent',metadata->>'deposit_percent','guests',metadata->>'guests','bedrooms',metadata->>'bedrooms','bathrooms',metadata->>'bathrooms','child_policy_1',metadata->>'child_policy_1','child_policy_2_discount',metadata->>'child_policy_2_discount','extra_metadata',jsonb_build_object('hotel_sections',metadata->'extra_metadata'->'hotel_sections','hotel_contract',metadata->'extra_metadata'->>'hotel_contract','hotel_house_rules',metadata->'extra_metadata'->'hotel_house_rules','pool_heating_fee',metadata->'extra_metadata'->>'pool_heating_fee','pool_heating_status',metadata->'extra_metadata'->>'pool_heating_status','damage_deposit',metadata->'extra_metadata'->>'damage_deposit','short_stay_fee',metadata->'extra_metadata'->>'short_stay_fee','short_stay_min_nights',metadata->'extra_metadata'->>'short_stay_min_nights','translations',metadata->'extra_metadata'->'translations','boat_length',metadata->'extra_metadata'->>'boat_length','boat_type',metadata->'extra_metadata'->>'boat_type','berth_count',metadata->'extra_metadata'->>'berth_count','crew_status',metadata->'extra_metadata'->>'crew_status','port_name',metadata->'extra_metadata'->>'port_name','boat_times',metadata->'extra_metadata'->>'boat_times','duration_hours',metadata->'extra_metadata'->>'duration_hours','difficulty_level',metadata->'extra_metadata'->>'difficulty_level','guide_languages',metadata->'extra_metadata'->>'guide_languages','meeting_point',metadata->'extra_metadata'->>'meeting_point','group_size',metadata->'extra_metadata'->>'group_size')),'policy',jsonb_build_object('policy',cancellation_policy->>'policy'),'ownerName',coalesce(owner_info->>'name',''))::text from agency.listings where id=$1::uuid and tenant_id=$2::uuid and status='published'"),
                         D1 = pog:parameter(D0, pog_ffi:coerce(Id)),
                         D2 = pog:parameter(D1, pog_ffi:coerce(Tenant_id)),
                         pog:returning(D2, single_string_decoder())
@@ -3087,7 +3122,7 @@ public_product_detail_page(Req, Db, Origin, Listing_id) ->
                     Content = lustre@element:element(~"html", [lustre@attribute:attribute(~"lang", ~"tr")], [lustre@element:element(~"head", [], [lustre@element:element(~"meta", [lustre@attribute:attribute(~"charset", ~"utf-8")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"csrf-token"), lustre@attribute:attribute(~"content", Csrf_token)], []), lustre@element:element(~"meta", [lustre@attribute:name(~"description"), lustre@attribute:attribute(~"content", <<Title/binary, " | NEXUS Agency"/utf8>>)], []), lustre@element:element(~"meta", [lustre@attribute:attribute(~"property", ~"og:title"), lustre@attribute:attribute(~"content", Title)], []), lustre@element:element(~"meta", [lustre@attribute:attribute(~"property", ~"og:description"), lustre@attribute:attribute(~"content", Description)], []), lustre@element:element(~"meta", [lustre@attribute:attribute(~"property", ~"og:type"), lustre@attribute:attribute(~"content", ~"product")], []), lustre@element:element(~"meta", [lustre@attribute:name(~"twitter:card"), lustre@attribute:attribute(~"content", ~"summary_large_image")], []), lustre@element:unsafe_raw_html(~"", ~"script", [lustre@attribute:attribute(~"type", ~"application/ld+json")], begin
                         _pipe@6 = gleam@json:object([{~"@context", gleam@json:string(~"https://schema.org")}, {~"@type", gleam@json:string(~"Product")}, {~"name", gleam@json:string(Title)}, {~"description", gleam@json:string(Description)}, {~"category", gleam@json:string(Category)}, {~"offers", gleam@json:object([{~"@type", gleam@json:string(~"Offer")}, {~"priceCurrency", gleam@json:string(Currency)}, {~"price", gleam@json:float(erlang:float(Price) / 100.0)}, {~"availability", gleam@json:string(~"https://schema.org/InStock")}])}]),
                         gleam@json:to_string(_pipe@6)
-                    end), lustre@element:element(~"title", [], [lustre@element:text(<<Title/binary, " | NEXUS Agency"/utf8>>)]), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"canonical"), lustre@attribute:href(<<<<<<Origin/binary, "/urunler/"/utf8>>/binary, Id/binary>>/binary, (public_tenant_query(Tenant_id))/binary>>)], []) | chisfis_head()]), lustre@element:element(~"body", [lustre@attribute:class(~"chisfis-page"), lustre@attribute:attribute(~"data-tenant", Tenant_id)], [public_storefront_header(Origin, Tenant_id), lustre@element:element(~"main", [lustre@attribute:class(<<"product-detail category-"/utf8, Category/binary>>)], [lustre@element:element(~"nav", [lustre@attribute:class(~"detail-breadcrumb"), lustre@attribute:attribute(~"aria-label", ~"Sayfa yolu")], [lustre@element:element(~"a", [lustre@attribute:href(<<"/urunler"/utf8, (public_tenant_query(Tenant_id))/binary>>)], [lustre@element:text(~"Ürünler")]), lustre@element:element(~"span", [], [lustre@element:text(~"/")]), lustre@element:element(~"span", [], [lustre@element:text(public_category_name(Category))])]), lustre@element:element(~"div", [lustre@attribute:class(~"detail-gallery"), lustre@attribute:attribute(~"data-images", Images)], []), lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"button", [lustre@attribute:class(~"detail-favorite"), lustre@attribute:type_(~"button"), lustre@attribute:attribute(~"aria-label", ~"Favorilere ekle")], [lustre@element:text(~"♡")]), lustre@element:element(~"div", [lustre@attribute:class(~"flex flex-col items-start gap-y-6")], [lustre@element:element(~"span", [lustre@attribute:class(~"detail-badge")], [lustre@element:text(public_category_name(Category))]), lustre@element:element(~"h1", [], [lustre@element:text(Title)]), lustre@element:element(~"div", [lustre@attribute:class(~"detail-meta-row")], [lustre@element:element(~"span", [lustre@attribute:class(~"detail-rating")], [lustre@element:text(~"★ 4.9")]), lustre@element:element(~"span", [lustre@attribute:class(~"detail-meta-dot")], [lustre@element:text(~"·")]), lustre@element:element(~"span", [lustre@attribute:class(~"detail-location")], [lustre@element:text(Locality)])]), lustre@element:element(~"div", [lustre@attribute:class(~"share-actions")], [lustre@element:element(~"a", [lustre@attribute:class(~"secondary"), lustre@attribute:href(<<"https://wa.me/?text=", Title/binary, " - ", Origin/binary, "/urunler/", Id/binary>>)] , [lustre@element:text(~"WhatsApp'ta paylaş")]), lustre@element:element(~"button", [lustre@attribute:class(~"secondary"), lustre@attribute:type_(~"button"), lustre@attribute:attribute(~"onclick", ~"navigator.clipboard.writeText(location.href);this.textContent='Bağlantı kopyalandı'")], [lustre@element:text(~"Bağlantıyı kopyala")])])])]), lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"div", [lustre@attribute:class(~"product-description")], [lustre@element:text(Description)])]), lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"a", [lustre@attribute:class(~"secondary"), lustre@attribute:href(<<<<<<<<<<"/urunler?kategori="/utf8, Category/binary>>/binary, "&konum="/utf8>>/binary, Locality/binary>>/binary, "&tenant="/utf8>>/binary, Tenant_id/binary>>)], [lustre@element:text(~"Benzer ürünleri keşfet")])]), lustre@element:element(~"section", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"h2", [], [lustre@element:text(~"Yaklaşan müsaitlik")]), lustre@element:element(~"div", [lustre@attribute:id(~"public-availability"), lustre@attribute:attribute(~"data-listing-id", Id), lustre@attribute:attribute(~"data-tenant", Tenant_id)], [lustre@element:text(~"Yükleniyor…")])]), lustre@element:element(~"div", [lustre@attribute:class(~"grow")], [lustre@element:element(~"div", [lustre@attribute:class(~"sticky top-8")], [lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap sm:shadow-xl")], [lustre@element:element(~"div", [lustre@attribute:class(~"flex items-end text-2xl font-semibold sm:text-3xl"), lustre@attribute:attribute(~"data-price-minor", erlang:integer_to_binary(Price)), lustre@attribute:attribute(~"data-price-cur", string:uppercase(gleam@string:trim(Currency)))], [lustre@element:text(<<<<(currency_symbol(Currency))/binary, " "/utf8>>/binary, (amount_minor_display(erlang:integer_to_binary(Price)))/binary>>), lustre@element:element(~"span", [lustre@attribute:class(~"text-base font-normal text-neutral-500 dark:text-neutral-400 ms-1")], [lustre@element:text(<<" / "/utf8, (category_price_unit(Category))/binary>>)])]), lustre@element:element(~"form", [lustre@attribute:method(~"get"), lustre@attribute:action(Booking_action), lustre@attribute:class(~"flex flex-col rounded-3xl border border-neutral-200 dark:border-neutral-700 mt-4"), lustre@attribute:attribute(~"id", ~"booking-form")], [lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"listing"), lustre@attribute:value(Id)], []), lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"tenant"), lustre@attribute:value(Tenant_id)], []), chisfis_date_range_picker(), lustre@element:element(~"div", [lustre@attribute:class(~"w-full border-b border-neutral-200 dark:border-neutral-700")], []), chisfis_guest_picker(), lustre@element:element(~"div", [lustre@attribute:class(~"p-3 border-t border-neutral-200 dark:border-neutral-700")], [lustre@element:element(~"button", [lustre@attribute:type_(~"submit"), lustre@attribute:class(~"w-full rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3.5 text-base transition")], [lustre@element:text(Booking_label)])])]), lustre@element:element(~"small", [lustre@attribute:class(~"muted")], [lustre@element:text(~"Ücretsiz teklif · Ön ödeme koşulları danışmanınız tarafından paylaşılır")])])])]), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-availability.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-detail.js?v=20260921-gallery2"), lustre@attribute:attribute(~"defer", ~"defer")], []), public_guests_script(), public_footer(Tenant_id), public_chat_script(), public_theme_script(), public_header_popovers_script()])])]),
+                    end), lustre@element:element(~"title", [], [lustre@element:text(<<Title/binary, " | NEXUS Agency"/utf8>>)]), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"canonical"), lustre@attribute:href(<<<<<<Origin/binary, "/urunler/"/utf8>>/binary, Id/binary>>/binary, (public_tenant_query(Tenant_id))/binary>>)], []) | chisfis_head()]), lustre@element:element(~"body", [lustre@attribute:class(~"chisfis-page"), lustre@attribute:attribute(~"data-tenant", Tenant_id)], [public_storefront_header(Origin, Tenant_id), lustre@element:element(~"main", [lustre@attribute:class(<<"product-detail category-"/utf8, Category/binary>>)], [lustre@element:element(~"nav", [lustre@attribute:class(~"detail-breadcrumb"), lustre@attribute:attribute(~"aria-label", ~"Sayfa yolu")], [lustre@element:element(~"a", [lustre@attribute:href(<<"/urunler"/utf8, (public_tenant_query(Tenant_id))/binary>>)], [lustre@element:text(~"Ürünler")]), lustre@element:element(~"span", [], [lustre@element:text(~"/")]), lustre@element:element(~"span", [], [lustre@element:text(public_category_name(Category))])]), lustre@element:element(~"div", [lustre@attribute:class(~"detail-gallery"), lustre@attribute:attribute(~"data-images", Images)], []), lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"button", [lustre@attribute:class(~"detail-favorite"), lustre@attribute:type_(~"button"), lustre@attribute:attribute(~"aria-label", ~"Favorilere ekle")], [lustre@element:text(~"♡")]), lustre@element:element(~"div", [lustre@attribute:class(~"flex flex-col items-start gap-y-6")], [lustre@element:element(~"span", [lustre@attribute:class(~"detail-badge")], [lustre@element:text(public_category_name(Category))]), lustre@element:element(~"h1", [], [lustre@element:text(Title)]), lustre@element:element(~"div", [lustre@attribute:class(~"detail-meta-row")], [lustre@element:element(~"span", [lustre@attribute:class(~"detail-rating")], [lustre@element:text(~"★ 4.9")]), lustre@element:element(~"span", [lustre@attribute:class(~"detail-meta-dot")], [lustre@element:text(~"·")]), lustre@element:element(~"span", [lustre@attribute:class(~"detail-location")], [lustre@element:text(Locality)])]), lustre@element:element(~"div", [lustre@attribute:class(~"share-actions")], [lustre@element:element(~"a", [lustre@attribute:class(~"secondary"), lustre@attribute:href(<<"https://wa.me/?text=", Title/binary, " - ", Origin/binary, "/urunler/", Id/binary>>)] , [lustre@element:text(~"WhatsApp'ta paylaş")]), lustre@element:element(~"button", [lustre@attribute:class(~"secondary"), lustre@attribute:type_(~"button"), lustre@attribute:attribute(~"onclick", ~"navigator.clipboard.writeText(location.href);this.textContent='Bağlantı kopyalandı'")], [lustre@element:text(~"Bağlantıyı kopyala")])])])]), lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"div", [lustre@attribute:class(~"product-description")], [lustre@element:text(Description)])]), lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"a", [lustre@attribute:class(~"secondary"), lustre@attribute:href(<<<<<<<<<<"/urunler?kategori="/utf8, Category/binary>>/binary, "&konum="/utf8>>/binary, Locality/binary>>/binary, "&tenant="/utf8>>/binary, Tenant_id/binary>>)], [lustre@element:text(~"Benzer ürünleri keşfet")])]), lustre@element:element(~"section", [lustre@attribute:class(~"listingSection__wrap")], [lustre@element:element(~"h2", [], [lustre@element:text(~"Yaklaşan müsaitlik")]), lustre@element:element(~"div", [lustre@attribute:id(~"public-availability"), lustre@attribute:attribute(~"data-listing-id", Id), lustre@attribute:attribute(~"data-tenant", Tenant_id)], [lustre@element:text(~"Yükleniyor…")])]), lustre@element:element(~"div", [lustre@attribute:class(~"grow")], [lustre@element:element(~"div", [lustre@attribute:class(~"sticky top-8")], [lustre@element:element(~"div", [lustre@attribute:class(~"listingSection__wrap sm:shadow-xl")], [lustre@element:element(~"div", [lustre@attribute:class(~"flex items-end text-2xl font-semibold sm:text-3xl"), lustre@attribute:attribute(~"data-price-minor", erlang:integer_to_binary(Price)), lustre@attribute:attribute(~"data-price-cur", string:uppercase(gleam@string:trim(Currency)))], [lustre@element:text(<<<<(currency_symbol(Currency))/binary, " "/utf8>>/binary, (amount_minor_display(erlang:integer_to_binary(Price)))/binary>>), lustre@element:element(~"span", [lustre@attribute:class(~"text-base font-normal text-neutral-500 dark:text-neutral-400 ms-1")], [lustre@element:text(<<" / "/utf8, (category_price_unit(Category))/binary>>)])]), lustre@element:element(~"form", [lustre@attribute:method(~"get"), lustre@attribute:action(Booking_action), lustre@attribute:class(~"flex flex-col rounded-3xl border border-neutral-200 dark:border-neutral-700 mt-4"), lustre@attribute:attribute(~"id", ~"booking-form")], [lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"listing"), lustre@attribute:value(Id)], []), lustre@element:element(~"input", [lustre@attribute:type_(~"hidden"), lustre@attribute:name(~"tenant"), lustre@attribute:value(Tenant_id)], []), chisfis_date_range_picker(), lustre@element:element(~"div", [lustre@attribute:class(~"w-full border-b border-neutral-200 dark:border-neutral-700")], []), chisfis_guest_picker(), lustre@element:element(~"div", [lustre@attribute:class(~"p-3 border-t border-neutral-200 dark:border-neutral-700")], [lustre@element:element(~"button", [lustre@attribute:type_(~"submit"), lustre@attribute:class(~"w-full rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3.5 text-base transition")], [lustre@element:text(Booking_label)])])]), lustre@element:element(~"small", [lustre@attribute:class(~"muted")], [lustre@element:text(~"Ücretsiz teklif · Ön ödeme koşulları danışmanınız tarafından paylaşılır")])])])]), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-availability.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/public-detail.js?v=20261001-hotel-pricing"), lustre@attribute:attribute(~"defer", ~"defer")], []), public_guests_script(), public_footer(Tenant_id), public_chat_script(), public_theme_script(), public_header_popovers_script()])])]),
                     _pipe@7 = wisp:ok(),
                     _pipe@8 = wisp:set_cookie(_pipe@7, Req, ~"agency_csrf", Csrf_token, plain_text, 3600),
                     Detail_html = lustre@element:to_string(Content),
@@ -3530,8 +3565,10 @@ category_sitemap_urls(Origin) ->
 
 -file("src\\nexus_agency\\router.gleam", 9619).
 -spec search_intent(gleam@http@request:request(wisp@internal:connection()), pog:connection()) -> gleam@http@response:response(wisp:body()).
+%% Her istek public_search_events tablosuna satır yazdığı için girdi uzunluğu
+%% sınırlanır (300/dk sayfa limitinin dışında ek maliyet engeli).
 search_intent(Req, Db) ->
-    Raw = case begin
+    Raw0 = case begin
         _pipe = wisp:get_query(Req),
         gleam@list:key_find(_pipe, ~"q")
     end of
@@ -3541,6 +3578,7 @@ search_intent(Req, Db) ->
         {error, _} ->
             ~""
     end,
+    Raw = gleam@string:slice(string:trim(Raw0), 0, 200),
     Text = string:lowercase(Raw),
     Category = case {gleam_stdlib:contains_string(Text, ~"villa"), gleam_stdlib:contains_string(Text, ~"otel") orelse gleam_stdlib:contains_string(Text, ~"hotel"), gleam_stdlib:contains_string(Text, ~"tur") orelse gleam_stdlib:contains_string(Text, ~"safari"), gleam_stdlib:contains_string(Text, ~"aktivite") orelse gleam_stdlib:contains_string(Text, ~"dalış")} of
         {true, _, _, _} ->
@@ -3583,16 +3621,24 @@ search_intent(Req, Db) ->
     end).
 
 -file("src\\nexus_agency\\router.gleam", 9589).
+%% LIKE jokerlerini (% _) literal karaktere çevirir; escape'i \ kabul eden
+%% ilike kalıplarıyla birlikte kullanılır. Arama maliyet saldırılarını
+%% zorlaştırır (tam taramayı sabit desenle sınırlar).
+public_escape_like(Value) ->
+    T0 = gleam@string:replace(Value, ~"\\", ~"\\\\"),
+    T1 = gleam@string:replace(T0, ~"%", ~"\\%"),
+    gleam@string:replace(T1, ~"_", ~"\\_").
+
 public_search_quotes(Req, Db) ->
     Tenant_id = gleam@result:unwrap(public_tenant_id(Db, Req), ~""),
     Query = wisp:get_query(Req),
     Check_in = gleam@result:unwrap(gleam@list:key_find(Query, ~"check_in"), ~""),
     Check_out = gleam@result:unwrap(gleam@list:key_find(Query, ~"check_out"), ~""),
-    Search = gleam@result:unwrap(gleam@list:key_find(Query, ~"q"), ~""),
-    Locality = gleam@result:unwrap(gleam@list:key_find(Query, ~"konum"), ~""),
+    Search = public_escape_like(string:trim(gleam@result:unwrap(gleam@list:key_find(Query, ~"q"), ~""))),
+    Locality = public_escape_like(string:trim(gleam@result:unwrap(gleam@list:key_find(Query, ~"konum"), ~""))),
     Category = gleam@result:unwrap(gleam@list:key_find(Query, ~"kategori"), ~""),
     Decoder = settings_decoder(),
-    Sql = ~"select coalesce(json_agg(json_build_object('id',l.id::text,'title',l.title,'category',l.category,'locality',l.locality,'currency',l.currency,'nightlyMinor',(coalesce(p.total_minor,l.price_minor*greatest(($3::text::date-$2::text::date),1))/greatest(($3::text::date-$2::text::date),1))::text,'totalMinor',coalesce(p.total_minor,l.price_minor*greatest(($3::text::date-$2::text::date),1))::text,'available',coalesce(a.recorded,0)=($3::text::date-$2::text::date) and coalesce(a.blocked,0)=0,'availabilityKnown',coalesce(a.recorded,0)=($3::text::date-$2::text::date),'roomTypes',coalesce(l.metadata->'contract_fields'->'room_types',l.metadata->'room_types','[]'::jsonb)) order by l.title),'[]'::json)::text from agency.listings l left join lateral (select (select sum(coalesce((select per.price_minor from agency.rate_periods per where per.rate_plan_id=rp.id and day::date between per.starts_on and per.ends_on order by per.starts_on desc limit 1),rp.base_minor)) from generate_series($2::text::date,least($3::text::date-1,$2::text::date+30),'1 day'::interval) day) as total_minor from agency.rate_plans rp where rp.listing_id=l.id and rp.active order by rp.base_minor limit 1) p on true left join lateral (select count(*) as recorded,count(*) filter(where av.closed or av.units_available<=0) as blocked from agency.availability av where av.listing_id=l.id and av.day >= $2::text::date and av.day < $3::text::date) a on true where l.tenant_id=$1::uuid and l.status='published' and ($4='' or l.title ilike '%'||$4||'%' or l.locality ilike '%'||$4||'%') and ($5='' or l.locality ilike '%'||$5||'%') and ($6='' or l.category=$6) and ($3::text::date-$2::text::date) between 1 and 31 limit 100",
+    Sql = ~"select coalesce(json_agg(json_build_object('id',l.id::text,'title',l.title,'category',l.category,'locality',l.locality,'currency',l.currency,'nightlyMinor',(coalesce(p.total_minor,l.price_minor*greatest(($3::text::date-$2::text::date),1))/greatest(($3::text::date-$2::text::date),1))::text,'totalMinor',coalesce(p.total_minor,l.price_minor*greatest(($3::text::date-$2::text::date),1))::text,'available',coalesce(a.recorded,0)=($3::text::date-$2::text::date) and coalesce(a.blocked,0)=0,'availabilityKnown',coalesce(a.recorded,0)=($3::text::date-$2::text::date),'roomTypes',coalesce(l.metadata->'contract_fields'->'room_types',l.metadata->'room_types','[]'::jsonb)) order by l.title),'[]'::json)::text from agency.listings l left join lateral (select (select sum(coalesce((select per.price_minor from agency.rate_periods per where per.rate_plan_id=rp.id and day::date between per.starts_on and per.ends_on order by per.starts_on desc limit 1),rp.base_minor)) from generate_series($2::text::date,least($3::text::date-1,$2::text::date+30),'1 day'::interval) day) as total_minor from agency.rate_plans rp where rp.listing_id=l.id and rp.active order by rp.base_minor limit 1) p on true left join lateral (select count(*) as recorded,count(*) filter(where av.closed or av.units_available<=0) as blocked from agency.availability av where av.listing_id=l.id and av.day >= $2::text::date and av.day < $3::text::date) a on true where l.tenant_id=$1::uuid and l.status='published' and ($4='' or l.title ilike ('%'||$4||'%') escape '\\' or l.locality ilike ('%'||$4||'%') escape '\\') and ($5='' or l.locality ilike ('%'||$5||'%') escape '\\') and ($6='' or l.category=$6) and ($3::text::date-$2::text::date) between 1 and 31 limit 100",
     Pg_query = pog:'query'(Sql),
     Pg_query@1 = pog:parameter(Pg_query, pog_ffi:coerce(Tenant_id)),
     Pg_query@2 = pog:parameter(Pg_query@1, pog_ffi:coerce(Check_in)),
@@ -7974,7 +8020,16 @@ dispatch(Req, Db, Origin) ->
                 {get, [~"health"]} ->
                     _pipe@6 = wisp:ok(),
                     _pipe@7 = fun gleam@http@response:set_header/3(_pipe@6, ~"cache-control", ~"no-store"),
-                    wisp:json_body(_pipe@7, ~"{\"service\":\"nexus-agency\",\"database\":\"ready\",\"environment\":\"development\"}");
+                    Environment = case envoy:get(~"APP_ENV") of
+                        {ok, Env} -> Env;
+                        {error, _} -> ~"unknown"
+                    end,
+                    Health_body = gleam@json:to_string(gleam@json:object([
+                        {~"service", gleam@json:string(~"nexus-agency")},
+                        {~"database", gleam@json:string(~"ready")},
+                        {~"environment", gleam@json:string(Environment)}
+                    ])),
+                    wisp:json_body(_pipe@7, Health_body);
 
                 {get, [~"api", ~"public", ~"support-settings"]} ->
                     case public_tenant_id(Db, Req) of
@@ -8001,7 +8056,16 @@ dispatch(Req, Db, Origin) ->
                 {get, [~"v1", ~"health"]} ->
                     _pipe@8 = wisp:ok(),
                     _pipe@9 = fun gleam@http@response:set_header/3(_pipe@8, ~"cache-control", ~"no-store"),
-                    wisp:json_body(_pipe@9, ~"{\"service\":\"nexus-agency\",\"database\":\"ready\",\"environment\":\"development\"}");
+                    Environment@1 = case envoy:get(~"APP_ENV") of
+                        {ok, Env@1} -> Env@1;
+                        {error, _} -> ~"unknown"
+                    end,
+                    Health_body@1 = gleam@json:to_string(gleam@json:object([
+                        {~"service", gleam@json:string(~"nexus-agency")},
+                        {~"database", gleam@json:string(~"ready")},
+                        {~"environment", gleam@json:string(Environment@1)}
+                    ])),
+                    wisp:json_body(_pipe@9, Health_body@1);
 
                 {get, [~"v1", ~"listings", Listing_id, ~"availability"]} ->
                     public_availability(Req, Db, Listing_id);
