@@ -13,7 +13,7 @@ pub fn root_uses_the_same_router_layout_as_public_pages_test() {
   let router = read_file("src/nexus_agency/router.gleam")
   router |> string.contains("demo_home_html") |> should.be_false
   router
-  |> string.contains("handle_application_request(correlated_req, db, origin)")
+  |> string.contains("handle_application_request(migrated_req, db, origin)")
   |> should.be_true
 }
 

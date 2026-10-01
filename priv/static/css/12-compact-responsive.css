@@ -466,3 +466,9 @@ html.light .panel-tab-item.is-active {
     font-size: 9px;
   }
 }
+@media (max-width: 820px) {
+  body .auth-card input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+    font-size: 16px !important;
+    min-height: 44px !important;
+  }
+}

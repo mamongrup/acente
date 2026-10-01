@@ -30,7 +30,9 @@ const bnav_css_path = "priv/static/chisfis/css/custom.css"
 
 fn read_file(path: String) -> String {
   case simplifile.read(path) {
-    Ok(content) -> content
+    // Windows checkout'ları CRLF yazar; iğneler LF varsayar. Satır sonlarını
+    // LF'e indirerek test checkout-bağımsız olur.
+    Ok(content) -> string.replace(content, "\r\n", "\n")
     Error(_) -> ""
   }
 }
