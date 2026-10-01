@@ -297,8 +297,14 @@
       if (media.style.backgroundImage) return;
       try {
         var images = JSON.parse(media.getAttribute('data-images') || '[]');
-        if (Array.isArray(images) && images[0]) {
-          media.style.backgroundImage = 'url("' + String(images[0]).replace(/"/g, '\\"') + '")';
+        var first = Array.isArray(images) ? images[0] : '';
+        // Yalnızca güvenli şemalar; url() içine gömmeden önce `)` ve tırnak
+        // karakterleri silinir (CSS injection'a kapalı arka plan ataması).
+        var url = String(first || '').trim();
+        var safe = (/^https?:\/\//i.test(url) || /^\/(?!\/)/.test(url)) &&
+          !/[()"']/.test(url);
+        if (Array.isArray(images) && images[0] && safe) {
+          media.style.backgroundImage = 'url("' + url + '")';
         }
       } catch (_) {}
     });

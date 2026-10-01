@@ -31,7 +31,9 @@
   // Sözlük anahtarı İngilizce referanstır; `%s` yer tutucusu sayıyı taşır.
   // TR: "%s misafir" · EN: "%s guests" · DE: "%s Gäste" · RU: "%s гостей"
   function guestLabel(n) {
-    return t("%s guests").replace("%s", String(n));
+    var translated = t("%s guests");
+    if (translated === "%s guests" && document.documentElement.lang.startsWith("tr")) translated = "%s misafir";
+    return translated.replace("%s", String(n));
   }
 
   function initRange(container) {

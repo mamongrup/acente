@@ -7889,3 +7889,20 @@ html.dark .nc-travel__journey { background:#293242; }
 @media (max-width:700px) { .nc-travel__grid { grid-template-columns:1fr;max-height:65vh;overflow:auto; }.nc-travel__item small { max-width:none; } }
 
 html.dark .nc-travel__item small,html.dark .nc-travel__journey small { color:#b4c0d2; }
+
+/* Detail pages are rebuilt from the shared SSR shell by public-detail.js. Keep
+   the shell hidden during that short handoff so the old layout never flashes. */
+body:has(main.product-detail):not(.detail-layout-ready) { opacity: 0; pointer-events: none; }
+body:has(main.product-detail) { transition: opacity .12s ease; }
+/* Public forms: readable controls without focus zoom on phones. */
+@media (max-width: 820px) {
+  body:has(.bnav) input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]),
+  body:has(.bnav) select,
+  body:has(.bnav) textarea {
+    font-size: 16px !important;
+    min-width: 0;
+    max-width: 100%;
+  }
+  body:has(.bnav) textarea { resize: vertical; }
+  body:has(.bnav) main { overflow-wrap: break-word; }
+}
