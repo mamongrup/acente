@@ -278,44 +278,84 @@
         .then(function (data) {
           if (!data.ok) throw new Error(data.error || 'Arama yapılamadı');
 
-          var html = '';
+          resultsBox.replaceChildren();
           if (data.parsed) {
-            var cat = data.parsed.category || '';
-            var loc = data.parsed.locality || '';
-            var sum = data.parsed.summary || '';
-            html += '<div class="concierge-intent"><strong>🎯 AI Analizi:</strong> ' +
-              (loc ? loc + ' bölgesi · ' : '') +
-              (cat ? 'Kategori: ' + cat : '') +
-              (sum ? '<br><small style="color:#cbd5e1;">' + sum + '</small>' : '') +
-              '</div>';
+            var intent = document.createElement('div');
+            intent.className = 'concierge-intent';
+            var intentTitle = document.createElement('strong');
+            intentTitle.textContent = '🎯 AI Analizi: ';
+            intent.appendChild(intentTitle);
+            appendIntentText(intent, (data.parsed.locality ? data.parsed.locality + ' bölgesi · ' : '') +
+              (data.parsed.category ? 'Kategori: ' + data.parsed.category : ''));
+            if (data.parsed.summary) {
+              intent.appendChild(document.createElement('br'));
+              var small = document.createElement('small');
+              small.style.color = '#cbd5e1';
+              small.textContent = data.parsed.summary;
+              intent.appendChild(small);
+            }
+            resultsBox.appendChild(intent);
           }
 
           if (data.listings && data.listings.length > 0) {
-            html += '<div style="font-size:12px;font-weight:700;color:#94a3b8;margin-top:4px;">Bulunan İlanlar (' + data.listings.length + '):</div>';
+            var heading = document.createElement('div');
+            heading.style.cssText = 'font-size:12px;font-weight:700;color:#94a3b8;margin-top:4px;';
+            heading.textContent = 'Bulunan İlanlar (' + data.listings.length + '):';
+            resultsBox.appendChild(heading);
             data.listings.forEach(function (item) {
-              var img = (item.images && item.images[0] && item.images[0].url) ? item.images[0].url : '/static/placeholder.jpg';
+              var img = safeImage((item.images && item.images[0] && item.images[0].url)) || '/static/placeholder.jpg';
               var price = item.priceMinor ? (parseInt(item.priceMinor, 10) / 100).toLocaleString('tr-TR') + ' ' + (item.currency || 'TRY') : '';
-              var link = '/ilan/' + (item.id || '');
-              html += '<a href="' + link + '" class="concierge-card">' +
-                '<img src="' + img + '" alt="" onerror="this.src=\'/static/placeholder.jpg\'" />' +
-                '<div class="concierge-card-info">' +
-                '<span class="concierge-card-title">' + (item.title || 'İlan') + '</span>' +
-                '<span class="concierge-card-sub">' + (item.locality || '') + ' · ' + (item.categoryLabel || item.category || '') + (price ? ' · <strong>' + price + '</strong>' : '') + '</span>' +
-                '</div>' +
-                '</a>';
+              var link = document.createElement('a');
+              link.href = '/ilan/' + encodeURIComponent(item.id || '');
+              link.className = 'concierge-card';
+              var image = document.createElement('img');
+              image.src = img;
+              image.alt = '';
+              image.onerror = function () { image.onerror = null; image.src = '/static/placeholder.jpg'; };
+              var info = document.createElement('div');
+              info.className = 'concierge-card-info';
+              var title = document.createElement('span');
+              title.className = 'concierge-card-title';
+              title.textContent = item.title || 'İlan';
+              var sub = document.createElement('span');
+              sub.className = 'concierge-card-sub';
+              sub.textContent = (item.locality || '') + ' · ' + (item.categoryLabel || item.category || '') + (price ? ' · ' : '');
+              if (price) {
+                var strong = document.createElement('strong');
+                strong.textContent = price;
+                sub.appendChild(strong);
+              }
+              info.append(title, sub);
+              link.append(image, info);
+              resultsBox.appendChild(link);
             });
           } else {
-            html += '<div style="font-size:12.5px;color:#94a3b8;padding:8px 0;">Bu kriterlere tam uyan anlık ilan bulunamadı. Genel vitrinimizi inceleyebilirsiniz.</div>';
+            var empty = document.createElement('div');
+            empty.style.cssText = 'font-size:12.5px;color:#94a3b8;padding:8px 0;';
+            empty.textContent = 'Bu kriterlere tam uyan anlık ilan bulunamadı. Genel vitrinimizi inceleyebilirsiniz.';
+            resultsBox.appendChild(empty);
           }
-
-          resultsBox.innerHTML = html;
         })
         .catch(function (err) {
-          resultsBox.innerHTML = '<div style="color:#f87171;font-size:12px;padding:8px;">Hata: ' + err.message + '</div>';
+          var error = document.createElement('div');
+          error.style.cssText = 'color:#f87171;font-size:12px;padding:8px;';
+          error.textContent = 'Hata: ' + (err && err.message ? err.message : 'Arama yapılamadı');
+          resultsBox.replaceChildren(error);
         })
         .finally(function () {
           submitBtn.disabled = false;
         });
+    }
+
+    // AI çıktısı ve ilan verileri asla innerHTML ile basılmaz (XSS riski);
+    // yalnızca textContent/element API kullanılır.
+    function appendIntentText(parent, value) {
+      parent.appendChild(document.createTextNode(value));
+    }
+
+    function safeImage(value) {
+      var url = String(value || '').trim();
+      return /^https?:\/\//i.test(url) || /^\/(?!\/)/.test(url) ? url : '';
     }
 
     submitBtn.addEventListener('click', function () { searchConcierge(); });
