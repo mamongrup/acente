@@ -61,11 +61,16 @@ jobs:
         shell: pwsh
         run: ./scripts/migrate.ps1
 
-      - name: Gleam tests against running application
+      - name: Gleam tests against running application (flakiness smoke x3)
         shell: bash
         env:
           PGUSER: agency_app
           PGPASSWORD: ci-agency-test
+          # Lighthouse audit testleri canlı sunucu ister; bu iş sunucuyu
+          # yukarıda başlattığı için burada zorunlu kılınır. Böylece CI'da
+          # sunucu erişilemez olsa bile audit sessizce atlanamaz — tests
+          # gürültülü panic ile kırılır.
+          REQUIRE_LIVE_SERVER: "true"
         run: |
           gleam run > "$RUNNER_TEMP/agency-server.log" 2>&1 &
           server_pid=$!
@@ -79,7 +84,28 @@ jobs:
             tail -n 80 "$RUNNER_TEMP/agency-server.log"
             exit 1
           fi
-          gleam test
+          # Flakiness dumanı: paketi aynı DB + canlı sunucu üzerinde ardışık
+          # 3 kez koşar. Testler paralel ve tekrar-koşuma güvenli tasarlandı
+          # (benzersiz kullanıcılar, idempotent upsert, kilitli env
+          # kapsamları); ardışık yeşil koşular, süreç-genel durumun koşumlar
+          # arasında sızmadığının kanıtıdır. Tek bir koşum bile kırmızıya
+          # düşer — flakiness sessizce geçilmez.
+          smoke_failed=""
+          for i in 1 2 3; do
+            echo "::group::gleam test — koşum $i/3"
+            if gleam test > "$RUNNER_TEMP/gleam-test-$i.log" 2>&1; then
+              tail -n 1 "$RUNNER_TEMP/gleam-test-$i.log"
+            else
+              smoke_failed="$i"
+              echo "gleam test koşum $i BAŞARISIZ (ayrıntı aşağıda)"
+              tail -n 60 "$RUNNER_TEMP/gleam-test-$i.log"
+            fi
+            echo "::endgroup::"
+          done
+          if [ -n "$smoke_failed" ]; then
+            echo "Flakiness smoke başarısız: koşum $smoke_failed kırmızı."
+            exit 1
+          fi
           gleam run -m nexus_connection_callback_test
 
       - name: Static release script parse
@@ -102,7 +128,9 @@ jobs:
             "scripts/test-parampos.ps1",
             "scripts/run-e2e-simulation.ps1",
             "scripts/check-wp2-concurrent-booking.ps1",
-            "scripts/check-wp2-sales-chain.ps1"
+            "scripts/check-wp2-sales-chain.ps1",
+            "scripts/daily-csp-report.ps1",
+            "scripts/record-secret-rotation.ps1"
           )
           foreach ($file in $files) {
             if (!(Test-Path $file)) { throw "Missing script: $file" }
@@ -115,6 +143,10 @@ jobs:
       - name: Worker hygiene
         shell: pwsh
         run: ./scripts/check-worker-hygiene.ps1
+
+      - name: Shared test admin usage check
+        shell: pwsh
+        run: ./scripts/check-test-shared-admin.ps1
 
       - name: Production gate negative smoke
         shell: pwsh
