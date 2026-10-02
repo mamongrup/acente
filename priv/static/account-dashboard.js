@@ -1,7 +1,14 @@
+(()=>{if(!document.querySelector('script[src="/static/member-i18n.js"]')){const s=document.createElement('script');s.src='/static/member-i18n.js';s.defer=true;document.head.append(s);}})();
 (function () {
   'use strict';
   var root = document.getElementById('account-dashboard');
   if (!root) return;
+  const verificationStyle = document.createElement('link');
+  verificationStyle.rel = 'stylesheet'; verificationStyle.href = '/static/customer-verification.css';
+  document.head.appendChild(verificationStyle);
+  const verificationScript = document.createElement('script');
+  verificationScript.src = '/static/customer-verification.js';
+  document.head.appendChild(verificationScript);
 
   function esc(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) {
@@ -12,12 +19,12 @@
   function money(minor, currency) {
     var symbols = { TRY: '₺', EUR: '€', USD: '$', GBP: '£', RUB: '₽', CNY: '¥' };
     var code = String(currency || 'TRY').trim();
-    return (symbols[code] || esc(code)) + ' ' + new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(minor || 0) / 100);
+    return (symbols[code] || esc(code)) + ' ' + new Intl.NumberFormat(window.NEXUS_MEMBER_I18N?.lang()||'tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(minor || 0) / 100);
   }
   function date(value) {
     if (!value) return 'Tarih belirtilmemiş';
     var parsed = new Date(String(value).slice(0, 10) + 'T12:00:00');
-    return isNaN(parsed.getTime()) ? esc(value) : new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }).format(parsed);
+    return isNaN(parsed.getTime()) ? esc(value) : new Intl.DateTimeFormat(window.NEXUS_MEMBER_I18N?.lang()||'tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }).format(parsed);
   }
   function status(value) {
     return ({ inquiry: 'Talep alındı', option: 'Ön rezervasyon', confirmed: 'Onaylandı', cancelled: 'İptal edildi', completed: 'Tamamlandı', pending: 'Beklemede', refunded: 'İade edildi', paid: 'Ödendi', unpaid: 'Ödeme bekliyor', authorized: 'Provizyonda', failed: 'Başarısız' })[value] || esc(value || 'Beklemede');
@@ -49,7 +56,7 @@
     var browserSaved = []; // Only account-owned favorites belong in the authenticated dashboard.
     var upcoming = bookings.filter(function (item) { return item.status !== 'cancelled' && item.status !== 'completed' && item.checkIn && item.checkIn >= new Date().toISOString().slice(0, 10); });
     var firstName = String(data.name || 'Misafir').trim().split(/\s+/)[0];
-    var initial = firstName.slice(0, 1).toLocaleUpperCase('tr-TR');
+    var initial = firstName.slice(0, 1).toLocaleUpperCase(window.NEXUS_MEMBER_I18N?.lang()||'tr-TR');
     root.innerHTML =
       '<div class="acct-wrap"><div class="acct-crumb"><a href="/">Anasayfa</a>' + icon('arrow-right-01') + '<span>Hesabım</span></div>' +
       '<header class="acct-hero"><div class="acct-hero-copy"><div class="acct-eyebrow">NEXUS Agency · Müşteri hesabı</div><h1>Merhaba, ' + esc(firstName) + '<span class="acct-spark">✦</span></h1><p>Seyahatlerinizi, siparişlerinizi ve kaydettiğiniz yerleri tek yerden yönetin.</p><a class="acct-hero-link" href="/urunler">Yeni bir yolculuk keşfet ' + icon('arrow-up-right-01') + '</a></div><div class="acct-hero-mark"><span>' + esc(initial) + '</span><small>' + esc(data.name || '') + '</small></div></header>' +
@@ -72,7 +79,7 @@
       return '<article class="acct-list-card"><div class="acct-list-icon">' + icon('invoice-01') + '</div><div class="acct-list-body"><div class="acct-list-top"><strong>Fatura ' + esc(item.number) + '</strong><span class="acct-status acct-status-' + esc(item.status) + '">' + esc(item.status === 'sent' ? 'Düzenlendi' : item.status === 'draft' ? 'Taslak' : item.status === 'queued' ? 'Hazırlanıyor' : item.status === 'cancelled' ? 'İptal' : 'İşlemde') + '</span></div><p>Sipariş ' + esc(item.orderNumber) + ' · ' + date(item.date) + '</p><div class="acct-list-meta">' + esc(item.type === 'e_invoice' ? 'E-fatura' : item.type === 'e_archive' ? 'E-arşiv fatura' : 'Makbuz') + '</div></div><strong class="acct-amount">' + money(item.amount, item.currency) + '</strong></article>';
     }).join('') : empty('invoice-01', 'Henüz faturanız yok', 'Düzenlenen faturalarınız burada listelenecek.', '/iletisim', 'Fatura desteği');
     root.querySelector('.acct-nav-divider').insertAdjacentHTML('beforebegin', '<button type="button" data-tab="wallet">' + icon('wallet-01') + ' Cüzdan</button><button type="button" data-tab="loyalty">' + icon('award-01') + ' Puan ve sadakat</button><button type="button" data-tab="invoices">' + icon('invoice-01') + ' Faturalarım <em>' + invoices.length + '</em></button>');
-    root.querySelector('.acct-content').insertAdjacentHTML('beforeend', '<section class="acct-pane" data-pane="wallet"><div class="acct-section-heading"><div><span>BAKİYEM</span><h2>Cüzdanım</h2><p>Tanımlanan bakiyeler ve hesap hareketleri.</p></div></div><div class="acct-panel"><div class="acct-wallet-grid">' + walletHtml + '</div></div></section><section class="acct-pane" data-pane="loyalty"><div class="acct-section-heading"><div><span>AVANTAJLARIM</span><h2>Puan ve sadakat</h2><p>Seyahatlerinizle bağlantılı üyelik bilgileri.</p></div></div><div class="acct-panel"><div class="acct-loyalty"><span class="acct-empty-icon">' + icon('award-01') + '</span><div><small>MEVCUT PUAN</small><strong>' + new Intl.NumberFormat('tr-TR').format(Number(loyalty.points || 0)) + '</strong><p>Üyelik seviyesi: ' + esc(loyalty.tier || 'standard') + '</p></div></div><div class="acct-security-note">' + icon('information-circle') + '<span>Tekrar rezervasyon indirimi ve puan kazanımı, yöneticinin dönemsel olarak etkinleştirdiği kampanya kurallarına göre uygulanır. ' + (Number(benefits.completedBookings || 0) > 0 ? 'Tamamlanmış rezervasyonunuz mevcut.' : 'İlk tamamlanan rezervasyonunuzdan sonra uygun kampanyalardan yararlanabilirsiniz.') + '</span></div></div></section><section class="acct-pane" data-pane="invoices"><div class="acct-section-heading"><div><span>BELGELERİM</span><h2>Faturalarım</h2><p>Siparişlerinize ait düzenlenmiş belgeler.</p></div></div><div class="acct-panel">' + invoiceHtml + '</div></section>');
+    root.querySelector('.acct-content').insertAdjacentHTML('beforeend', '<section class="acct-pane" data-pane="wallet"><div class="acct-section-heading"><div><span>BAKİYEM</span><h2>Cüzdanım</h2><p>Tanımlanan bakiyeler ve hesap hareketleri.</p></div></div><div class="acct-panel"><div class="acct-wallet-grid">' + walletHtml + '</div></div></section><section class="acct-pane" data-pane="loyalty"><div class="acct-section-heading"><div><span>AVANTAJLARIM</span><h2>Puan ve sadakat</h2><p>Seyahatlerinizle bağlantılı üyelik bilgileri.</p></div></div><div class="acct-panel"><div class="acct-loyalty"><span class="acct-empty-icon">' + icon('award-01') + '</span><div><small>MEVCUT PUAN</small><strong>' + new Intl.NumberFormat(window.NEXUS_MEMBER_I18N?.lang()||'tr-TR').format(Number(loyalty.points || 0)) + '</strong><p>Üyelik seviyesi: ' + esc(loyalty.tier || 'standard') + '</p></div></div><div class="acct-security-note">' + icon('information-circle') + '<span>Tekrar rezervasyon indirimi ve puan kazanımı, yöneticinin dönemsel olarak etkinleştirdiği kampanya kurallarına göre uygulanır. ' + (Number(benefits.completedBookings || 0) > 0 ? 'Tamamlanmış rezervasyonunuz mevcut.' : 'İlk tamamlanan rezervasyonunuzdan sonra uygun kampanyalardan yararlanabilirsiniz.') + '</span></div></div></section><section class="acct-pane" data-pane="invoices"><div class="acct-section-heading"><div><span>BELGELERİM</span><h2>Faturalarım</h2><p>Siparişlerinize ait düzenlenmiş belgeler.</p></div></div><div class="acct-panel">' + invoiceHtml + '</div></section>');
     if (window.renderCustomerPortal) window.renderCustomerPortal(root, portal || {}, data, recommendations || {});
     var mergedTabs = { requests: 'bookings', documents: 'bookings', billing: 'orders', invoices: 'orders', alerts: 'favorites', travelers: 'profile', loyalty: 'wallet' };
     Object.keys(mergedTabs).forEach(function (source) {
@@ -121,7 +128,7 @@
   }
   Promise.all(['/api/public/account', '/api/public/account/benefits', '/api/public/account/portal', '/api/public/account/recommendations'].map(function (url, index) {
     return fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(function (response) {
-      if (response.status === 401) { location.assign('/login'); return null; }
+      if (response.status === 401) { location.assign('/uye-girisi' + location.search); return null; }
       if (!response.ok) throw new Error('Hesap verileri yüklenemedi');
       return response.json();
     }).catch(function (error) { if (index === 3) return { chat: [], sent: [] }; throw error; });

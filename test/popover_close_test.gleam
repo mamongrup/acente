@@ -25,7 +25,9 @@ import gleeunit/should
 import simplifile
 
 const popovers_js_path = "priv/static/header-popovers.js"
+
 const main_js_path = "priv/static/chisfis/js/main.js"
+
 const bridge_css_path = "priv/static/chisfis-bridge.css"
 
 fn read_file(path: String) -> String {
@@ -152,7 +154,9 @@ pub fn close_fade_respects_reduced_motion_test() {
   |> list.each(fn(path) {
     let src = read_file(path)
     src |> string.contains("function reducedMotion()") |> should.be_true
-    src |> string.contains("if (reducedMotion()) { hidePanel(panel); return; }") |> should.be_true
+    src
+    |> string.contains("if (reducedMotion()) { hidePanel(panel); return; }")
+    |> should.be_true
   })
 }
 

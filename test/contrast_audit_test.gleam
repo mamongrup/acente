@@ -19,10 +19,10 @@
 //// kapanır; bilinçli istisnalar (SERP taklidi) ve `var()` zeminli kurallar
 //// (statik çözümlemede zaten güvenli sayılamaz) eik listesinde tutulur.
 
+import gleam/dict.{type Dict}
 import gleam/float
 import gleam/int
 import gleam/io
-import gleam/dict.{type Dict}
 import gleam/list
 import gleam/result
 import gleam/string
@@ -137,10 +137,24 @@ fn merge_declarations(
         // biçimindeki bildirimleri kabul et.
         let is_var =
           string.starts_with(name, "--") && !string.contains(name, " ")
-        case string.contains(name, "bg-space") || string.contains(name, "text-pure") || string.contains(name, "neon-cyan") {
+        case
+          string.contains(name, "bg-space")
+          || string.contains(name, "text-pure")
+          || string.contains(name, "neon-cyan")
+        {
           True ->
             io.println(
-              "DECL-HIT decl=[" <> string.replace(string.trim(string.slice(decl, 0, 80)), "\n", " ") <> "] name=[" <> name <> "] val=[" <> string.trim(value) <> "]",
+              "DECL-HIT decl=["
+              <> string.replace(
+                string.trim(string.slice(decl, 0, 80)),
+                "\n",
+                " ",
+              )
+              <> "] name=["
+              <> name
+              <> "] val=["
+              <> string.trim(value)
+              <> "]",
             )
           False -> Nil
         }
@@ -167,10 +181,20 @@ fn token(p: Palette, name: String) -> String {
 // ---------------------------------------------------------------------------
 
 type Finding {
-  Finding(file: String, selector: String, color: String, context: String, ratio: Float, threshold: Float)
+  Finding(
+    file: String,
+    selector: String,
+    color: String,
+    context: String,
+    ratio: Float,
+    threshold: Float,
+  )
 }
 
-fn audit_css_file(path: String, palettes: Dict(String, Palette)) -> List(Finding) {
+fn audit_css_file(
+  path: String,
+  palettes: Dict(String, Palette),
+) -> List(Finding) {
   let fname = file_name(path)
   case simplifile.read(path) {
     Error(_) -> []
@@ -204,7 +228,9 @@ fn audit_block(
         [] -> []
         _ ->
           colors
-          |> list.flat_map(fn(c) { audit_color(fname, selector, block, c, palettes) })
+          |> list.flat_map(fn(c) {
+            audit_color(fname, selector, block, c, palettes)
+          })
       }
     }
   }
@@ -266,14 +292,12 @@ fn take_hex_chars(s: String, acc: String) -> String {
 fn normalize_strict(h: String) -> Result(String, Nil) {
   case string.length(h) {
     3 ->
-      Ok(
-        string.lowercase(
-          "#"
-          <> string.repeat(string.slice(h, 0, 1), 2)
-          <> string.repeat(string.slice(h, 1, 1), 2)
-          <> string.repeat(string.slice(h, 2, 1), 2),
-        ),
-      )
+      Ok(string.lowercase(
+        "#"
+        <> string.repeat(string.slice(h, 0, 1), 2)
+        <> string.repeat(string.slice(h, 1, 1), 2)
+        <> string.repeat(string.slice(h, 2, 1), 2),
+      ))
     6 -> Ok(string.lowercase("#" <> h))
     _ -> Error(Nil)
   }
@@ -347,9 +371,14 @@ fn audit_color(
           _ ->
             case dark_surface {
               True -> {
-                let glass = case string.starts_with(token(p, "--glass-card"), "rgba(") {
+                let glass = case
+                  string.starts_with(token(p, "--glass-card"), "rgba(")
+                {
                   True ->
-                    composite_over(token(p, "--glass-card"), token(p, "--bg-space"))
+                    composite_over(
+                      token(p, "--glass-card"),
+                      token(p, "--bg-space"),
+                    )
                   False -> token(p, "--glass-card")
                 }
                 let surface = mix_tint(glass, theme)
@@ -447,9 +476,7 @@ fn declared_background_hex(block: String) -> Result(String, Nil) {
 fn hex_values_after(block: String, marker: String) -> List(String) {
   string.split(block, marker)
   |> list.drop(1)
-  |> list.filter_map(fn(chunk) {
-    normalize_strict(take_hex(chunk))
-  })
+  |> list.filter_map(fn(chunk) { normalize_strict(take_hex(chunk)) })
 }
 
 /// Paletin zemin rengine tipik %11 tint katmanı ekler (panelin tint-* desenine
@@ -523,7 +550,15 @@ fn mix(base: String, overlay: String, ratio: Float) -> String {
   hex_of(br, bg, bb, or_, og, ob, ratio)
 }
 
-fn hex_of(br: Float, bg: Float, bb: Float, or_: Float, og: Float, ob: Float, ratio: Float) -> String {
+fn hex_of(
+  br: Float,
+  bg: Float,
+  bb: Float,
+  or_: Float,
+  og: Float,
+  ob: Float,
+  ratio: Float,
+) -> String {
   let mixc = fn(b: Float, o: Float) {
     let v = ratio *. o +. { 1.0 -. ratio } *. b
     to_hex2(float.round(v *. 255.0))
@@ -585,7 +620,9 @@ fn contrast_ratio(fg: String, bg: String) -> Float {
     }
     // Ayrıştırılamayan giriş: güvenli geç (21:1) — ama kaynağını görünür kıl.
     _, _ -> {
-      io.println("CONTRAST-AUDIT-PARSER: çift çözülemedi fg=" <> fg <> " bg=" <> bg)
+      io.println(
+        "CONTRAST-AUDIT-PARSER: çift çözülemedi fg=" <> fg <> " bg=" <> bg,
+      )
       21.0
     }
   }
@@ -602,7 +639,14 @@ fn relative_luminance(hex: String) -> Result(Float, Nil) {
   }
   case channel(norm, 1), channel(norm, 3), channel(norm, 5) {
     Ok(r), Ok(g), Ok(b) ->
-      Ok(0.2126 *. linearize(r) +. 0.7152 *. linearize(g) +. 0.0722 *. linearize(b))
+      Ok(
+        0.2126
+        *. linearize(r)
+        +. 0.7152
+        *. linearize(g)
+        +. 0.0722
+        *. linearize(b),
+      )
     _, _, _ -> {
       io.println("CONTRAST-AUDIT-PARSER: çözülemeyen hex → " <> hex)
       Error(Nil)
@@ -662,8 +706,7 @@ fn divide_by_100(s: String) -> String {
   let len = string.length(s)
   case len <= 2 {
     True -> "0." <> string.repeat("0", 2 - len) <> s
-    False ->
-      string.slice(s, 0, len - 2) <> "." <> string.slice(s, len - 2, 2)
+    False -> string.slice(s, 0, len - 2) <> "." <> string.slice(s, len - 2, 2)
   }
 }
 
@@ -687,7 +730,18 @@ pub fn color_hex_contrast_across_palettes_test() {
   |> list.each(fn(t) {
     let assert Ok(p) = dict.get(palettes, t)
     io.println(
-      "DBG " <> t <> " bg=[" <> token(p, "--bg-space") <> "] glow1=[" <> token(p, "--bg-glow-1") <> "] glass=[" <> token(p, "--glass-card") <> "] textpure=[" <> token(p, "--text-pure") <> "] nvars=" <> int.to_string(dict.size(p.tokens)),
+      "DBG "
+      <> t
+      <> " bg=["
+      <> token(p, "--bg-space")
+      <> "] glow1=["
+      <> token(p, "--bg-glow-1")
+      <> "] glass=["
+      <> token(p, "--glass-card")
+      <> "] textpure=["
+      <> token(p, "--text-pure")
+      <> "] nvars="
+      <> int.to_string(dict.size(p.tokens)),
     )
     io.println(
       "KEYS "
@@ -755,7 +809,6 @@ fn css_module_files() -> List(String) {
 /// Her paletin tint rgba degerini bg-space uzerine composit edip neon hex ile
 /// kontrastini olcer. 4.5:1 altindaki her kombinasyon regressyon sayilir.
 /// Tint zemin, neon metin rengidir (status-pill, badge, active tab, vb.).
-
 /// Kontrol edilecek tint+neon ciftleri (isim, tint tokeni, neon tokeni).
 const tint_neon_pairs = [
   #("cyan", "--tint-cyan", "--neon-cyan"),
@@ -792,21 +845,13 @@ pub fn tint_neon_contrast_across_palettes_test() {
           _, "" -> Error(Nil)
           tint, neon -> {
             // tint rgba'yi bg-space uzerine composit et
-            let surface =
-              case string.starts_with(tint, "rgba(") {
-                True -> composite_over(tint, bg)
-                False -> tint
-              }
+            let surface = case string.starts_with(tint, "rgba(") {
+              True -> composite_over(tint, bg)
+              False -> tint
+            }
             let ratio = contrast_ratio(neon, surface)
             case ratio <. 4.5 {
-              True ->
-                Ok(#(
-                  theme,
-                  name,
-                  neon,
-                  surface,
-                  ratio,
-                ))
+              True -> Ok(#(theme, name, neon, surface, ratio))
               False -> Error(Nil)
             }
           }
@@ -841,10 +886,21 @@ pub fn tint_neon_contrast_across_palettes_test() {
 
 /// Tek palet uzerinde tum tint+neon ciftlerini test eden parametrik test.
 /// Her palet icin ayri assertion: palet bazli regressyon takibi.
-pub fn tint_neon_dark_palette_test() { check_palette("dark") }
-pub fn tint_neon_light_palette_test() { check_palette("light") }
-pub fn tint_neon_midnight_palette_test() { check_palette("midnight") }
-pub fn tint_neon_sahra_palette_test() { check_palette("sahra") }
+pub fn tint_neon_dark_palette_test() {
+  check_palette("dark")
+}
+
+pub fn tint_neon_light_palette_test() {
+  check_palette("light")
+}
+
+pub fn tint_neon_midnight_palette_test() {
+  check_palette("midnight")
+}
+
+pub fn tint_neon_sahra_palette_test() {
+  check_palette("sahra")
+}
 
 fn check_palette(theme: String) {
   let assert Ok(tokens) = simplifile.read(tokens_path)
@@ -862,11 +918,10 @@ fn check_palette(theme: String) {
         "", _ -> Error(Nil)
         _, "" -> Error(Nil)
         tint, neon -> {
-          let surface =
-            case string.starts_with(tint, "rgba(") {
-              True -> composite_over(tint, bg)
-              False -> tint
-            }
+          let surface = case string.starts_with(tint, "rgba(") {
+            True -> composite_over(tint, bg)
+            False -> tint
+          }
           let ratio = contrast_ratio(neon, surface)
           case ratio <. 4.5 {
             True ->
@@ -909,7 +964,6 @@ fn check_palette(theme: String) {
 /// WCAG AA: kucuk metin icin 4.5:1, buyuk metin icin 3.0:1.
 /// Hover'da brightness(1.1) uygulanir; en zayif uc brightness sonrasi da
 /// 4.5:1'i korumalidir.
-
 const gradient_primary_endpoints = [
   #("dark", ["#0e7490", "#1d4ed8"]),
   #("light", ["#0e7490", "#1d4ed8"]),
@@ -932,13 +986,7 @@ pub fn gradient_primary_base_contrast_test() {
       |> list.filter_map(fn(ep) {
         let ratio = contrast_ratio(ep, "#ffffff")
         case ratio <. 4.5 {
-          True ->
-            Ok(#(
-              theme,
-              ep,
-              ratio,
-              "base",
-            ))
+          True -> Ok(#(theme, ep, ratio, "base"))
           False -> Error(Nil)
         }
       })
@@ -983,13 +1031,7 @@ pub fn gradient_primary_hover_contrast_test() {
         let hover = brighten_hex(ep, 1.1)
         let ratio = contrast_ratio(hover, "#ffffff")
         case ratio <. 4.5 {
-          True ->
-            Ok(#(
-              theme,
-              ep,
-              hover,
-              ratio,
-            ))
+          True -> Ok(#(theme, ep, hover, ratio))
           False -> Error(Nil)
         }
       })

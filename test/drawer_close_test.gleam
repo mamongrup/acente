@@ -30,6 +30,7 @@ import gleeunit/should
 import simplifile
 
 const main_js_path = "priv/static/chisfis/js/main.js"
+
 const drawer_css_path = "priv/static/chisfis/css/custom.css"
 
 fn read_file(path: String) -> String {
@@ -65,7 +66,9 @@ fn close_ms(src: String) -> Result(Int, Nil) {
 /// CSS'teki `transition: transform .<n>s ...` değeri (1/100 sn).
 fn close_css_hundredths(css: String) -> Result(Int, Nil) {
   css
-  |> after(".mobile-menu.mm-closing .mobile-menu__panel {\n  opacity: 0;\n  transform: translateX(100%);\n  transition: transform .")
+  |> after(
+    ".mobile-menu.mm-closing .mobile-menu__panel {\n  opacity: 0;\n  transform: translateX(100%);\n  transition: transform .",
+  )
   |> take_digits
   |> int.parse
 }
@@ -135,13 +138,17 @@ pub fn drawer_reopen_cancels_pending_close_test() {
   // Hem ortak `set(...)` yolu (iptal + finish) hem de ayrı IIFE'deki
   // `openMenu()` iptal etmeli.
   src
-  |> string.split("if (menu.__mmCloseTimer) { clearTimeout(menu.__mmCloseTimer); menu.__mmCloseTimer = null; }")
+  |> string.split(
+    "if (menu.__mmCloseTimer) { clearTimeout(menu.__mmCloseTimer); menu.__mmCloseTimer = null; }",
+  )
   |> list.length
   |> fn(n) { n - 1 }
   |> should.equal(2)
 
   src
-  |> string.split("if (m.__mmCloseTimer) { clearTimeout(m.__mmCloseTimer); m.__mmCloseTimer = null; }")
+  |> string.split(
+    "if (m.__mmCloseTimer) { clearTimeout(m.__mmCloseTimer); m.__mmCloseTimer = null; }",
+  )
   |> list.length
   |> fn(n) { n - 1 }
   |> should.equal(1)

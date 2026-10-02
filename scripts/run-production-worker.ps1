@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $allowed = @(
   'currency','ai-supervisor','ai-operation','commerce-feed','ai-knowledge',
-  'ai-campaign','ai-quality','followup','notification','panel-operations','social','translation'
+  'ai-campaign','ai-quality','followup','notification','panel-operations','social','translation','calendar'
 )
 if ($Name -notin $allowed) { throw "Unknown agency worker: $Name" }
 & "$PSScriptRoot/check-production-gates.ps1" -EnvPath (Join-Path $root '.env')

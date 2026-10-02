@@ -31,3 +31,9 @@ playwright/.cache/
 *.log
 .local/
 scratch/
+
+# Yerel arac/servis durumu ve elle calistirilan denetim ciktilari
+# (uretiliyor, versiyonlanmaz; .vercelignore da .freebuff'i disarida birakir)
+.freebuff/
+.local-contract-check.txt
+.local-test-results.txt

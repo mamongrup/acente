@@ -22,9 +22,9 @@ const keys = [
   "cms", "ai", "integrations", "languages", "currencies", "settings", "logout",
   "search_quick", "tcmb_live", "regions", "media", "save", "welcome_eyebrow",
   // Panel headings + menu items (sidebar, mobile tab bar, topbar)
-  "inquiries", "notification_center", "search_analytics", "mobile_menu", "menu_open",
-  "lang_switch_label", "languages_aria", "section_supplier_campaigns",
-  "section_fallback",
+  "inquiries", "notification_center", "search_analytics", "mobile_menu",
+  "menu_open", "lang_switch_label", "languages_aria",
+  "section_supplier_campaigns", "section_fallback",
   // Dashboard metrics
   "metric_published", "metric_published_desc", "metric_pending",
   "metric_pending_desc", "metric_upcoming", "metric_upcoming_desc",

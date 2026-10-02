@@ -15,6 +15,9 @@
 %%    sayar. unique_username/1 her test için ayrı hesap üretir; with_lock/3
 %%    lockout gibi hesap-çapraz kesinlik gerektiren testleri serileştirir.
 -module(agency_test_env).
+-export([integration_pool_name/0]).
+
+
 
 -export([with_lock/3, with_env/3, unique_username/1]).
 
@@ -88,3 +91,6 @@ unique_username(Tag) ->
     end,
     <<"parallel-", TagBin/binary, "-", (integer_to_binary(Rand))/binary,
       "@nexus.local">>.
+
+%% One small pool per test VM; repeated router tests must not exhaust PostgreSQL.
+integration_pool_name() -> agency_integration_test_db.

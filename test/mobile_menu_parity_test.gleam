@@ -112,7 +112,10 @@ pub fn dark_wash_layers_unchanged_test() {
   let css = read_file(css_path)
   // Aktif vurgu zeminleri primary-500 karışımı olarak kalır (metin rengi
   // token'a taşındı ama zemin doygunluğu aynı kaldı)
-  occurrences(css, "background: color-mix(in srgb, var(--color-primary-500, #fb637e) 14%, transparent);")
+  occurrences(
+    css,
+    "background: color-mix(in srgb, var(--color-primary-500, #fb637e) 14%, transparent);",
+  )
   |> should.equal(2)
   // Token bir zemin değeri olarak kullanılmaz
   css |> string.contains("background: var(--mm-accent") |> should.be_false
@@ -227,10 +230,8 @@ pub fn press_rules_outside_hover_media_test() {
   |> string.split("\n")
   |> list.fold(#(False, 0, False), fn(state, line) {
     let #(in_hover, depth, leaked) = state
-    let opens =
-      line |> string.split("{") |> list.length |> fn(n) { n - 1 }
-    let closes =
-      line |> string.split("}") |> list.length |> fn(n) { n - 1 }
+    let opens = line |> string.split("{") |> list.length |> fn(n) { n - 1 }
+    let closes = line |> string.split("}") |> list.length |> fn(n) { n - 1 }
     let is_media =
       line
       |> string.trim
@@ -309,7 +310,10 @@ pub fn drawer_build_gate_fallbacks_test() {
   occurrences(src, "if (!burger) return;") |> should.equal(1)
   // Yedek tetikleyiciler erken çıkıştan ÖNCE denenmeli.
   let before_bail =
-    src |> string.split("if (!burger) return;") |> list.first |> result.unwrap("")
+    src
+    |> string.split("if (!burger) return;")
+    |> list.first
+    |> result.unwrap("")
   contains_all(before_bail, [
     ".bnav-item[data-act=\"menu\"]",
     "button[aria-label=\"Open menu\"]",

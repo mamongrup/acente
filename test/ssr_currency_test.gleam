@@ -31,7 +31,9 @@ import nexus_agency/ssr_currency
 import simplifile
 
 const main_js_path = "priv/static/chisfis/js/main.js"
+
 const router_path = "src/nexus_agency/router.gleam"
+
 const erl_path = "src/nexus_agency/erl/nexus_agency@router_impl.erl"
 
 /// USD kuru (canlı `agency.currencies`): 1 USD = 48.6992 TRY.
@@ -65,13 +67,13 @@ pub fn format_contract_test() {
   // #(TRY tutar, beklenen USD metni) — beklenenler tarayıcı motorunda
   // `FX.format(tutar / 48.6992, 'USD')` ile üretildi.
   let cases = [
-    #(25000.0, "$ 513.36"),
+    #(25_000.0, "$ 513.36"),
     #(2500.0, "$ 51.34"),
     #(1500.4, "$ 30.81"),
     #(999.99, "$ 20.53"),
     #(12.5, "$ 0.26"),
     #(0.05, "$ 0.00"),
-    #(100000.0, "$ 2,053"),
+    #(100_000.0, "$ 2,053"),
   ]
   cases
   |> list.each(fn(pair) {
@@ -84,7 +86,7 @@ pub fn format_contract_test() {
 pub fn format_edge_cases_test() {
   // Binlik ayraç üçlü gruplar hâlinde
   ssr_currency.format_money(2053.4, "$") |> should.equal("$ 2,053")
-  ssr_currency.format_money(1000000.0, "$") |> should.equal("$ 1,000,000")
+  ssr_currency.format_money(1_000_000.0, "$") |> should.equal("$ 1,000,000")
   // 1000 eşiğinin hemen altı: iki ondalık korunur
   ssr_currency.format_money(999.995, "$") |> should.equal("$ 1,000.00")
   // Simge ayrımı: boşluk + simge önde
@@ -126,10 +128,11 @@ pub fn body_conversion_test() {
   occurrences(converted, "data-price-cur=\"TRY\"") |> should.equal(3)
   // Boşluksuz şablon metni (vitrin kartı) da dönüşür: `₺2.800` → `$57.50`
   string.contains(converted, "₺2.800") |> should.equal(False)
-  string.contains(converted, ">$57.50<span class=\"featured-card-price-unit\">") 
+  string.contains(converted, ">$57.50<span class=\"featured-card-price-unit\">")
   |> should.equal(True)
   // JSON-LD offer bloğu görünür fiyatla tutarlı
-  string.contains(converted, "{\"priceCurrency\":\"USD\",\"price\":513.36}") |> should.equal(True)
+  string.contains(converted, "{\"priceCurrency\":\"USD\",\"price\":513.36}")
+  |> should.equal(True)
   // Birim etiketi korunur
   string.contains(converted, "/gece") |> should.equal(True)
 }
@@ -200,7 +203,7 @@ pub fn body_no_match_test() {
 
 pub fn symbol_fallback_test() {
   // Veritabanı boş/yer tutucu simge verirse (canlı veride SAR '?' idi)
-  ssr_currency.display_symbol("SAR", "?" ) |> should.equal("﷼")
+  ssr_currency.display_symbol("SAR", "?") |> should.equal("﷼")
   ssr_currency.display_symbol("SAR", "") |> should.equal("﷼")
   ssr_currency.display_symbol("USD", " ") |> should.equal("$")
   // Geçerli simge aynen kullanılır
@@ -218,13 +221,22 @@ pub fn erl_emits_canonical_amount_test() {
   occurrences(src, "data-price-minor") |> should.equal(4)
   occurrences(src, "data-price-cur") |> should.equal(4)
   // Kanonik tutar Price / Price_minor'dan gelir (metinden ayrıştırılmaz)
-  string.contains(src, "lustre@attribute:attribute(~\"data-price-minor\", erlang:integer_to_binary(Price))")
+  string.contains(
+    src,
+    "lustre@attribute:attribute(~\"data-price-minor\", erlang:integer_to_binary(Price))",
+  )
   |> should.equal(True)
-  string.contains(src, "lustre@attribute:attribute(~\"data-price-minor\", Price_minor)")
+  string.contains(
+    src,
+    "lustre@attribute:attribute(~\"data-price-minor\", Price_minor)",
+  )
   |> should.equal(True)
   // Vitrin kartı: birim kendi spanında, fiyat metni ayrı düğümde — istemci
   // yalnız metin düğümünü değiştirip `/gece` spanını koruyabilir.
-  string.contains(src, "lustre@element:element(~\"span\", [lustre@attribute:class(~\"featured-card-price-unit\")")
+  string.contains(
+    src,
+    "lustre@element:element(~\"span\", [lustre@attribute:class(~\"featured-card-price-unit\")",
+  )
   |> should.equal(True)
 }
 
@@ -247,10 +259,14 @@ pub fn router_scope_test() {
 pub fn router_wiring_test() {
   let src = read(router_path)
   // Çerez adı ve TRY dışı kapısı
-  src |> string.contains("ssr_cookie(req, \"nexus_currency\")") |> should.equal(True)
+  src
+  |> string.contains("ssr_cookie(req, \"nexus_currency\")")
+  |> should.equal(True)
   src |> string.contains("Ok(code) if code != \"TRY\"") |> should.equal(True)
   // Kur kaynağı: aktif para birimleri tablosu
-  src |> string.contains("from agency.currencies where active") |> should.equal(True)
+  src
+  |> string.contains("from agency.currencies where active")
+  |> should.equal(True)
   // Önbellek: TTL sabiti + kalıcı terim
   src |> string.contains("ssr_rate_cache_ttl_ms") |> should.equal(True)
   src |> string.contains("persistent_term") |> should.equal(True)
@@ -260,8 +276,10 @@ pub fn router_wiring_test() {
   // handle_localized: tek handle çağrısı, önce çeviri sonra fiyat geçişi
   let wrapper = block_between(src, "pub fn handle_localized", "\n// ---")
   occurrences(wrapper, "handle(req, db, origin)") |> should.equal(1)
-  let translate_at = string.split(wrapper, "ssr_translate_response") |> list.length
-  let currency_at = string.split(wrapper, "ssr_currency_response") |> list.length
+  let translate_at =
+    string.split(wrapper, "ssr_translate_response") |> list.length
+  let currency_at =
+    string.split(wrapper, "ssr_currency_response") |> list.length
   // İkisi de çağrılıyor ve fiyat geçişi çeviri geçişinden SONRA kuruluyor
   translate_at |> should.equal(2)
   currency_at |> should.equal(2)
@@ -277,10 +295,16 @@ pub fn router_wiring_test() {
 
 pub fn client_consumes_canonical_amount_test() {
   let src = read(main_js_path)
-  src |> string.contains("el.getAttribute('data-price-minor')") |> should.equal(True)
-  src |> string.contains("el.getAttribute('data-price-cur')") |> should.equal(True)
+  src
+  |> string.contains("el.getAttribute('data-price-minor')")
+  |> should.equal(True)
+  src
+  |> string.contains("el.getAttribute('data-price-cur')")
+  |> should.equal(True)
   // Kanonik tutar varsa metinden okunmaz (çift dönüşüm koruması)
-  src |> string.contains("return { amount: m / 100, minor: true }") |> should.equal(True)
+  src
+  |> string.contains("return { amount: m / 100, minor: true }")
+  |> should.equal(True)
   // TRY'ye dönüşte sunucunun biçimi geri yazılır
   src |> string.contains("formatTry: function") |> should.equal(True)
   src |> string.contains("'₺ ' + value.toFixed(2)") |> should.equal(True)
@@ -390,7 +414,8 @@ pub fn symbol_table_parity_test() {
     |> should.equal(True)
   })
   // NEXUS_LOCALE.currencies listesi de aynı simgeleri taşır
-  pairs |> list.filter(fn(pair) { pair.0 != "SAR" })
+  pairs
+  |> list.filter(fn(pair) { pair.0 != "SAR" })
   |> list.each(fn(pair) {
     let #(code, symbol) = pair
     read(main_js_path)

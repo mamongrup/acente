@@ -259,6 +259,19 @@ pub fn login_page(message: String, lang: String) -> String {
           ),
         ]),
         dom.element("label", [], [
+          text("İki aşamalı giriş kodu (etkinse)"),
+          dom.element(
+            "input",
+            [
+              a.name("mfa_code"),
+              a.type_("text"),
+              a.autocomplete("one-time-code"),
+              a.attribute("maxlength", "16"),
+            ],
+            [],
+          ),
+        ]),
+        dom.element("label", [], [
           text("Parola"),
           dom.element(
             "input",
@@ -322,6 +335,7 @@ fn sidebar_element(lang: String, active_cat: String, membership: String) {
     #("/admin/customers", i18n.t(lang, "customers")),
     #("/admin/reports", i18n.t(lang, "reports")),
     #("/admin/finance-overview", "Finans ve faturalar"),
+    #("/admin/commerce-operations", "Satış ve kanal operasyonları"),
     #("/admin/commercial-operations", "Ticari operasyonlar"),
     #("/admin/supplier-operations", "Tedarikçi operasyonu"),
     #("/admin/review-center", "İnceleme merkezi"),
@@ -384,6 +398,8 @@ fn sidebar_element(lang: String, active_cat: String, membership: String) {
   let system_links = [
     #("/admin/team", i18n.t(lang, "team")),
     #("/admin/settings", i18n.t(lang, "settings")),
+    #("/admin/seo", "SEO merkezi"),
+    #("/admin/membership-setup", "Üyelik kurulumu ve bildirimler"),
   ]
   dom.element("aside", [a.class("sidebar")], [
     dom.element("div", [a.class("brand")], [
@@ -13072,6 +13088,84 @@ fn settings_form() {
 
           // 4. SMS & MESAJLAŞMA
           dom.element("div", [a.class("settings-tab-panel"), a.id("tab-sms")], [
+            dom.element("div", [a.class("glass-subcard")], [
+              dom.element("h3", [], [text("Üye kimlik doğrulaması")]),
+              dom.element("a", [a.href("/admin/security")], [
+                text("Yönetici iki aşamalı giriş ayarları"),
+              ]),
+              dom.element("a", [a.href("/admin/membership-setup")], [
+                text(
+                  "Üyelik kurulum kontrolü, bağlantı testleri ve bildirim merkezi",
+                ),
+              ]),
+              setting_input(
+                "WhatsApp doğrulama şablonu (Authentication)",
+                "whatsapp_auth_template",
+                "Onaylı şablon adı",
+              ),
+              setting_input(
+                "WhatsApp doğrulama dili",
+                "whatsapp_auth_language",
+                "tr",
+              ),
+              setting_input(
+                "WhatsApp Graph API sürümü",
+                "whatsapp_api_version",
+                "Meta hesabınızda desteklenen sürüm",
+              ),
+              dom.element("p", [a.class("muted")], [
+                text(
+                  "Telefon No ID ve erişim belirtecini Entegrasyonlar > WhatsApp bağlantısında yönetin. Doğrulama için onaylı Authentication şablonu gerekir. Gönderim bağlantısı tamamlanana kadar telefon doğrulaması etkin değildir.",
+                ),
+              ]),
+              setting_textarea(
+                "Üyelik sözleşmesi",
+                "contract_membership",
+                "Üyelik koşullarınızı burada yayınlayın.",
+                "6",
+              ),
+              dom.element("a", [a.href("/admin/customer-verification")], [
+                text("Bekleyen üye kimlik başvurularını incele"),
+              ]),
+              dom.element("p", [a.class("muted")], [
+                text(
+                  "Varsayılan yöntem yönetici incelemesidir. Manuel onay, NVİ doğrulaması olarak gösterilmez. E-posta ve telefon doğrulaması ayrı takip edilir.",
+                ),
+              ]),
+              setting_select(
+                "Kimlik doğrulama yöntemi",
+                "customer_identity_mode",
+                [
+                  #("manual", "Manuel — yönetici incelemesi"),
+                ],
+              ),
+              dom.element(
+                "button",
+                [
+                  a.type_("button"),
+                  a.attribute("disabled", "disabled"),
+                  a.attribute(
+                    "title",
+                    "Yetkili KPS erişimi ve servis bağlantısı tamamlandığında etkinleştirilecek",
+                  ),
+                ],
+                [text("KPS doğrulamasını aç — bağlantı bekleniyor")],
+              ),
+              dom.element("p", [a.class("muted")], [
+                text(
+                  "KPS başvurusunun reddedilmesi üyelik işlemlerini durdurmaz. Otomatik doğrulama, servis erişimi yapılandırılıp test edilmeden açılmaz.",
+                ),
+              ]),
+              dom.element(
+                "a",
+                [
+                  a.href("https://kpsbasvuru.nvi.gov.tr/Acik/Anasayfa"),
+                  a.attribute("target", "_blank"),
+                  a.attribute("rel", "noopener noreferrer"),
+                ],
+                [text("Resmi KPS başvuru portalını aç")],
+              ),
+            ]),
             dom.element("div", [a.class("panel-section-title")], [
               dom.element("h3", [], [
                 text("📱 SMS ve otomasyon bildirimleri"),

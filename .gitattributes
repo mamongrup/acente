@@ -1,0 +1,44 @@
+# Git is configured with core.autocrlf=true, which rewrites LF as CRLF on
+# checkout. `gleam format --check` rejects CRLF line endings, so a clean
+# working tree could still fail the format gate on any freshly cloned
+# checkout, and a migration checksum taken from the working tree no longer
+# matched the value recorded when the file was LF. Source files are pinned to
+# LF so the repository is byte-identical everywhere.
+* text=auto
+
+*.gleam text eol=lf
+*.erl text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.sql text eol=lf
+*.md text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.html text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.escript text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Windows executables and PowerShell scripts keep CRLF.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary assets are never touched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.beam binary
+*.dll binary
+*.exe binary
+*.zip binary
+*.pdf binary

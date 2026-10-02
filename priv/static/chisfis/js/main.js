@@ -904,7 +904,8 @@
     }
     return null;
   }
-  var serverLang = readLangCookie();
+  var requestedLang = (window.NEXUS_SEO && Object.keys(window.NEXUS_SEO.urls||{}).length ? window.NEXUS_SEO.lang : null) || new URLSearchParams(location.search).get("lang");
+  var serverLang = ["tr","en","de","ru","fr","zh"].includes(requestedLang) ? requestedLang : readLangCookie();
   if (serverLang) {
     currentLang = serverLang;
     try { localStorage.setItem(LANG_KEY, serverLang); } catch (e) {}

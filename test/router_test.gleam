@@ -188,6 +188,9 @@ fn database_required() -> String {
   "bu test gercek bir veritabani gerektirir: gleam test oncesinde acente veritabanini baslatin (scripts/run-dev.ps1)"
 }
 
+@external(erlang, "agency_test_env", "integration_pool_name")
+fn integration_pool_name() -> process.Name(pog.Message)
+
 fn real_db() -> Result(pog.Connection, Nil) {
   // Read connection details from environment (set by .env via run-dev.ps1).
   // Falls back to sensible dev defaults.  pog.start is lazy — it starts a
@@ -202,7 +205,7 @@ fn real_db() -> Result(pog.Connection, Nil) {
   let db_name = envoy.get("PGDATABASE") |> result.unwrap("nexus_agency")
   let user = envoy.get("PGUSER") |> result.unwrap("agency_app")
   let password = envoy.get("PGPASSWORD") |> result.unwrap("")
-  let pool_name = process.new_name("integration_test_db")
+  let pool_name = integration_pool_name()
   let config =
     pog.default_config(pool_name)
     |> pog.host(host)
@@ -211,7 +214,11 @@ fn real_db() -> Result(pog.Connection, Nil) {
     |> pog.user(user)
     |> pog.password(option.Some(password))
     |> pog.pool_size(2)
-  case pog.start(config) {
+  let started = case process.named(pool_name) {
+    Ok(_) -> Ok(Nil)
+    Error(_) -> pog.start(config) |> result.map(fn(_) { Nil })
+  }
+  case started {
     Error(_) -> {
       io.println("[SKIP] integration test: pool start failed")
       Error(Nil)

@@ -28,7 +28,14 @@ pub type Digest {
 }
 
 pub type Day {
-  Day(label: String, published: Int, pending: Int, upcoming: Int, contacts: Int, conversion: Int)
+  Day(
+    label: String,
+    published: Int,
+    pending: Int,
+    upcoming: Int,
+    contacts: Int,
+    conversion: Int,
+  )
 }
 
 fn sum_ints(values: List(Int)) -> Int {
@@ -80,8 +87,7 @@ pub fn build(
           )
         })
       let period = case days {
-        [first, ..] ->
-          first.label <> " – " <> last_label(days)
+        [first, ..] -> first.label <> " – " <> last_label(days)
         _ -> ""
       }
       Ok(Digest(

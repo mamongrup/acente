@@ -42,20 +42,29 @@ const expected_core_css = [
 
 /// Bölüm bazlı ek CSS modülleri.
 const expected_section_css = [
-  #("catalog", [
-    "/static/css/06-wizard.css",
-    "/static/css/08-editor-rooms-seo.css",
-    "/static/css/09-catalog-mode.css",
-    "/static/css/10-translations.css",
-  ]),
-  #("regions", [
-    "/static/css/08-editor-rooms-seo.css",
-    "/static/css/11-regions.css",
-  ]),
-  #("settings", [
-    "/static/css/09-catalog-mode.css",
-    "/static/css/11-regions.css",
-  ]),
+  #(
+    "catalog",
+    [
+      "/static/css/06-wizard.css",
+      "/static/css/08-editor-rooms-seo.css",
+      "/static/css/09-catalog-mode.css",
+      "/static/css/10-translations.css",
+    ],
+  ),
+  #(
+    "regions",
+    [
+      "/static/css/08-editor-rooms-seo.css",
+      "/static/css/11-regions.css",
+    ],
+  ),
+  #(
+    "settings",
+    [
+      "/static/css/09-catalog-mode.css",
+      "/static/css/11-regions.css",
+    ],
+  ),
   #("cms", ["/static/css/08-editor-rooms-seo.css"]),
 ]
 
@@ -95,9 +104,7 @@ pub fn dashboard_contains_core_css_test() {
   // Section-specific不应出现在 dashboard'da
   list.each(
     ["/static/css/06-wizard.css", "/static/css/11-regions.css"],
-    fn(path) {
-      string.contains(html, path) |> should.be_false
-    },
+    fn(path) { string.contains(html, path) |> should.be_false },
   )
 }
 
@@ -128,9 +135,7 @@ pub fn catalog_section_has_wizard_css_test() {
     "/static/css/09-catalog-mode.css",
     "/static/css/10-translations.css",
   ]
-  |> list.each(fn(path) {
-    string.contains(html, path) |> should.be_true
-  })
+  |> list.each(fn(path) { string.contains(html, path) |> should.be_true })
 }
 
 /// Hiçbir section'da olmayan CSS referansı olmamalı
@@ -144,9 +149,7 @@ pub fn no_legacy_css_references_test() {
     let html = section_html(title)
     // Eski legacy dosyalar referans edilmemeli
     ["admin-overrides", "admin-polish"]
-    |> list.each(fn(legacy) {
-      string.contains(html, legacy) |> should.be_false
-    })
+    |> list.each(fn(legacy) { string.contains(html, legacy) |> should.be_false })
   })
 }
 
@@ -162,9 +165,7 @@ pub fn all_expected_css_referenced_test() {
   list.each(expected_section_css, fn(pair) {
     let #(title, css) = pair
     let html = section_html(title)
-    list.each(css, fn(path) {
-      string.contains(html, path) |> should.be_true
-    })
+    list.each(css, fn(path) { string.contains(html, path) |> should.be_true })
   })
 }
 
@@ -194,9 +195,7 @@ pub fn core_scripts_present_in_dashboard_test() {
     "/static/quick-search.js",
     "/static/panel-tab-bar.js",
   ]
-  |> list.each(fn(path) {
-    string.contains(html, path) |> should.be_true
-  })
+  |> list.each(fn(path) { string.contains(html, path) |> should.be_true })
 }
 
 /// Sayfada 404'e yol açabilecek olmayan dosya referansı olmamalı
@@ -208,9 +207,7 @@ pub fn no_obsolete_static_references_test() {
     "admin-polish.css",
     "agency-admin.css",
   ]
-  |> list.each(fn(path) {
-    string.contains(html, path) |> should.be_false
-  })
+  |> list.each(fn(path) { string.contains(html, path) |> should.be_false })
 }
 
 // ===========================================================================
@@ -338,8 +335,7 @@ pub fn total_css_size_budget_test() {
 /// Yalnızca /static/css/NN-*.css ve bilinen static dosyalara izin verilir.
 pub fn no_unauthorized_stylesheets_in_html_test() {
   let titles = [
-    "Dashboard", "catalog", "regions", "settings",
-    "customers", "reservations",
+    "Dashboard", "catalog", "regions", "settings", "customers", "reservations",
   ]
   // Aurora dışı bilinen dosya adları — bunlar HTML'de görünmemeli
   let forbidden = [

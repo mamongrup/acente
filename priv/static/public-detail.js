@@ -12,7 +12,7 @@
   window.addEventListener('pagehide',rememberScroll);
   window.addEventListener('beforeunload',rememberScroll);
   let leafletReady;
-  const localeScript = document.createElement('script'); localeScript.src = '/static/detail-i18n.js'; document.head.appendChild(localeScript);
+  const localeScript = document.createElement('script'); localeScript.src = '/static/detail-i18n.js?v=20261002-seo'; document.head.appendChild(localeScript);
   const breadcrumb = document.querySelector('.product-detail .detail-breadcrumb');
   // İlan verilerinden gelen görsel URL'leri yalnızca güvenli şemalarda kabul
   // edilir (http/https mutlak veya kökten göreceli); data:, javascript: ve
@@ -1032,6 +1032,7 @@
   document.querySelectorAll('.detail-gallery[data-images]').forEach(gallery => {
     let images = [];
     try { images = JSON.parse(gallery.dataset.images || '[]'); } catch (_) {}
+    const preRendered = [...gallery.querySelectorAll(':scope > .gallery-main, :scope > .gallery-sub')];
     // Repair the retired yacht image used by legacy seeded listings.
     images = images.map(value => typeof value === 'string' ? value.replace('photo-1569263979104-865ab7cd8d17','photo-1567899378494-47b22a2ae96a') : value);
     images = images.filter(value => typeof value === 'string' && (/^https?:\/\//i.test(value) || /^\/(?!\/)/.test(value)));
@@ -1048,7 +1049,9 @@
       cell.setAttribute('aria-label', label);
       const img = document.createElement('img');
       img.src = src;
-      img.alt = '';
+      img.alt = (document.querySelector('h1')?.textContent || 'İlan') + ' — ' + label;
+      img.width = 1200; img.height = 800;
+      if (cls === 'gallery-main') img.fetchPriority = 'high';
       img.loading = cls === 'gallery-main' ? 'eager' : 'lazy';
       cell.appendChild(img);
       if (extraText) {
@@ -1065,15 +1068,19 @@
       const isMain = index === 0;
       const isLastVisible = index === 4 && images.length > 5;
       const extra = isLastVisible ? '+' + (images.length - 5) : null;
-      const cell = build(
+      const cell = preRendered[index] || build(
         src,
         isMain ? 'gallery-main' : 'gallery-sub',
         'Görseli büyüt: ' + (index + 1),
         extra,
       );
+      cell.setAttribute('aria-label', 'Görseli büyüt: ' + (index + 1));
+      const renderedImage = cell.querySelector('img');
+      if (renderedImage) { renderedImage.alt=(document.querySelector('h1')?.textContent || 'İlan')+' — '+(index+1); if(renderedImage.getAttribute('src') !== src) renderedImage.src=src; }
+      if (extra && !cell.querySelector('.gallery-more')) { const more=document.createElement('span'); more.className='gallery-more'; more.textContent=extra; cell.appendChild(more); }
       const open = () => openLightbox(images, index % images.length);
       cell.addEventListener('click', open);
-      gallery.appendChild(cell);
+      if (cell.parentElement !== gallery) gallery.appendChild(cell);
     });
     if (images.length > 1) {
       const showAll = document.createElement('button');

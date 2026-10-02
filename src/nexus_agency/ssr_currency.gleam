@@ -181,7 +181,8 @@ fn leading_tr_amount(text: String) -> Result(#(Float, String), Nil) {
       // `2800.0` olmalı — aksi hâlde tutar okunamaz ve vitrin kartı
       // sessizce dönüşmeden kalır.
       let normalized = case string.split(raw, ",") {
-        [whole, fraction, ..] -> string.replace(whole, ".", "") <> "." <> fraction
+        [whole, fraction, ..] ->
+          string.replace(whole, ".", "") <> "." <> fraction
         _ -> string.replace(raw, ".", "") <> ".0"
       }
       case float.parse(normalized) {

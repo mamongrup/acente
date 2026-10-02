@@ -104,11 +104,14 @@ fn audit_pages() -> List(#(String, String)) {
 }
 
 fn audit_pages_fetch() -> List(#(String, String)) {
-  let listing_decoder = decode.list(decode.field("id", decode.string, decode.success))
-  let assert Ok(listings) = json.parse(
-    from: get_html("/api/public/listings?tenant=nexus-demo"),
-    using: listing_decoder,
-  ) as "lighthouse denetimi için yayınlanmış demo ilanı gerekli"
+  let listing_decoder =
+    decode.list(decode.field("id", decode.string, decode.success))
+  let assert Ok(listings) =
+    json.parse(
+      from: get_html("/api/public/listings?tenant=nexus-demo"),
+      using: listing_decoder,
+    )
+    as "lighthouse denetimi için yayınlanmış demo ilanı gerekli"
   let assert Ok(listing_id) = list.first(listings)
     as "lighthouse denetimi için yayınlanmış demo ilanı gerekli"
   let detail = "/urunler/" <> listing_id <> "?tenant=nexus-demo"

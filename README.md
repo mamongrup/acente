@@ -44,21 +44,19 @@ müsaitlik, rezervasyon, teklif, sohbet ve sitemap bu kapsamı birlikte taşır.
 
 ## NEXUS ilan senkronizasyonu
 
-Acente uygulaması açılışta ve ardından her 60 saniyede bir NEXUS kataloğunu
-senkronize eder. NEXUS'ta `published` durumundaki ilanlar bütün acente
-tenant'larında `source=nexus` olarak yayınlanır. Başlık, açıklama, kategori,
-konum, fiyat ve görseller tekrar kayıt oluşturmadan güncellenir. NEXUS'ta
-yayından alınan bir ilan acente tarafında otomatik olarak `paused` durumuna
-geçer; acentenin elle oluşturduğu ilanlara dokunulmaz.
+Acente bağımsız çalışır. NEXUS bağlantısı isteğe bağlıdır ve yönetim panelinin entegrasyon alanından yapılandırılır. İki proje sürümlü API üzerinden haberleşir; birbirinin veritabanına bağlanmaz.
 
-Bağlantıyı etkinleştirmek için `.env.example` içindeki `NEXUS_PG*`
-değişkenlerini `.env` dosyasına ekleyin. `NEXUS_PGUSER` yalnızca
-`catalog.marketplace_listings` fonksiyonunu çalıştırma yetkisine sahip bir
-PostgreSQL kullanıcısı olmalıdır.
+Senkronizasyon tenant ve yetkilendirilmiş katalog kapsamında çalışır. Yerel ilanlar ile NEXUS kaynaklı ilanlar ayrı izlenir. Bağlantı hatası yerel kataloğun çalışmasını durdurmaz. Rakip kanal yöneticilerine bağlantı zorunlu değildir.
+
+## Satış ve kanal operasyonları
+
+`/admin/commerce-operations` ekranında finans hazırlığı, teslim kuyrukları, takvim bağlantıları, rezervasyon çakışmaları ve dil içeriklerinin durumu görülebilir. Yapay zekâ ilan incelemesi yapılandırılmış sağlayıcı kullanır; öneriler yayın içeriğini otomatik değiştirmez. Sağlayıcı yoksa çeviri veya inceleme yapılmış gibi gösterilmez.
+
+İsteğe bağlı dış takvim işçisi Node.js ve `npm ci` ile kurulan bağımlılıkları gerektirir. `scripts/calendar-worker.ps1` düzenli çalışır; `-Once` tek tur çalıştırır. Takvim bağlantısı başarısız olduğunda önceki doluluk korunur. Dış takvim yerel tatil evi ve yat ilanlarında desteklenir; stok verisini silmeden müsaitlik üzerinde uygulanır.
 
 ## Kuyruk işçileri
 
-`scripts/start.ps1` uygulamayla birlikte beş kuyruk işçisini çalıştırır:
+`scripts/start.ps1` uygulamayla birlikte kuyruk işçilerini çalıştırır:
 
 - `followup-worker.ps1`: yeni talepleri 5 saat, 10 saat, 2 gün ve 5 gün takip kuyruğuna alır.
 - `notification-worker.ps1`: SMTP, Netgsm veya WhatsApp Cloud bağlantısı yapılandırılmışsa bildirimleri gönderir; eksik bağlantıyı hata olarak kaydedip üstel beklemeyle tekrar dener.

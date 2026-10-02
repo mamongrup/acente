@@ -98,3 +98,10 @@ if (-not $existingSocial) {
   Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$socialPath) -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $root '.local/social.log') -RedirectStandardError (Join-Path $root '.local/social-error.log')
 }
 Write-Output "NEXUS Agency başlatılıyor: $env:APP_ORIGIN"
+$calendarPath = Join-Path $root 'scripts/calendar-worker.ps1'
+$existingCalendar = Get-CimInstance -ClassName Win32_Process |
+  Where-Object { $_.CommandLine -and $_.CommandLine.Contains($calendarPath) } |
+  Select-Object -First 1
+if (-not $existingCalendar) {
+  Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$calendarPath) -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput (Join-Path $root '.local/calendar.log') -RedirectStandardError (Join-Path $root '.local/calendar-error.log')
+}

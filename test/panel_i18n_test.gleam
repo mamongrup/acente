@@ -27,6 +27,7 @@ import nexus_agency/i18n
 import simplifile
 
 const panel_gleam = "src/nexus_agency/panel.gleam"
+
 const router_erl = "src/nexus_agency/erl/nexus_agency@router_impl.erl"
 
 const languages = ["tr", "en", "de", "ru", "zh", "fr"]
@@ -166,21 +167,23 @@ pub fn every_section_slug_resolves_to_a_translation_test() {
     i18n.section_heading_key(slug)
     |> should.not_equal(fallback_key)
   })
-}pub fn section_titles_are_localized_in_all_languages_test() {
+}
+
+pub fn section_titles_are_localized_in_all_languages_test() {
   section_slugs
-    |> list.each(fn(slug) {
-      let key = i18n.section_heading_key(slug)
-      let values =
-        languages
-        |> list.map(fn(lang) { i18n.section_title(lang, slug) })
-      // Hiçbir dil boş değer ya da ham anahtar yankısı döndürmez.
-      // (Alt-dize kontrolü kasten yok: "notifications" slug'ına karşılık
-      // gelen Fransızca değer "Centre de notifications" doğal olarak
-      // slug'ı içerir; yankı denetimi i18n_test.gleam'de tam-eşitlikle
-      // yapılır.)
-      list.all(values, fn(v) { !string.is_empty(v) && v != key })
-      |> should.be_true
-    })
+  |> list.each(fn(slug) {
+    let key = i18n.section_heading_key(slug)
+    let values =
+      languages
+      |> list.map(fn(lang) { i18n.section_title(lang, slug) })
+    // Hiçbir dil boş değer ya da ham anahtar yankısı döndürmez.
+    // (Alt-dize kontrolü kasten yok: "notifications" slug'ına karşılık
+    // gelen Fransızca değer "Centre de notifications" doğal olarak
+    // slug'ı içerir; yankı denetimi i18n_test.gleam'de tam-eşitlikle
+    // yapılır.)
+    list.all(values, fn(v) { !string.is_empty(v) && v != key })
+    |> should.be_true
+  })
 }
 
 /// Başlık gerçekten dile göre değişir — aynı slug için TR ile EN farklı olmalı.
@@ -202,9 +205,21 @@ pub fn section_titles_differ_across_languages_test() {
 /// (aksi halde "her anahtar çözülür" denetimi onları atlar).
 pub fn new_keys_are_registered_in_i18n_test_test() {
   let registry = read_file("test/i18n_test.gleam")
+  // Anahtar adları **tek tek** denetlenir. Daha önce "üç anahtar arka arkaya
+  // ve aralarında tam olarak `, ` boşluğuyla" aranan tek bir alt-dize
+  // kullanılıyordu; kaynak dosya satır kaydırma yerine yeniden sarıldığında
+  // (ör. `gleam format`) denetim kırılıyor ve sarmalama tamamen biçimsel
+  // olduğu halde test kırmızıya dönüyordu. Sözleşme anahtarların
+  // **kayıtlı olması**; aralarındaki virgülün ve satır sonlarının biçimi
+  // değildir.
   contains_all(registry, [
-    "\"inquiries\", \"notification_center\", \"search_analytics\", \"mobile_menu\"",
-    "\"lang_switch_label\", \"languages_aria\", \"section_supplier_campaigns\"",
+    "\"inquiries\"",
+    "\"notification_center\"",
+    "\"search_analytics\"",
+    "\"mobile_menu\"",
+    "\"lang_switch_label\"",
+    "\"languages_aria\"",
+    "\"section_supplier_campaigns\"",
     "\"section_fallback\"",
   ])
   |> should.be_true

@@ -23,8 +23,11 @@ import gleeunit/should
 import simplifile
 
 const export_home_path = "chisfis-final/index.html"
+
 const main_js_path = "priv/static/chisfis/js/main.js"
+
 const public_guests_js_path = "priv/static/public-guests.js"
+
 const router_impl_path = "src/nexus_agency/erl/nexus_agency@router_impl.erl"
 
 fn read_file(path: String) -> String {
@@ -209,13 +212,17 @@ pub fn guests_reach_the_search_url_test() {
   // §13 hero form gönderimi: toplam `guests` parametresi olarak yazılır ve
   // mevcut sorgu (ör. tenant) korunur.
   main
-  |> string.contains("var params = new URLSearchParams(window.location.search);")
+  |> string.contains(
+    "var params = new URLSearchParams(window.location.search);",
+  )
   |> should.be_true
   main
   |> string.contains("if (totalGuests > 0) params.set('guests', totalGuests);")
   |> should.be_true
   main
-  |> string.contains("window.location.href = '/urunler' + (qs ? '?' + qs : '');")
+  |> string.contains(
+    "window.location.href = '/urunler' + (qs ? '?' + qs : '');",
+  )
   |> should.be_true
 
   // Gizli alan yoksa satır sayaçlarından toplanır (tek kaynak kaybolursa
@@ -272,7 +279,8 @@ pub fn guest_total_input_is_hidden_test() {
   case int.parse(value) {
     Ok(_) -> Nil
     Error(_) -> {
-      let msg = "misafir toplam alanı sayısal başlangıç değeri taşımalı: " <> value
+      let msg =
+        "misafir toplam alanı sayısal başlangıç değeri taşımalı: " <> value
       msg |> should.equal("")
     }
   }

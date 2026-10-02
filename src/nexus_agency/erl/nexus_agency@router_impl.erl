@@ -1,6 +1,6 @@
 -module(nexus_agency@router_impl).
 -compile([no_auto_import, nowarn_ignored, nowarn_unused_vars, nowarn_unused_function, nowarn_nomatch, inline]).
--export([require_session/3, require_session_api/3, handle/3, parampos_config/2, public_tenant_selector/1]).
+-export([require_session/3, require_session_api/3, handle/3, parampos_config/2, public_tenant_selector/1, seo_response/5, seo_request/2, category_tr_path/1, public_category_name/1, public_listing_category_path/1]).
 -export_type([catalog_listing_item/0, ai_pool_key/0]).
 
 -type catalog_listing_item() :: {catalog_listing_item, binary(), binary(), binary(), binary(), binary(), binary(), binary(), binary(), binary(), binary(), binary(), binary()}.
@@ -163,7 +163,7 @@ public_guests_script() ->
 -file("src\\nexus_agency\\router.gleam", 5743).
 -spec public_header_popovers_script() -> lustre@vdom@vnode:element(any()).
 public_header_popovers_script() ->
-    lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/header-popovers.js?v=20260930-home-stable1"), lustre@attribute:attribute(~"defer", ~"defer")], []).
+    lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/header-popovers.js?v=20261002-seo"), lustre@attribute:attribute(~"defer", ~"defer")], []).
 
 -file("src\\nexus_agency\\router.gleam", 5721).
 -spec public_theme_script() -> lustre@vdom@vnode:element(any()).
@@ -389,10 +389,10 @@ public_catalog_script() ->
 -file("src\\nexus_agency\\router.gleam", 5598).
 -spec chisfis_head() -> list(lustre@vdom@vnode:element(any())).
 chisfis_head() ->
-    [lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"icon"), lustre@attribute:attribute(~"type", ~"image/svg+xml"), lustre@attribute:href(~"/static/chisfis/favicon.svg?v=20260927-brand1")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/tenant-url-boot.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/category-urls.js"), lustre@attribute:attribute(~"defer", ~"defer")], [])] ++ chisfis_head_assets() ++ [lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/home-i18n.js?v=20260926-discount1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/storefront-gallery-controls.js?v=20260926-gallery5"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/mobile-search-form.js?v=20260927-tours1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/modern-date-range.js?v=20260927-flex1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/search-quote-results.js?v=20260927-flex1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/mobile-support-chooser.js?v=20260927-support1"), lustre@attribute:attribute(~"defer", ~"defer")], [])].
+    [lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"icon"), lustre@attribute:attribute(~"type", ~"image/svg+xml"), lustre@attribute:href(~"/static/chisfis/favicon.svg?v=20260927-brand1")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/tenant-url-boot.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/category-urls.js?v=20261002-language-seo"), lustre@attribute:attribute(~"defer", ~"defer")], [])] ++ chisfis_head_assets() ++ [lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/home-i18n.js?v=20260926-discount1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/storefront-gallery-controls.js?v=20260926-gallery5"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/mobile-search-form.js?v=20260927-tours1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/modern-date-range.js?v=20260927-flex1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/search-quote-results.js?v=20260927-flex1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/mobile-support-chooser.js?v=20260927-support1"), lustre@attribute:attribute(~"defer", ~"defer")], [])].
 
 chisfis_head_assets() ->
-    [lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"preload"), lustre@attribute:attribute(~"as", ~"font"), lustre@attribute:attribute(~"type", ~"font/woff2"), lustre@attribute:attribute(~"crossorigin", ~"crossorigin"), lustre@attribute:href(~"/static/chisfis/fonts/pxiByp8kv8JHgFVrLGT9Z1xlFQ.woff2")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/fonts.css")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"https://use.hugeicons.com/font/icons.css")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/base.css")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/theme.css")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/custom.css?v=20260927-localelist1")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/sahra.css"), lustre@attribute:attribute(~"media", ~"only x"), lustre@attribute:attribute(~"onload", ~"if(document.documentElement.classList.contains('sahra'))this.media='all'")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis-bridge.css?v=20260930-unified1")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/theme-boot.js")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/reveal-boot.js?v=20260930-home-stable1")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/chisfis/js/main.js?v=20260929-builder-paint1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/login-theme.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/hugeicons-normalizer.js?v=20260929-builder-paint1"), lustre@attribute:attribute(~"defer", ~"defer")], []), public_catalog_script(), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/category-i18n.js?v=20260929-builder-paint1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/region-places.js?v=20260929-builder-paint1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/builder-listing-collection.js?v=20260926-gallery3"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/builder-modules.js?v=20260926-all3"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/page-layout.js?v=20260930-home-stable1"), lustre@attribute:attribute(~"defer", ~"defer")], [])].
+    [lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"preload"), lustre@attribute:attribute(~"as", ~"font"), lustre@attribute:attribute(~"type", ~"font/woff2"), lustre@attribute:attribute(~"crossorigin", ~"crossorigin"), lustre@attribute:href(~"/static/chisfis/fonts/pxiByp8kv8JHgFVrLGT9Z1xlFQ.woff2")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/fonts.css")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"https://use.hugeicons.com/font/icons.css")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/base.css")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/theme.css")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/custom.css?v=20260927-localelist1")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis/css/sahra.css"), lustre@attribute:attribute(~"media", ~"only x"), lustre@attribute:attribute(~"onload", ~"if(document.documentElement.classList.contains('sahra'))this.media='all'")], []), lustre@element:element(~"link", [lustre@attribute:attribute(~"rel", ~"stylesheet"), lustre@attribute:href(~"/static/chisfis-bridge.css?v=20260930-unified1")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/theme-boot.js")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/reveal-boot.js?v=20260930-home-stable1")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/chisfis/js/main.js?v=20261002-language-seo"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/login-theme.js"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/hugeicons-normalizer.js?v=20260929-builder-paint1"), lustre@attribute:attribute(~"defer", ~"defer")], []), public_catalog_script(), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/category-i18n.js?v=20260929-builder-paint1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/region-places.js?v=20260929-builder-paint1"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/builder-listing-collection.js?v=20260926-gallery3"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/builder-modules.js?v=20260926-all3"), lustre@attribute:attribute(~"defer", ~"defer")], []), lustre@element:element(~"script", [lustre@attribute:attribute(~"src", ~"/static/page-layout.js?v=20260930-home-stable1"), lustre@attribute:attribute(~"defer", ~"defer")], [])].
 
 -file("src\\nexus_agency\\router.gleam", 4767).
 -spec csrf_token_for(gleam@http@request:request(wisp@internal:connection())) -> binary().
@@ -2460,7 +2460,7 @@ checkout_dates_blocked(Db, Listing_id, Check_in, Check_out) ->
         end)
     end,
     case begin
-        _pipe = ~"select count(*)::int from agency.availability where listing_id=$1::uuid and day>=NULLIF($2,'')::date and day<NULLIF($3,'')::date and (closed or units_available<1)",
+        _pipe = ~"select count(*)::int from agency.effective_availability where listing_id=$1::uuid and day>=NULLIF($2,'')::date and day<NULLIF($3,'')::date and (closed or units_available<1)",
         _pipe@1 = pog:'query'(_pipe),
         _pipe@2 = pog:parameter(_pipe@1, pog_ffi:coerce(Listing_id)),
         _pipe@3 = pog:parameter(_pipe@2, pog_ffi:coerce(Check_in)),
@@ -3041,7 +3041,7 @@ public_listing_category_path(Path) ->
 public_listing_slug_page(Req, Db, Origin, Category, Slug) ->
     Tenant_id = gleam@result:unwrap(public_tenant_id(Db, Req), ~""),
     Slug_sql = ~"regexp_replace(regexp_replace(translate(lower(translate(l.title,'ÇĞİIÖŞÜ','CGIIOSU')),'çğıöşü','cgiosu'),'[^a-z0-9]+','-','g'),'(^-+|-+$)','','g')",
-    Query = pog:'query'(<<"select l.id::text from agency.listings l where l.tenant_id=$1::uuid and l.category=$2 and l.status='published' and ", Slug_sql/binary, "=$3 limit 1">>),
+    Query = pog:'query'(<<"select l.id::text from agency.listings l left join agency.listing_seo s on s.listing_id=l.id and s.tenant_id=l.tenant_id where l.tenant_id=$1::uuid and l.category=$2 and l.status='published' and (s.stable_slug=$3 or ", Slug_sql/binary, "=$3) order by (s.stable_slug=$3) desc limit 1">>),
     Q1 = pog:parameter(Query, pog_ffi:coerce(Tenant_id)),
     Q2 = pog:parameter(Q1, pog_ffi:coerce(Category)),
     Q3 = pog:parameter(Q2, pog_ffi:coerce(Slug)),
@@ -3056,7 +3056,7 @@ public_listing_slug_page(Req, Db, Origin, Category, Slug) ->
 
 public_legacy_listing_redirect(Req, Db, Listing_id) ->
     Tenant_id = gleam@result:unwrap(public_tenant_id(Db, Req), ~""),
-    Q0 = pog:'query'(~"select title,category from agency.listings where id::text=$1 and tenant_id=$2::uuid and status='published' limit 1"),
+    Q0 = pog:'query'(~"select s.stable_slug,l.category from agency.listings l join agency.listing_seo s on s.listing_id=l.id and s.tenant_id=l.tenant_id where l.id::text=$1 and l.tenant_id=$2::uuid and l.status='published' limit 1"),
     Q1 = pog:parameter(Q0, pog_ffi:coerce(Listing_id)),
     Q2 = pog:parameter(Q1, pog_ffi:coerce(Tenant_id)),
     Decoder = gleam@dynamic@decode:field(0, {decoder, fun gleam@dynamic@decode:decode_string/1}, fun(Title) ->
@@ -3067,7 +3067,7 @@ public_legacy_listing_redirect(Req, Db, Listing_id) ->
     case pog:execute(pog:returning(Q2, Decoder), Db) of
         {ok, Rows} ->
             case gleam@list:first(erlang:element(3, Rows)) of
-                {ok, {Title, Category}} -> wisp:redirect(<<(public_listing_url(Category, Title))/binary, "?tenant=", Tenant_id/binary>>);
+                {ok, {Title, Category}} -> erlang:setelement(2,wisp:redirect(<<(category_tr_path(Category))/binary,"/",Title/binary>>),301);
                 _ -> wisp:string_body(wisp:response(404), ~"İlan bulunamadı")
             end;
         _ -> wisp:string_body(wisp:response(503), ~"İlan şu anda yüklenemiyor")
@@ -3096,7 +3096,7 @@ public_product_detail_page(Req, Db, Origin, Listing_id) ->
                 {ok, {Id, Title, Category, Locality, Description, Currency, Price, Images}} ->
                     Public_url = public_listing_url(Category, Title),
                     Detail_data_query = begin
-                        D0 = pog:'query'(~"select jsonb_build_object('metadata',jsonb_build_object('season_rules',metadata->>'season_rules','yacht_type',metadata->>'yacht_type','capacity',metadata->>'capacity','cabin_count',metadata->>'cabin_count','departure_port',metadata->>'departure_port','route',metadata->>'route','captain_included',metadata->>'captain_included','fuel_policy',metadata->>'fuel_policy','tour_type',metadata->>'tour_type','tour_subcategory',metadata->>'tour_subcategory','duration',metadata->>'duration','start_point',metadata->>'start_point','end_point',metadata->>'end_point','guide_languages',metadata->>'guide_languages','group_size_min',metadata->>'group_size_min','group_size_max',metadata->>'group_size_max','activity_type',metadata->>'activity_type','difficulty',metadata->>'difficulty','age_limit',metadata->>'age_limit','equipment_included',metadata->>'equipment_included','meeting_point',metadata->>'meeting_point','room_types',coalesce((select jsonb_agg(jsonb_build_object('title',room->>'title','adults',room->>'adults','children',room->>'children','bed',room->>'bed','size_m2',room->>'size_m2','view_type',room->>'view_type','images',room->'images')) from jsonb_array_elements(case when jsonb_typeof(metadata->'room_types')='array' then metadata->'room_types' else '[]'::jsonb end) room),'[]'::jsonb),'hotel_stars',metadata->>'hotel_stars','board_type',metadata->>'board_type','ministry_license_no',metadata->>'ministry_license_no','check_in_time',metadata->>'check_in_time','check_out_time',metadata->>'check_out_time','pool_dimensions',metadata->>'pool_dimensions','sheltered_pool',metadata->>'sheltered_pool','min_stay_days',metadata->>'min_stay_days','cleaning_fee',metadata->>'cleaning_fee','deposit_percent',metadata->>'deposit_percent','guests',metadata->>'guests','bedrooms',metadata->>'bedrooms','bathrooms',metadata->>'bathrooms','child_policy_1',metadata->>'child_policy_1','child_policy_2_discount',metadata->>'child_policy_2_discount','extra_metadata',jsonb_build_object('hotel_sections',metadata->'extra_metadata'->'hotel_sections','hotel_contract',metadata->'extra_metadata'->>'hotel_contract','hotel_house_rules',metadata->'extra_metadata'->'hotel_house_rules','pool_heating_fee',metadata->'extra_metadata'->>'pool_heating_fee','pool_heating_status',metadata->'extra_metadata'->>'pool_heating_status','damage_deposit',metadata->'extra_metadata'->>'damage_deposit','short_stay_fee',metadata->'extra_metadata'->>'short_stay_fee','short_stay_min_nights',metadata->'extra_metadata'->>'short_stay_min_nights','translations',metadata->'extra_metadata'->'translations','boat_length',metadata->'extra_metadata'->>'boat_length','boat_type',metadata->'extra_metadata'->>'boat_type','berth_count',metadata->'extra_metadata'->>'berth_count','crew_status',metadata->'extra_metadata'->>'crew_status','port_name',metadata->'extra_metadata'->>'port_name','boat_times',metadata->'extra_metadata'->>'boat_times','duration_hours',metadata->'extra_metadata'->>'duration_hours','difficulty_level',metadata->'extra_metadata'->>'difficulty_level','guide_languages',metadata->'extra_metadata'->>'guide_languages','meeting_point',metadata->'extra_metadata'->>'meeting_point','group_size',metadata->'extra_metadata'->>'group_size')),'policy',jsonb_build_object('policy',cancellation_policy->>'policy'),'ownerName',coalesce(owner_info->>'name',''))::text from agency.listings where id=$1::uuid and tenant_id=$2::uuid and status='published'"),
+                        D0 = pog:'query'(~"select jsonb_build_object('metadata',jsonb_build_object('season_rules',metadata->>'season_rules','yacht_type',metadata->>'yacht_type','capacity',metadata->>'capacity','cabin_count',metadata->>'cabin_count','departure_port',metadata->>'departure_port','route',metadata->>'route','captain_included',metadata->>'captain_included','fuel_policy',metadata->>'fuel_policy','tour_type',metadata->>'tour_type','tour_subcategory',metadata->>'tour_subcategory','duration',metadata->>'duration','start_point',metadata->>'start_point','end_point',metadata->>'end_point','guide_languages',metadata->>'guide_languages','group_size_min',metadata->>'group_size_min','group_size_max',metadata->>'group_size_max','activity_type',metadata->>'activity_type','difficulty',metadata->>'difficulty','age_limit',metadata->>'age_limit','equipment_included',metadata->>'equipment_included','meeting_point',metadata->>'meeting_point','room_types',coalesce((select jsonb_agg(jsonb_build_object('title',room->>'title','adults',room->>'adults','children',room->>'children','bed',room->>'bed','size_m2',room->>'size_m2','view_type',room->>'view_type','images',room->'images')) from jsonb_array_elements(case when jsonb_typeof(metadata->'room_types')='array' then metadata->'room_types' else '[]'::jsonb end) room),'[]'::jsonb),'hotel_stars',metadata->>'hotel_stars','board_type',metadata->>'board_type','ministry_license_no',metadata->>'ministry_license_no','check_in_time',metadata->>'check_in_time','check_out_time',metadata->>'check_out_time','pool_dimensions',metadata->>'pool_dimensions','sheltered_pool',metadata->>'sheltered_pool','min_stay_days',metadata->>'min_stay_days','cleaning_fee',metadata->>'cleaning_fee','deposit_percent',metadata->>'deposit_percent','guests',metadata->>'guests','bedrooms',metadata->>'bedrooms','bathrooms',metadata->>'bathrooms','child_policy_1',metadata->>'child_policy_1','child_policy_2_discount',metadata->>'child_policy_2_discount','extra_metadata',jsonb_build_object('hotel_sections',metadata->'extra_metadata'->'hotel_sections','hotel_contract',metadata->'extra_metadata'->>'hotel_contract','hotel_house_rules',metadata->'extra_metadata'->'hotel_house_rules','pool_heating_fee',metadata->'extra_metadata'->>'pool_heating_fee','pool_heating_status',metadata->'extra_metadata'->>'pool_heating_status','damage_deposit',metadata->'extra_metadata'->>'damage_deposit','short_stay_fee',metadata->'extra_metadata'->>'short_stay_fee','short_stay_min_nights',metadata->'extra_metadata'->>'short_stay_min_nights','translations',coalesce(metadata->'extra_metadata'->'translations','{}'::jsonb)||coalesce((select jsonb_object_agg(language_code,fields) from (select language_code,jsonb_object_agg(field_name,value) fields from agency.translations where tenant_id=$2::uuid and entity_type='listing' and entity_id=$1::uuid group by language_code) translation_rows),'{}'::jsonb),'boat_length',metadata->'extra_metadata'->>'boat_length','boat_type',metadata->'extra_metadata'->>'boat_type','berth_count',metadata->'extra_metadata'->>'berth_count','crew_status',metadata->'extra_metadata'->>'crew_status','port_name',metadata->'extra_metadata'->>'port_name','boat_times',metadata->'extra_metadata'->>'boat_times','duration_hours',metadata->'extra_metadata'->>'duration_hours','difficulty_level',metadata->'extra_metadata'->>'difficulty_level','guide_languages',metadata->'extra_metadata'->>'guide_languages','meeting_point',metadata->'extra_metadata'->>'meeting_point','group_size',metadata->'extra_metadata'->>'group_size')),'policy',jsonb_build_object('policy',cancellation_policy->>'policy'),'ownerName',coalesce(owner_info->>'name',''))::text from agency.listings where id=$1::uuid and tenant_id=$2::uuid and status='published'"),
                         D1 = pog:parameter(D0, pog_ffi:coerce(Id)),
                         D2 = pog:parameter(D1, pog_ffi:coerce(Tenant_id)),
                         pog:returning(D2, single_string_decoder())
@@ -3437,7 +3437,7 @@ demo_home_page(Req, Db, Origin) ->
                     Main_length = Main_end + erlang:byte_size(<<"</main>">>) - Main_start,
                     Demo_main_raw = nexus_agency@demo_home:rewrite_links(binary:part(Demo, Main_start, Main_length)),
                     Original_hero_image = <<"<img alt=\"hero\" width=\"1335\" height=\"1370\" decoding=\"async\" class=\"w-full\" src=\"/static/chisfis/images/hero-right.webp\" style=\"color: transparent;\">">>,
-                    Separate_hero_images = <<"<div class=\"home-hero-mosaic\" role=\"img\" aria-label=\"Üç seyahat görseli\"><div class=\"home-hero-mosaic-slot home-hero-mosaic-top\"><img src=\"/static/chisfis/images/hero-right.webp\" data-composite=\"true\" alt=\"\" loading=\"eager\"></div><div class=\"home-hero-mosaic-slot home-hero-mosaic-bottom\"><img src=\"/static/chisfis/images/hero-right.webp\" data-composite=\"true\" alt=\"\" loading=\"eager\"></div><div class=\"home-hero-mosaic-slot home-hero-mosaic-side\"><img src=\"/static/chisfis/images/hero-right.webp\" data-composite=\"true\" alt=\"\" loading=\"eager\"></div></div>">>,
+                    Separate_hero_images = <<"<div class=\"home-hero-mosaic\" role=\"img\" aria-label=\"Üç seyahat görseli\"><div class=\"home-hero-mosaic-slot home-hero-mosaic-top\"><img src=\"/static/chisfis/images/hero-right.webp\" data-composite=\"true\" alt=\"\" loading=\"eager\"></div><div class=\"home-hero-mosaic-slot home-hero-mosaic-bottom\"><img src=\"/static/chisfis/images/hero-right.webp\" data-composite=\"true\" alt=\"\" loading=\"eager\"></div><div class=\"home-hero-mosaic-slot home-hero-mosaic-side\"><img src=\"/static/chisfis/images/hero-right.webp\" data-composite=\"true\" alt=\"\" loading=\"eager\"></div></div>"/utf8>>,
                     Demo_main = binary:replace(Demo_main_raw, Original_hero_image, Separate_hero_images),
                     Cookie_header = case gleam@http@request:get_header(Req, ~"cookie") of
                         {ok, Value} -> Value;
@@ -3638,7 +3638,7 @@ public_search_quotes(Req, Db) ->
     Locality = public_escape_like(string:trim(gleam@result:unwrap(gleam@list:key_find(Query, ~"konum"), ~""))),
     Category = gleam@result:unwrap(gleam@list:key_find(Query, ~"kategori"), ~""),
     Decoder = settings_decoder(),
-    Sql = ~"select coalesce(json_agg(json_build_object('id',l.id::text,'title',l.title,'category',l.category,'locality',l.locality,'currency',l.currency,'nightlyMinor',(coalesce(p.total_minor,l.price_minor*greatest(($3::text::date-$2::text::date),1))/greatest(($3::text::date-$2::text::date),1))::text,'totalMinor',coalesce(p.total_minor,l.price_minor*greatest(($3::text::date-$2::text::date),1))::text,'available',coalesce(a.recorded,0)=($3::text::date-$2::text::date) and coalesce(a.blocked,0)=0,'availabilityKnown',coalesce(a.recorded,0)=($3::text::date-$2::text::date),'roomTypes',coalesce(l.metadata->'contract_fields'->'room_types',l.metadata->'room_types','[]'::jsonb)) order by l.title),'[]'::json)::text from agency.listings l left join lateral (select (select sum(coalesce((select per.price_minor from agency.rate_periods per where per.rate_plan_id=rp.id and day::date between per.starts_on and per.ends_on order by per.starts_on desc limit 1),rp.base_minor)) from generate_series($2::text::date,least($3::text::date-1,$2::text::date+30),'1 day'::interval) day) as total_minor from agency.rate_plans rp where rp.listing_id=l.id and rp.active order by rp.base_minor limit 1) p on true left join lateral (select count(*) as recorded,count(*) filter(where av.closed or av.units_available<=0) as blocked from agency.availability av where av.listing_id=l.id and av.day >= $2::text::date and av.day < $3::text::date) a on true where l.tenant_id=$1::uuid and l.status='published' and ($4='' or l.title ilike ('%'||$4||'%') escape '\\' or l.locality ilike ('%'||$4||'%') escape '\\') and ($5='' or l.locality ilike ('%'||$5||'%') escape '\\') and ($6='' or l.category=$6) and ($3::text::date-$2::text::date) between 1 and 31 limit 100",
+    Sql = ~"select coalesce(json_agg(json_build_object('id',l.id::text,'title',l.title,'category',l.category,'locality',l.locality,'currency',l.currency,'nightlyMinor',(coalesce(p.total_minor,l.price_minor*greatest(($3::text::date-$2::text::date),1))/greatest(($3::text::date-$2::text::date),1))::text,'totalMinor',coalesce(p.total_minor,l.price_minor*greatest(($3::text::date-$2::text::date),1))::text,'available',coalesce(a.recorded,0)=($3::text::date-$2::text::date) and coalesce(a.blocked,0)=0,'availabilityKnown',coalesce(a.recorded,0)=($3::text::date-$2::text::date),'roomTypes',coalesce(l.metadata->'contract_fields'->'room_types',l.metadata->'room_types','[]'::jsonb)) order by l.title),'[]'::json)::text from agency.listings l left join lateral (select (select sum(coalesce((select per.price_minor from agency.rate_periods per where per.rate_plan_id=rp.id and day::date between per.starts_on and per.ends_on order by per.starts_on desc limit 1),rp.base_minor)) from generate_series($2::text::date,least($3::text::date-1,$2::text::date+30),'1 day'::interval) day) as total_minor from agency.rate_plans rp where rp.listing_id=l.id and rp.active order by rp.base_minor limit 1) p on true left join lateral (select count(*) as recorded,count(*) filter(where av.closed or av.units_available<=0) as blocked from agency.effective_availability av where av.listing_id=l.id and av.day >= $2::text::date and av.day < $3::text::date) a on true where l.tenant_id=$1::uuid and l.status='published' and ($4='' or l.title ilike ('%'||$4||'%') escape '\\' or l.locality ilike ('%'||$4||'%') escape '\\') and ($5='' or l.locality ilike ('%'||$5||'%') escape '\\') and ($6='' or l.category=$6) and ($3::text::date-$2::text::date) between 1 and 31 limit 100",
     Pg_query = pog:'query'(Sql),
     Pg_query@1 = pog:parameter(Pg_query, pog_ffi:coerce(Tenant_id)),
     Pg_query@2 = pog:parameter(Pg_query@1, pog_ffi:coerce(Check_in)),
@@ -3667,7 +3667,7 @@ public_availability(Req, Db, Listing_id) ->
         end)
     end,
     case begin
-        _pipe@1 = pog:'query'(~"select coalesce(json_agg(json_build_object('day', a.day::text, 'available', a.units_available, 'total', a.units_total, 'closed', a.closed) order by a.day)::text, '[]') from agency.availability a join agency.listings l on l.id = a.listing_id where a.listing_id = $1::uuid and l.tenant_id=$2::uuid and l.status = 'published' and a.day >= current_date and a.day < current_date + 365"),
+        _pipe@1 = pog:'query'(~"select coalesce(json_agg(json_build_object('day', a.day::text, 'available', a.units_available, 'total', a.units_total, 'closed', a.closed) order by a.day)::text, '[]') from agency.effective_availability a join agency.listings l on l.id = a.listing_id where a.listing_id = $1::uuid and l.tenant_id=$2::uuid and l.status = 'published' and a.day >= current_date and a.day < current_date + 365"),
         _pipe@2 = pog:parameter(_pipe@1, pog_ffi:coerce(Listing_id)),
         _pipe@3 = pog:parameter(_pipe@2, pog_ffi:coerce(Tenant_id)),
         _pipe@4 = pog:returning(_pipe@3, Decoder),
@@ -5036,6 +5036,9 @@ dispatch(Req, Db, Origin) ->
                         Session_token = wisp:random_string(48),
                         case nexus_agency@auth:login_with_tenant(Db, form_value(erlang:element(2, Form), ~"email"), form_value(erlang:element(2, Form), ~"password"), Session_token, form_value(erlang:element(2, Form), ~"tenant_slug")) of
                             {ok, Session} ->
+                              case (erlang:element(5,Session)=:= <<"customer">> andalso member_email_session(Db,Session)=:=error) orelse (erlang:element(5,Session)=:= <<"admin">> andalso not admin_mfa:gate(Db,erlang:element(2,Session),erlang:element(3,Session),form_value(erlang:element(2,Form),~"mfa_code"))) of
+                               true -> nexus_agency@auth:logout(Db,Session_token),wisp:html_body(wisp:response(401),nexus_agency@panel:login_page(~"Doğrulama gerekli. Üyeler e-posta adresini, yöneticiler iki aşamalı giriş kodunu kontrol etmelidir.",Lang));
+                               false ->
                                 Destination = case erlang:element(5, Session) of
                                     ~"customer" ->
                                         ~"/hesap";
@@ -5048,7 +5051,7 @@ dispatch(Req, Db, Origin) ->
                                 gleam@http@response:set_cookie(_pipe@5, ~"nexus_csrf", nexus_agency@csrf:token_for(Session_token), begin
                                     _record = gleam@http@cookie:defaults(http),
                                     {attributes, {some, 28800}, erlang:element(3, _record), erlang:element(4, _record), erlang:element(5, _record), false, erlang:element(7, _record)}
-                                end);
+                                end) end;
 
                             {error, Error_type} ->
                                 Error_message = case Error_type of
@@ -5225,6 +5228,30 @@ dispatch(Req, Db, Origin) ->
 
                 {post, [~"admin", ~"customer-care", Resource]} ->
                     public_customer_care_save(Req, Db, Token, Resource);
+
+                {get,[~"admin",~"commerce-operations"]}->require_admin(Db,Token,fun(_)->{ok,SessionToken}=Token,commerce_operations:page(nexus_agency@csrf:token_for(SessionToken)) end);
+                {get,[~"admin",~"commerce-operations",~"data"]}->require_admin(Db,Token,fun(S)->commerce_operations:data(Db,erlang:element(2,S),erlang:element(3,S)) end);
+                {post,[~"admin",~"commerce-operations",Action]}->require_admin(Db,Token,fun(S)->wisp:require_form(Req,fun(F)->commerce_operations:action(Db,erlang:element(2,S),erlang:element(3,S),Action,erlang:element(2,F)) end) end);
+                {get,[~"api",~"public",~"calendar",CalendarToken]}->commerce_operations:export(Db,CalendarToken);
+                {get,[~"admin",~"seo",~"locales"]}->require_admin(Db,Token,fun(S)->seo_languages:data(Db,erlang:element(2,S)) end);
+                {post,[~"admin",~"seo",~"locales"]}->require_admin(Db,Token,fun(S)->wisp:require_form(Req,fun(F)->seo_languages:save(Db,erlang:element(2,S),erlang:element(2,F)) end) end);
+                {get, [~"admin", ~"seo"]} -> require_admin(Db,Token,fun(_) -> {ok,SessionToken}=Token,seo_engine:panel(nexus_agency@csrf:token_for(SessionToken)) end);
+                {get, [~"admin", ~"seo", ~"config"]} -> require_admin(Db,Token,fun(S)->seo_engine:config(Db,erlang:element(2,S)) end);
+                {post, [~"admin", ~"seo", ~"config"]} -> require_admin(Db,Token,fun(S)->wisp:require_form(Req,fun(F)->seo_engine:config_save(Db,erlang:element(2,S),erlang:element(2,F)) end) end);
+                {get, [~"admin", ~"seo", ~"data"]} -> require_admin(Db,Token,fun(S) -> seo_engine:panel_data(Db,erlang:element(2,S)) end);
+                {post, [~"admin", ~"seo", ~"translations"]} -> require_admin(Db,Token,fun(S) -> wisp:require_form(Req,fun(F)->seo_engine:translations_save(Db,erlang:element(2,S),erlang:element(2,F)) end) end);
+                {post, [~"admin", ~"seo", ~"save"]} -> require_admin(Db,Token,fun(S) -> wisp:require_form(Req,fun(F)->seo_engine:save(Db,erlang:element(2,S),erlang:element(3,S),erlang:element(2,F)) end) end);
+                {get, [~"admin", ~"membership-setup"]} -> require_admin(Db,Token,fun(_) -> {ok,SessionToken}=Token,membership_setup:page(nexus_agency@csrf:token_for(SessionToken)) end);
+                {get, [~"admin", ~"membership-setup", ~"data"]} -> require_admin(Db,Token,fun(S) -> membership_setup:data(Db,erlang:element(2,S),erlang:element(3,S)) end);
+                {post, [~"admin", ~"membership-setup", Action]} -> require_admin(Db,Token,fun(S) -> wisp:require_form(Req,fun(F) -> V=erlang:element(2,F),case admin_review_reauthenticated(Db,S,V) of true -> membership_setup:action(Db,erlang:element(2,S),erlang:element(3,S),Action,V);false -> wisp:response(403) end end) end);
+                {get, [~"admin", ~"security"]} -> require_admin(Db,Token,fun(_) -> admin_security_page(Req) end);
+                {post, [~"admin", ~"security", Action]} -> require_admin(Db,Token,fun(S) -> wisp:require_form(Req,fun(F) -> V=erlang:element(2,F), admin_security_manage(Req,Db,S,Action,V) end) end);
+                {get, [~"admin", ~"customer-verification", ~"data"]} ->
+                    require_admin(Db, Token, fun(Session) -> customer_verification_queue(Db, Session) end);
+                {get, [~"admin", ~"customer-verification"]} ->
+                    require_admin(Db, Token, fun(_) -> customer_verification_admin_page(Req) end);
+                {post, [~"admin", ~"customer-verification", ~"review"]} ->
+                    require_admin(Db, Token, fun(Session) -> customer_verification_review(Req, Db, Session) end);
 
                 {get, [~"admin", Section]} ->
                     require_panel_session(Db, Token, Section, fun(Session) ->
@@ -6911,7 +6938,7 @@ dispatch(Req, Db, Origin) ->
                 {post, [~"admin", ~"settings"]} ->
                     require_admin(Db, Token, fun(Session) ->
                         wisp:require_form(Req, fun(Form) ->
-                            All_keys = [~"brand_name", ~"contact_email", ~"contact_phone", ~"whatsapp", ~"tawk_embed_code", ~"address", ~"logo_url", ~"logo_dark_url", ~"favicon_url", ~"default_language", ~"default_currency", ~"tursab_no", ~"tursab_verify_url", ~"tax_office", ~"tax_no", ~"active_payment_gateway", ~"parampos_client_code", ~"parampos_username", ~"parampos_password", ~"parampos_guid", ~"bank_iban_try", ~"bank_iban_eur", ~"bank_iban_usd", ~"bank_iban_gbp", ~"bank_instructions", ~"cash_payment_enabled", ~"ai_provider", ~"ai_api_key", ~"ai_model", ~"ai_temperature", ~"ai_auto_seo_enabled", ~"netgsm_usercode", ~"netgsm_password", ~"netgsm_header", ~"sms_template_booking", ~"sms_template_reminder", ~"sms_enabled", ~"tcmb_auto_sync", ~"currency_spread_percent", ~"ga4_measurement_id", ~"gtm_id", ~"meta_pixel_id", ~"tiktok_pixel_id", ~"google_maps_api_key", ~"map_default_lat", ~"map_default_lng", ~"map_default_zoom", ~"smtp_host", ~"smtp_username", ~"smtp_password", ~"integration_endpoint", ~"contract_distance_selling", ~"contract_cancellation_refund", ~"contract_privacy_policy", ~"contract_cookie_policy", ~"contract_templates_json", ~"contract_general_json", ~"ai_chat_enabled", ~"ai_followup_enabled", ~"ai_cross_sell_enabled", ~"ai_region_content_enabled", ~"social_meta_account", ~"social_global_account", ~"social_language_routing"],
+                            All_keys = [~"whatsapp_auth_template", ~"whatsapp_auth_language", ~"whatsapp_api_version", ~"contract_membership", ~"customer_identity_mode", ~"brand_name", ~"contact_email", ~"contact_phone", ~"whatsapp", ~"tawk_embed_code", ~"address", ~"logo_url", ~"logo_dark_url", ~"favicon_url", ~"default_language", ~"default_currency", ~"tursab_no", ~"tursab_verify_url", ~"tax_office", ~"tax_no", ~"active_payment_gateway", ~"parampos_client_code", ~"parampos_username", ~"parampos_password", ~"parampos_guid", ~"bank_iban_try", ~"bank_iban_eur", ~"bank_iban_usd", ~"bank_iban_gbp", ~"bank_instructions", ~"cash_payment_enabled", ~"ai_provider", ~"ai_api_key", ~"ai_model", ~"ai_temperature", ~"ai_auto_seo_enabled", ~"netgsm_usercode", ~"netgsm_password", ~"netgsm_header", ~"sms_template_booking", ~"sms_template_reminder", ~"sms_enabled", ~"tcmb_auto_sync", ~"currency_spread_percent", ~"ga4_measurement_id", ~"gtm_id", ~"meta_pixel_id", ~"tiktok_pixel_id", ~"google_maps_api_key", ~"map_default_lat", ~"map_default_lng", ~"map_default_zoom", ~"smtp_host", ~"smtp_username", ~"smtp_password", ~"integration_endpoint", ~"contract_distance_selling", ~"contract_cancellation_refund", ~"contract_privacy_policy", ~"contract_cookie_policy", ~"contract_templates_json", ~"contract_general_json", ~"ai_chat_enabled", ~"ai_followup_enabled", ~"ai_cross_sell_enabled", ~"ai_region_content_enabled", ~"social_meta_account", ~"social_global_account", ~"social_language_routing"],
                             gleam@list:each(All_keys, fun(K) ->
                                 case gleam@list:key_find(erlang:element(2, Form), K) of
                                     {ok, V} ->
@@ -6975,7 +7002,7 @@ dispatch(Req, Db, Origin) ->
                 {get, [~"admin", ~"settings", ~"data"]} ->
                     require_admin(Db, Token, fun(Session) ->
                         case begin
-                            _pipe@6 = ~"select coalesce(json_object_agg(key,value),'{}'::json)::text from agency.settings where tenant_id=$1::uuid and key not in ('parampos_password','parampos_guid','parampos_password_sealed','parampos_guid_sealed','smtp_password','smtp_password_sealed','ai_api_key','ai_api_key_sealed','netgsm_password','netgsm_password_sealed')",
+                            _pipe@6 = ~"select coalesce(json_object_agg(key,value),'{}'::json)::text from agency.settings where tenant_id=$1::uuid and key not in ('parampos_password','parampos_guid','parampos_password_sealed','parampos_guid_sealed','smtp_password','smtp_password_sealed','ai_api_key','ai_api_key_sealed','netgsm_password','netgsm_password_sealed','membership_whatsapp_app_secret_sealed','membership_whatsapp_verify_token_sealed')",
                             _pipe@7 = pog:'query'(_pipe@6),
                             _pipe@8 = pog:parameter(_pipe@7, pog_ffi:coerce(erlang:element(2, Session))),
                             _pipe@9 = pog:returning(_pipe@8, settings_decoder()),
@@ -8128,10 +8155,19 @@ dispatch(Req, Db, Origin) ->
 
                 {get, [~"hesap"]} ->
                     public_customer_account_page(Req, Db, Origin);
+                {get, [~"uye-girisi"]} -> member_auth_page(Req, Db);
+                {get, [~"uye-ol"]} -> member_auth_page(Req, Db);
+                {get, [~"uyelik-kosullari"]} -> member_terms_page(Req, Db);
+                {get, [~"parolami-unuttum"]} -> member_auth_page(Req, Db);
+                {post, [~"api", ~"public", ~"membership", Action]} -> member_auth_action(Req, Db, Action);
 
                 {get, [~"api", ~"public", ~"account"]} ->
                     public_customer_account_data(Req, Db);
 
+                {get, [~"api", ~"public", ~"account", ~"verification"]} ->
+                    customer_verification_data(Req, Db);
+                {post, [~"api", ~"public", ~"account", ~"identity"]} ->
+                    customer_verification_submit(Req, Db);
                 {get, [~"api", ~"public", ~"account", ~"benefits"]} ->
                     public_customer_account_benefits(Req, Db);
 
@@ -8141,6 +8177,8 @@ dispatch(Req, Db, Origin) ->
                 {get, [~"api", ~"public", ~"account", ~"recommendations"]} ->
                     public_customer_recommendations(Req, Db);
 
+                {get, [~"api", ~"webhooks", ~"membership-whatsapp", Tenant]} -> case customer_portal_uuid(Tenant) of true -> membership_setup:webhook(Req,Db,Tenant,get); false -> wisp:response(404) end;
+                {post, [~"api", ~"webhooks", ~"membership-whatsapp", Tenant]} -> case customer_portal_uuid(Tenant) of true -> membership_setup:webhook(Req,Db,Tenant,post); false -> wisp:response(404) end;
                 {get, [~"api", ~"webhooks", ~"whatsapp"]} ->
                     whatsapp_webhook_verify(Req);
 
@@ -8412,7 +8450,7 @@ public_customer_account_session(Req, Db) ->
             case nexus_agency@auth:session(Db, Token) of
                 {ok, Session} ->
                     case erlang:element(5, Session) of
-                        ~"customer" -> {ok, Session};
+                        ~"customer" -> member_email_session(Db, Session);
                         _ -> error
                     end;
                 _ -> error
@@ -8446,7 +8484,7 @@ public_customer_account_page(Req, Db, Origin) ->
                 ])
             ]),
             wisp:html_body(wisp:ok(), lustre@element:to_string(Content));
-        error -> wisp:redirect(~"/login")
+        error -> wisp:redirect(<<"/uye-girisi",(public_tenant_query(public_tenant_selector(Req)))/binary>>)
     end.
 
 public_customer_account_data(Req, Db) ->
@@ -8454,7 +8492,7 @@ public_customer_account_data(Req, Db) ->
         {ok, Session} ->
             Tenant_id = erlang:element(2, Session),
             User_id = erlang:element(3, Session),
-            Sql = ~"select jsonb_build_object('name',u.display_name,'email',u.email,'memberSince',to_char(u.created_at,'YYYY-MM-DD'),'phone',coalesce(c.phone,''),'reservations',coalesce((select jsonb_agg(x.item order by x.created_at desc) from (select r.created_at,jsonb_build_object('id',r.id,'reference',r.reference_code,'title',coalesce(l.title,'İlan'),'category',coalesce(l.category,''),'checkIn',coalesce(r.check_in::text,''),'checkOut',coalesce(r.check_out::text,''),'guests',r.guest_count,'amount',r.total_minor,'currency',r.currency,'status',r.status,'paymentStatus',r.payment_status) item from agency.reservations r left join agency.listings l on l.id=r.listing_id and l.tenant_id=u.tenant_id where r.tenant_id=u.tenant_id and r.customer_id=c.id order by r.created_at desc limit 30) x),'[]'::jsonb),'orders',coalesce((select jsonb_agg(x.item order by x.created_at desc) from (select o.created_at,jsonb_build_object('number',o.number,'status',o.status,'amount',o.total_minor,'currency',o.currency,'date',to_char(o.created_at,'YYYY-MM-DD'),'paymentStatus',coalesce((select p.status from agency.payments p where p.order_id=o.id order by p.created_at desc limit 1),'pending')) item from agency.orders o where o.tenant_id=u.tenant_id and o.customer_id=c.id order by o.created_at desc limit 30) x),'[]'::jsonb),'favorites',coalesce((select jsonb_agg(jsonb_build_object('id',l.id,'title',l.title,'category',l.category,'locality',l.locality,'price',l.price_minor,'currency',l.currency) order by f.created_at desc) from agency.favorites f join agency.listings l on l.id=f.listing_id and l.tenant_id=u.tenant_id and l.status='published' where f.customer_id=c.id),'[]'::jsonb),'cartCount',coalesce((select sum(ci.quantity) from agency.carts ca join agency.cart_items ci on ci.cart_id=ca.id where ca.tenant_id=u.tenant_id and ca.customer_id=c.id and ca.status='active'),0))::text from agency.users u left join agency.customers c on c.tenant_id=u.tenant_id and lower(c.email)=lower(u.email) where u.id=$1::uuid and u.tenant_id=$2::uuid and u.active=true and u.membership_type='customer'",
+            Sql = ~"select jsonb_build_object('name',u.display_name,'email',u.email,'memberSince',to_char(u.created_at,'YYYY-MM-DD'),'phone',coalesce(nullif(c.phone,''),(select v.phone from agency.customer_verification v where v.tenant_id=u.tenant_id and v.user_id=u.id),''),'reservations',coalesce((select jsonb_agg(x.item order by x.created_at desc) from (select r.created_at,jsonb_build_object('id',r.id,'reference',r.reference_code,'title',coalesce(l.title,'İlan'),'category',coalesce(l.category,''),'checkIn',coalesce(r.check_in::text,''),'checkOut',coalesce(r.check_out::text,''),'guests',r.guest_count,'amount',r.total_minor,'currency',r.currency,'status',r.status,'paymentStatus',r.payment_status) item from agency.reservations r left join agency.listings l on l.id=r.listing_id and l.tenant_id=u.tenant_id where r.tenant_id=u.tenant_id and r.customer_id=c.id order by r.created_at desc limit 30) x),'[]'::jsonb),'orders',coalesce((select jsonb_agg(x.item order by x.created_at desc) from (select o.created_at,jsonb_build_object('number',o.number,'status',o.status,'amount',o.total_minor,'currency',o.currency,'date',to_char(o.created_at,'YYYY-MM-DD'),'paymentStatus',coalesce((select p.status from agency.payments p where p.order_id=o.id order by p.created_at desc limit 1),'pending')) item from agency.orders o where o.tenant_id=u.tenant_id and o.customer_id=c.id order by o.created_at desc limit 30) x),'[]'::jsonb),'favorites',coalesce((select jsonb_agg(jsonb_build_object('id',l.id,'title',l.title,'category',l.category,'locality',l.locality,'price',l.price_minor,'currency',l.currency) order by f.created_at desc) from agency.favorites f join agency.listings l on l.id=f.listing_id and l.tenant_id=u.tenant_id and l.status='published' where f.customer_id=c.id),'[]'::jsonb),'cartCount',coalesce((select sum(ci.quantity) from agency.carts ca join agency.cart_items ci on ci.cart_id=ca.id where ca.tenant_id=u.tenant_id and ca.customer_id=c.id and ca.status='active'),0))::text from agency.users u left join agency.customers c on c.tenant_id=u.tenant_id and lower(c.email)=lower(u.email) where u.id=$1::uuid and u.tenant_id=$2::uuid and u.active=true and u.membership_type='customer'",
             Q0 = pog:'query'(Sql),
             Q1 = pog:parameter(Q0, pog_ffi:coerce(User_id)),
             Q2 = pog:parameter(Q1, pog_ffi:coerce(Tenant_id)),
@@ -9570,3 +9608,169 @@ public_customer_care_save(Req, Db, Token, Resource) ->
 
 
 -file("src\\nexus_agency\\router.gleam", 5764).
+
+customer_verification_query(Db, Sql, Params) ->
+    Q = lists:foldl(fun(V,A) -> pog:parameter(A,pog_ffi:coerce(V)) end,pog:'query'(Sql),Params),
+    case pog:execute(pog:returning(Q,gleam@dynamic@decode:at([0],{decoder,fun gleam@dynamic@decode:decode_string/1})),Db) of
+        {ok,R} -> case gleam@list:first(erlang:element(3,R)) of {ok,V} -> wisp:json_body(wisp:ok(),V); _ -> wisp:response(404) end;
+        _ -> wisp:json_body(wisp:response(503),~"{\"error\":\"İşlem şu anda tamamlanamıyor.\"}")
+    end.
+
+customer_verification_data(Req,Db) ->
+    case public_customer_account_session(Req,Db) of
+        {ok,S} -> customer_verification_query(Db,~"select jsonb_build_object('identityStatus',case when v.identity_status='pending' and v.submitted_at is null then 'not_submitted' else coalesce(v.identity_status,'not_submitted') end,'emailVerified',v.email_verified_at is not null,'phoneVerified',v.phone_verified_at is not null,'phone',coalesce(v.phone,''),'phoneDelivery',agency.customer_phone_delivery_state(u.tenant_id,u.id),'lastFour',v.national_id_last_four,'submittedAt',v.submitted_at,'reviewedAt',v.reviewed_at,'reason',v.review_reason)::text from agency.users u left join agency.customer_verification v on v.user_id=u.id and v.tenant_id=u.tenant_id where u.tenant_id=$1::uuid and u.id=$2::uuid",[erlang:element(2,S),erlang:element(3,S)]);
+        _ -> wisp:response(401)
+    end.
+
+customer_verification_submit(Req,Db) ->
+    case public_customer_account_session(Req,Db) of
+        {ok,S} -> wisp:require_form(Req,fun(F) ->
+            V=erlang:element(2,F),
+            case public_csrf_valid(Req,form_value(V,~"csrf")) of
+                true -> customer_verification_query(Db,~"select jsonb_build_object('status',agency.submit_customer_identity($1::uuid,$2::uuid,$3,case when $4 ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' then $4::date else null end))::text",[erlang:element(2,S),erlang:element(3,S),form_value(V,~"national_id"),form_value(V,~"birth_date")]);
+                false -> wisp:response(403)
+            end
+        end);
+        _ -> wisp:response(401)
+    end.
+
+customer_verification_queue(Db,S) ->
+    customer_verification_query(Db,~"select coalesce(jsonb_agg(jsonb_build_object('userId',v.user_id,'name',u.display_name,'email',u.email,'lastFour',v.national_id_last_four,'birthDate',v.birth_date,'submittedAt',v.submitted_at,'status',v.identity_status,'reason',v.review_reason) order by v.submitted_at desc),'[]'::jsonb)::text from agency.customer_verification v join agency.users u on u.id=v.user_id and u.tenant_id=v.tenant_id where v.tenant_id=$1::uuid and v.submitted_at is not null",[erlang:element(2,S)]).
+
+customer_verification_review(Req,Db,S) ->
+    %% handle/3 validates CSRF and removes its field before admin dispatch.
+    wisp:require_form(Req,fun(F) ->
+        V=erlang:element(2,F),
+        case admin_review_reauthenticated(Db,S,V) of
+            true -> customer_verification_query(Db,~"select jsonb_build_object('status',agency.review_customer_identity($1::uuid,$2::uuid,$3::uuid,$4,$5))::text",[erlang:element(2,S),erlang:element(3,S),form_value(V,~"user_id"),form_value(V,~"decision"),form_value(V,~"reason")]);
+            false -> wisp:response(403)
+        end
+    end).
+
+customer_verification_admin_page(Req) ->
+    {ok,Token}=wisp:get_cookie(Req,~"agency_session",signed),
+    Csrf=nexus_agency@csrf:token_for(Token),
+    wisp:html_body(wisp:ok(),<<"<!doctype html><html lang=\"tr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"csrf-token\" content=\"",Csrf/binary,"\"><title>Üye kimlik incelemeleri</title><link rel=\"stylesheet\" href=\"/static/customer-verification.css\"></head><body><main class=\"cv-wrap\"><a href=\"/admin/customers\">Müşterilere dön</a><h1>Üye kimlik incelemeleri</h1><p>Manuel onay NVİ doğrulamasından ayrı kaydedilir. Her karar için gerekçe belirtin.</p><div id=\"customer-verification-admin\" aria-live=\"polite\">Başvurular yükleniyor…</div></main><script src=\"/static/customer-verification.js\" defer></script></body></html>"/utf8>>).
+
+member_auth_page(Req,Db) ->
+    case public_tenant_id(Db,Req) of
+      {ok,Tenant} ->
+        Csrf=case wisp:get_cookie(Req,~"agency_session",signed) of {ok,ExistingToken} when ExistingToken=/= <<>> -> nexus_agency@csrf:token_for(ExistingToken); _ -> wisp:random_string(32) end,
+        Body = <<"<!doctype html><html lang=\"tr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"csrf-token\" content=\"",Csrf/binary,"\"><title>Üyelik | NEXUS Agency</title><link rel=\"stylesheet\" href=\"/static/member-auth.css\"></head><body data-tenant=\""/utf8,Tenant/binary,"\"><main id=\"member-auth\"></main><script defer src=\"/static/member-auth.js\"></script><script defer src=\"/static/member-i18n.js\"></script></body></html>"/utf8>>,
+        wisp:set_cookie(wisp:html_body(wisp:ok(),Body),Req,~"agency_csrf",Csrf,plain_text,3600);
+      _ -> wisp:response(404)
+    end.
+
+member_auth_action(Req,Db,Action) ->
+    wisp:require_form(Req,fun(F) ->
+      V=erlang:element(2,F),
+      case {public_tenant_id(Db,Req),public_csrf_valid(Req,form_value(V,~"csrf"))} of
+        {{ok,T},true} ->
+          Email=form_value(V,~"email"),
+          case member_request_allowed(Db,T,Req) of
+           false -> wisp:json_body(wisp:response(429),~"{\"error\":\"Çok fazla deneme. Bir dakika sonra tekrar deneyin.\"}");
+           true -> case Action of
+            ~"register" -> customer_verification_query(Db,~"select jsonb_build_object('status',agency.customer_register_localized($1::uuid,$2,$3,$4,$5,$6::text::boolean,$7))::text",[T,form_value(V,~"name"),Email,form_value(V,~"phone"),form_value(V,~"password"),case form_value(V,~"terms") of ~"on" -> ~"true"; _ -> ~"false" end,form_value(V,~"lang")]);
+            ~"request" -> case form_value(V,~"purpose") of ~"phone" -> member_phone_action(Req,Db,T,V,request); _ -> customer_verification_query(Db,~"select jsonb_build_object('status',agency.customer_request_localized($1::uuid,$2,$3,$4,$5))::text",[T,Email,form_value(V,~"purpose"),form_value(V,~"channel"),form_value(V,~"lang")]) end;
+            ~"confirm" -> case form_value(V,~"purpose") of ~"phone" -> member_phone_action(Req,Db,T,V,confirm); _ -> customer_verification_query(Db,~"select jsonb_build_object('status',agency.customer_auth_confirm($1::uuid,$2,$3,$4,$5))::text",[T,Email,form_value(V,~"purpose"),form_value(V,~"code"),form_value(V,~"password")]) end;
+            ~"login" -> member_auth_login(Req,Db,T,Email,form_value(V,~"password"));
+            ~"revoke-sessions" -> member_revoke_sessions(Req,Db);
+            ~"sessions" -> member_security_action(Req,Db,T,V,sessions);
+            ~"revoke-session" -> member_security_action(Req,Db,T,V,revoke);
+            ~"contact-request" -> member_security_action(Req,Db,T,V,contact_request);
+            ~"contact-confirm" -> member_security_action(Req,Db,T,V,contact_confirm);
+            _ -> wisp:response(404)
+          end end;
+        _ -> wisp:response(403)
+      end
+    end).
+
+member_auth_login(Req,Db,T,Email,Password) ->
+    Q=pog:parameter(pog:'query'(~"select t.slug from agency.tenants t where t.id=$1::uuid and exists(select 1 from agency.users u where u.tenant_id=t.id and lower(u.email)=lower($2) and u.membership_type='customer' and u.active)"),pog_ffi:coerce(T)),
+    Q1=pog:parameter(Q,pog_ffi:coerce(Email)),
+    case pog:execute(pog:returning(Q1,gleam@dynamic@decode:at([0],{decoder,fun gleam@dynamic@decode:decode_string/1})),Db) of
+      {ok,R} -> case gleam@list:first(erlang:element(3,R)) of
+        {ok,Slug} ->
+          Token=wisp:random_string(48),
+          case nexus_agency@auth:login_with_tenant(Db,Email,Password,Token,Slug) of
+            {ok,S} when erlang:element(5,S)=:= <<"customer">> -> case member_email_session(Db,S) of {ok,_} -> wisp:set_cookie(wisp:json_body(wisp:ok(),~"{\"status\":\"authenticated\"}"),Req,~"agency_session",Token,signed,28800); _ -> nexus_agency@auth:logout(Db,Token), wisp:json_body(wisp:ok(),~"{\"status\":\"email_pending\"}") end;
+            _ -> wisp:json_body(wisp:response(401),~"{\"error\":\"E-posta veya parola hatalı; çok sayıda denemede hesabınız geçici kilitlenir.\"}")
+          end;
+        _ -> wisp:json_body(wisp:response(401),~"{\"error\":\"E-posta veya parola hatalı.\"}")
+      end;
+      _ -> wisp:response(503)
+    end.
+
+member_email_session(Db,S) ->
+ Q=pog:parameter(pog:'query'(~"select case when exists(select 1 from agency.audit_logs where tenant_id=$1::uuid and user_id=$2::uuid and action='customer.registered') and not exists(select 1 from agency.customer_verification where tenant_id=$1::uuid and user_id=$2::uuid and email_verified_at is not null) then 'pending' else 'allowed' end"),pog_ffi:coerce(erlang:element(2,S))),
+ Q1=pog:parameter(Q,pog_ffi:coerce(erlang:element(3,S))),
+ case pog:execute(pog:returning(Q1,gleam@dynamic@decode:at([0],{decoder,fun gleam@dynamic@decode:decode_string/1})),Db) of
+  {ok,R}->case gleam@list:first(erlang:element(3,R)) of {ok,<<"allowed">>}->{ok,S}; _->error end;
+  _->error
+ end.
+
+member_terms_page(Req,Db) ->
+ case public_tenant_id(Db,Req) of
+ {ok,T}->
+  Q=pog:parameter(pog:'query'(~"select coalesce(string_agg(key||E'\\n'||(value#>>'{}'),E'\\n\\n'),'Üyelik ve gizlilik metinleri henüz yönetici tarafından yayınlanmamış.') from agency.settings where tenant_id=$1::uuid and key in ('contract_membership','contract_privacy_policy')"),pog_ffi:coerce(T)),
+  case pog:execute(pog:returning(Q,gleam@dynamic@decode:at([0],{decoder,fun gleam@dynamic@decode:decode_string/1})),Db) of
+   {ok,R}->case gleam@list:first(erlang:element(3,R)) of {ok,V}->Safe=public_builder_html_escape(V),wisp:html_body(wisp:ok(),<<"<!doctype html><html lang=\"tr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Üyelik ve gizlilik</title><link rel=\"stylesheet\" href=\"/static/member-auth.css\"></head><body><section class=\"cv-card\"><h1>Üyelik ve gizlilik</h1><div style=\"white-space:pre-wrap\">"/utf8,Safe/binary,"</div><a href=\"/uye-ol?tenant=",T/binary,"\">Üyelik ekranına dön</a></section><script defer src=\"/static/member-i18n.js\"></script></body></html>"/utf8>>);_->wisp:response(404) end;
+   _->wisp:response(503)
+  end;
+ _->wisp:response(404)
+ end.
+
+member_revoke_sessions(Req,Db) ->
+ case {public_customer_account_session(Req,Db),wisp:get_cookie(Req,~"agency_session",signed)} of
+ {{ok,S},{ok,Token}} -> customer_verification_query(Db,~"select jsonb_build_object('status',agency.customer_revoke_other_sessions($1::uuid,$2::uuid,$3))::text",[erlang:element(2,S),erlang:element(3,S),Token]);
+ _ -> wisp:response(401)
+ end.
+
+member_phone_action(Req,Db,T,V,Action) ->
+ case public_customer_account_session(Req,Db) of
+  {ok,S} -> case erlang:element(2,S)=:=T of
+   true -> case Action of
+    request -> customer_verification_query(Db,~"select jsonb_build_object('status',agency.customer_auth_request($1::uuid,u.email,'phone','whatsapp'))::text from agency.users u where u.tenant_id=$1::uuid and u.id=$2::uuid and u.membership_type='customer' and u.active",[T,erlang:element(3,S)]);
+    confirm -> customer_verification_query(Db,~"select jsonb_build_object('status',agency.customer_auth_confirm($1::uuid,u.email,'phone',$3,''))::text from agency.users u where u.tenant_id=$1::uuid and u.id=$2::uuid and u.membership_type='customer' and u.active",[T,erlang:element(3,S),form_value(V,~"code")])
+   end;
+   false -> wisp:response(403)
+  end;
+  _ -> wisp:response(401)
+ end.
+
+member_request_allowed(Db,T,Req) ->
+ Q=pog:parameter(pog:parameter(pog:'query'(~"select agency.membership_request_allowed($1::uuid,$2)::text"),pog_ffi:coerce(T)),pog_ffi:coerce(request_client_ip(Req))),
+ case pog:execute(pog:returning(Q,gleam@dynamic@decode:at([0],{decoder,fun gleam@dynamic@decode:decode_string/1})),Db) of {ok,R}->case gleam@list:first(erlang:element(3,R)) of {ok,<<"true">>}->true; _->false end; _->false end.
+member_security_action(Req,Db,T,V,Action) ->
+ case {public_customer_account_session(Req,Db),wisp:get_cookie(Req,~"agency_session",signed)} of
+ {{ok,S},{ok,Token}} -> case erlang:element(2,S)=:=T of
+ true -> U=erlang:element(3,S),case Action of
+ sessions -> customer_verification_query(Db,~"select agency.customer_session_list($1::uuid,$2::uuid,$3)::text",[T,U,Token]);
+ revoke -> customer_verification_query(Db,~"select jsonb_build_object('status',agency.customer_session_revoke($1::uuid,$2::uuid,$3,$4))::text",[T,U,Token,form_value(V,~"session_id")]);
+ contact_request -> customer_verification_query(Db,~"select jsonb_build_object('status',agency.customer_contact_request_localized($1::uuid,$2::uuid,$3,$4,$5,$6))::text",[T,U,form_value(V,~"kind"),form_value(V,~"target"),form_value(V,~"password"),form_value(V,~"lang")]);
+ contact_confirm -> customer_verification_query(Db,~"select jsonb_build_object('status',agency.customer_contact_confirm($1::uuid,$2::uuid,$3,$4))::text",[T,U,form_value(V,~"kind"),form_value(V,~"code")])
+ end; false -> wisp:response(403) end;
+ _ -> wisp:response(401)
+ end.
+
+admin_security_page(Req) ->
+ {ok,Token}=wisp:get_cookie(Req,~"agency_session",signed),Csrf=nexus_agency@csrf:token_for(Token),
+ wisp:html_body(wisp:ok(),<<"<!doctype html><html lang=\"tr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"csrf-token\" content=\"",Csrf/binary,"\"><title>Yönetici güvenliği</title><link rel=\"stylesheet\" href=\"/static/customer-verification.css\"></head><body><main class=\"cv-wrap\"><a href=\"/admin/settings\">Ayarlara dön</a><section class=\"cv-card\"><h1>İki aşamalı giriş</h1><p>Doğrulama uygulamanıza anahtarı ekleyin, kurtarma kodlarını güvenli bir yerde saklayın ve uygulamanın ürettiği kodla etkinleştirin.</p><form id=\"admin-mfa-form\"><label>Mevcut parola<input name=\"password\" type=\"password\" autocomplete=\"current-password\" required></label><label>Uygulama kodu veya kurtarma kodu<input name=\"code\" autocomplete=\"one-time-code\" maxlength=\"16\"></label><button type=\"button\" data-action=\"begin\">Kurulumu başlat</button> <button type=\"button\" data-action=\"enable\">Etkinleştir</button> <button type=\"button\" data-action=\"disable\">Devre dışı bırak</button><p role=\"status\" aria-live=\"polite\"></p><pre data-setup style=\"white-space:pre-wrap;overflow-wrap:anywhere\"></pre></form></section></main><script defer src=\"/static/admin-security.js\"></script><script defer src=\"/static/member-i18n.js\"></script></body></html>"/utf8>>).
+
+admin_security_manage(Req,Db,S,Action,V) ->
+ Data=admin_mfa:manage(Db,erlang:element(2,S),erlang:element(3,S),Action,V),
+ case Data=:= <<"{\"status\":\"enabled\"}">> of
+ true -> {ok,Token}=wisp:get_cookie(Req,~"agency_session",signed),Q=pog:parameter(pog:parameter(pog:parameter(pog:'query'(~"select 'ok'::text from agency.admin_mfa_revoke_other_sessions($1::uuid,$2::uuid,$3)"),pog_ffi:coerce(erlang:element(2,S))),pog_ffi:coerce(erlang:element(3,S))),pog_ffi:coerce(Token)),pog:execute(pog:returning(Q,{decoder,fun gleam@dynamic@decode:decode_dynamic/1}),Db);
+ false -> ok end,
+ wisp:json_body(wisp:ok(),Data).
+
+admin_review_reauthenticated(Db,S,V) ->
+ Q=lists:foldl(fun(X,A)->pog:parameter(A,pog_ffi:coerce(X)) end,pog:'query'(~"select exists(select 1 from agency.users where tenant_id=$1::uuid and id=$2::uuid and active and membership_type='admin' and crypt($3,password_hash)=password_hash)::text"),[erlang:element(2,S),erlang:element(3,S),form_value(V,~"password")]),
+ case pog:execute(pog:returning(Q,gleam@dynamic@decode:at([0],{decoder,fun gleam@dynamic@decode:decode_string/1})),Db) of
+ {ok,R} -> case gleam@list:first(erlang:element(3,R)) of {ok,<<"true">>} -> admin_mfa:gate(Db,erlang:element(2,S),erlang:element(3,S),form_value(V,~"mfa_code")); _ -> false end;
+ _ -> false end.
+
+seo_response(Req,Db,Origin,Lang,Res) ->
+ case erlang:element(2,Req) of get -> Tenant=gleam@result:unwrap(public_tenant_id(Db,Req),<<>>), seo_engine:response(Req,Db,Origin,Tenant,Lang,Res); _ ->Res end.
+
+seo_request(Req,Db)->case gleam@http@request:path_segments(Req) of [P|_] when P=:= <<"static">>;P=:= <<"admin">>;P=:= <<"api">>;P=:= <<"login">>;P=:= <<"hesap">>;P=:= <<"uye-ol">>;P=:= <<"uye-girisi">>;P=:= <<"odeme">>;P=:= <<"rezervasyon">>->Req;_->seo_languages:request(Req,Db,gleam@result:unwrap(public_tenant_id(Db,Req),<<>>)) end.

@@ -21,7 +21,9 @@ import gleeunit/should
 import simplifile
 
 const main_js_path = "priv/static/chisfis/js/main.js"
+
 const list_js_path = "priv/static/public-listings.js"
+
 const header_js_path = "priv/static/header-popovers.js"
 
 fn read_file(path: String) -> String {
@@ -46,8 +48,12 @@ pub fn filter_toggle_files_readable_test() {
 pub fn state_owned_single_source_test() {
   let main = read_file(main_js_path)
   main |> count_occurrences("window.NEXUS_STATE_OWNED = ") |> should.equal(1)
-  main |> count_occurrences("if (window.NEXUS_STATE_OWNED(btn)) return;") |> should.equal(1)
-  main |> count_occurrences("if (window.NEXUS_STATE_OWNED(b)) return;") |> should.equal(1)
+  main
+  |> count_occurrences("if (window.NEXUS_STATE_OWNED(btn)) return;")
+  |> should.equal(1)
+  main
+  |> count_occurrences("if (window.NEXUS_STATE_OWNED(b)) return;")
+  |> should.equal(1)
   main |> string.contains("[data-filter-panel]") |> should.be_true
 
   let header = read_file(header_js_path)
@@ -59,7 +65,9 @@ pub fn state_owned_single_source_test() {
 pub fn filter_state_source_is_class_test() {
   let src = read_file(list_js_path)
   src |> string.contains("function isExpanded() {") |> should.be_true
-  src |> string.contains("return body.classList.contains(\"is-open\");") |> should.be_true
+  src
+  |> string.contains("return body.classList.contains(\"is-open\");")
+  |> should.be_true
   // Türetilmiş etiket yazılır...
   src |> string.contains("function syncAria() {") |> should.be_true
   // ...ama girdi olarak OKUNMAZ (tek okuma yeri yok; eski kopya geri gelirse
@@ -73,5 +81,7 @@ pub fn filter_state_source_is_class_test() {
 pub fn aria_synced_in_both_breakpoints_test() {
   let src = read_file(list_js_path)
   src |> count_occurrences("syncAria();") |> should.equal(2)
-  src |> string.contains("if (window.innerWidth >= BREAKPOINT)") |> should.be_true
+  src
+  |> string.contains("if (window.innerWidth >= BREAKPOINT)")
+  |> should.be_true
 }

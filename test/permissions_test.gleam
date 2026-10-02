@@ -14,4 +14,3 @@ pub fn role_permission_matrix_test() {
   permissions.can("sub_agency", "catalog.write") |> should.be_false
   permissions.can("customer", "booking.create") |> should.be_true
 }
-

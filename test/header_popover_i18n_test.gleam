@@ -32,6 +32,7 @@ import gleeunit/should
 import simplifile
 
 const popovers_js_path = "priv/static/header-popovers.js"
+
 const main_js_path = "priv/static/chisfis/js/main.js"
 
 fn read_file(path: String) -> String {
@@ -112,7 +113,8 @@ pub fn header_popover_sources_readable_test() {
 // ---- A) Yorum dışı sabit Türkçe etiket yok ----
 
 pub fn no_hardcoded_turkish_labels_test() {
-  let source = read_file(popovers_js_path)
+  let source =
+    read_file(popovers_js_path)
     |> until("/* Category landings use the shared hero")
     |> strip_comments
   // The new travel/mega menu carries explicit per-language copy, including
@@ -143,7 +145,7 @@ pub fn no_hardcoded_turkish_labels_test() {
     "Turlar",
     "Aktiviteler",
     // "azalt"/"artır" yalnız stepper aria etiketlerinde görünür; sayaç artık
-    // bu dosyada olmadığı için (bkz. E) burada da listelenmez.
+  // bu dosyada olmadığı için (bkz. E) burada da listelenmez.
   ]
 
   let leftovers =
@@ -182,9 +184,7 @@ pub fn every_t_key_exists_in_all_dicts_test() {
   let ru = dict_block(dicts, "RU", "var FR = {")
 
   [tr, de, ru]
-  |> list.each(fn(block) {
-    block |> string.is_empty |> should.be_false
-  })
+  |> list.each(fn(block) { block |> string.is_empty |> should.be_false })
 
   let missing_tr = list.filter(literal_keys, fn(k) { !has_key(tr, k) })
   let missing_de = list.filter(literal_keys, fn(k) { !has_key(de, k) })
@@ -221,7 +221,9 @@ pub fn panels_render_as_functions_test() {
   // Statik `html:` gövdesi kalmamalı: dille tazelenemez
   src |> string.contains("html: ") |> should.be_false
   src
-  |> string.contains("pop.innerHTML = def.render ? def.render() : (def.html || '');")
+  |> string.contains(
+    "pop.innerHTML = def.render ? def.render() : (def.html || '');",
+  )
   |> should.be_true
 }
 
@@ -305,9 +307,7 @@ pub fn percent_placeholder_and_no_braces_test() {
   [tr, de, ru]
   |> list.each(fn(block) {
     templates
-    |> list.each(fn(key) {
-      has_key(block, key) |> should.be_true
-    })
+    |> list.each(fn(key) { has_key(block, key) |> should.be_true })
     block |> string.contains("{label}") |> should.be_false
   })
 

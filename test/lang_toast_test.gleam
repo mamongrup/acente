@@ -27,7 +27,9 @@ import gleeunit/should
 import simplifile
 
 const main_js = "priv/static/chisfis/js/main.js"
+
 const header_js = "priv/static/header-popovers.js"
+
 const store_css = "priv/static/chisfis/css/custom.css"
 
 fn read_file(path: String) -> String {
@@ -93,7 +95,9 @@ pub fn all_selection_paths_funnel_through_nexus_lang_test() {
   |> should.be_true
 
   // Mobil mm-pill dil seçimi de tek kanaldan geçer
-  contains_all(src, ["if (kind === 'lang') { dispatchLang(val); refreshChecks(); }"])
+  contains_all(src, [
+    "if (kind === 'lang') { dispatchLang(val); refreshChecks(); }",
+  ])
   |> should.be_true
 
   // Masaüstü globe popover'ı da aynı olayı yayar

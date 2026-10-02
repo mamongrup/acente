@@ -32,7 +32,9 @@ import gleeunit/should
 import simplifile
 
 const bridge_css_path = "priv/static/chisfis-bridge.css"
+
 const custom_css_path = "priv/static/chisfis/css/custom.css"
+
 const router_markup_path = "src/nexus_agency/erl/nexus_agency@router_impl.erl"
 
 fn read_file(path: String) -> String {

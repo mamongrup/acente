@@ -10,7 +10,9 @@ import gleeunit/should
 import simplifile
 
 const catalog_js_path = "priv/static/public-catalog.js"
+
 const router_path = "src/nexus_agency/erl/nexus_agency@router_impl.erl"
+
 const bridge_css_path = "priv/static/chisfis-bridge.css"
 
 fn read_file(path: String) -> String {
@@ -63,13 +65,16 @@ pub fn clean_category_routes_replace_legacy_aliases_test() {
   |> string.contains("{get, [~\"kategori\", _]} ->")
   |> should.be_true
   source
-  |> string.contains("wisp:string_body(wisp:response(404), ~\"Sayfa bulunamadı\")")
+  |> string.contains(
+    "wisp:string_body(wisp:response(404), ~\"Sayfa bulunamadı\")",
+  )
   |> should.be_true
 }
 
 pub fn detail_shell_has_category_features_test() {
   let js = read_file(catalog_js_path)
   let css = read_file(bridge_css_path)
-  contains_all(js, [".detail-columns", "detail-gallery", "cfg.booking"]) |> should.be_true
+  contains_all(js, [".detail-columns", "detail-gallery", "cfg.booking"])
+  |> should.be_true
   contains_all(css, [".detail-columns", ".detail-amenities"]) |> should.be_true
 }

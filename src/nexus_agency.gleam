@@ -79,7 +79,11 @@ type SyncConfig {
 }
 
 type ActiveSync {
-  ActiveSync(config: SyncConfig, listing_pid: process.Pid, reservation_pid: process.Pid)
+  ActiveSync(
+    config: SyncConfig,
+    listing_pid: process.Pid,
+    reservation_pid: process.Pid,
+  )
 }
 
 fn env_int(key: String, fallback: Int) -> Int {
@@ -94,20 +98,26 @@ fn sync_supervisor(agency_db: pog.Connection, running: List(ActiveSync)) {
   let next = case discover_sync_configs(agency_db) {
     Error(_) -> running
     Ok(configs) -> {
-      running |> list.each(fn(worker) {
-        case list.any(configs, fn(config) { config == worker.config })
+      running
+      |> list.each(fn(worker) {
+        case
+          list.any(configs, fn(config) { config == worker.config })
           && process.is_alive(worker.listing_pid)
-          && process.is_alive(worker.reservation_pid) {
+          && process.is_alive(worker.reservation_pid)
+        {
           True -> Nil
           False -> stop_sync(agency_db, worker)
         }
       })
-      configs |> list.map(fn(config) {
-        case list.find(running, fn(worker) {
-          worker.config == config
-          && process.is_alive(worker.listing_pid)
-          && process.is_alive(worker.reservation_pid)
-        }) {
+      configs
+      |> list.map(fn(config) {
+        case
+          list.find(running, fn(worker) {
+            worker.config == config
+            && process.is_alive(worker.listing_pid)
+            && process.is_alive(worker.reservation_pid)
+          })
+        {
           Ok(worker) -> worker
           Error(_) -> start_sync(agency_db, config)
         }
@@ -115,7 +125,10 @@ fn sync_supervisor(agency_db: pog.Connection, running: List(ActiveSync)) {
     }
   }
   let discovery_ms = env_int("NEXUS_SYNC_DISCOVERY_MS", 60_000)
-  process.sleep(case discovery_ms < 1_000 { True -> 1_000 False -> discovery_ms })
+  process.sleep(case discovery_ms < 1000 {
+    True -> 1000
+    False -> discovery_ms
+  })
   sync_supervisor(agency_db, next)
 }
 
@@ -128,16 +141,28 @@ fn stop_sync(agency_db: pog.Connection, worker: ActiveSync) {
 
 fn start_sync(agency_db: pog.Connection, config: SyncConfig) -> ActiveSync {
   io.println("NEXUS sync started for tenant " <> config.local_id)
-  let reservation_pid = nexus_reservation_worker.start(
-    agency_db, config.origin, config.key, config.local_id, config.remote_id,
-  )
-  let listing_pid = nexus_listing_sync.start_api_sync(
-    agency_db, config.origin, config.key, config.local_id, config.remote_id,
-  )
+  let reservation_pid =
+    nexus_reservation_worker.start(
+      agency_db,
+      config.origin,
+      config.key,
+      config.local_id,
+      config.remote_id,
+    )
+  let listing_pid =
+    nexus_listing_sync.start_api_sync(
+      agency_db,
+      config.origin,
+      config.key,
+      config.local_id,
+      config.remote_id,
+    )
   ActiveSync(config, listing_pid, reservation_pid)
 }
 
-fn discover_sync_configs(agency_db: pog.Connection) -> Result(List(SyncConfig), Nil) {
+fn discover_sync_configs(
+  agency_db: pog.Connection,
+) -> Result(List(SyncConfig), Nil) {
   let active_tenants =
     pog.query(
       "select tenant_id::text from agency.integrations where provider='nexus' and kind='connectivity' and active order by tenant_id",
@@ -146,9 +171,11 @@ fn discover_sync_configs(agency_db: pog.Connection) -> Result(List(SyncConfig), 
     |> pog.execute(agency_db)
   case active_tenants {
     Ok(result) -> {
-      let configured = result.rows |> list.filter_map(fn(tenant_id) {
-        tenant_sync_config(agency_db, tenant_id, False)
-      })
+      let configured =
+        result.rows
+        |> list.filter_map(fn(tenant_id) {
+          tenant_sync_config(agency_db, tenant_id, False)
+        })
       case env_sync_config(agency_db) {
         Ok(env_config) ->
           case list.any(result.rows, fn(id) { id == env_config.local_id }) {
@@ -159,7 +186,9 @@ fn discover_sync_configs(agency_db: pog.Connection) -> Result(List(SyncConfig), 
       }
     }
     Error(_) -> {
-      io.println("NEXUS listing sync: integration discovery unavailable; agency remains online")
+      io.println(
+        "NEXUS listing sync: integration discovery unavailable; agency remains online",
+      )
       Error(Nil)
     }
   }
@@ -189,7 +218,11 @@ fn env_sync_config(agency_db: pog.Connection) -> Result(SyncConfig, Nil) {
   }
 }
 
-fn tenant_sync_config(agency_db: pog.Connection, local_tenant_id: String, allow_env: Bool) -> Result(SyncConfig, Nil) {
+fn tenant_sync_config(
+  agency_db: pog.Connection,
+  local_tenant_id: String,
+  allow_env: Bool,
+) -> Result(SyncConfig, Nil) {
   let remote_tenant_id =
     integration_value(agency_db, local_tenant_id, "agency_code")
     |> result.try(fn(value) {
@@ -207,18 +240,30 @@ fn tenant_sync_config(agency_db: pog.Connection, local_tenant_id: String, allow_
   // rejects that value outright, so the integration failed with 401 while
   // looking configured.
   let env_key = envoy.get("NEXUS_API_KEY") |> result.unwrap("")
-  let origin_fallback = case allow_env { True -> env_origin False -> "" }
-  let key_fallback = case allow_env { True -> env_key False -> "" }
+  let origin_fallback = case allow_env {
+    True -> env_origin
+    False -> ""
+  }
+  let key_fallback = case allow_env {
+    True -> env_key
+    False -> ""
+  }
   let api_origin =
     integration_value(agency_db, local_tenant_id, "endpoint")
     |> result.unwrap(origin_fallback)
   let api_key =
-    integration_value(agency_db, local_tenant_id, "api_key") |> result.unwrap(key_fallback)
-  case string.trim(api_origin), string.trim(api_key), string.trim(remote_tenant_id) {
+    integration_value(agency_db, local_tenant_id, "api_key")
+    |> result.unwrap(key_fallback)
+  case
+    string.trim(api_origin),
+    string.trim(api_key),
+    string.trim(remote_tenant_id)
+  {
     "", _, _ -> Error(Nil)
     _, "", _ -> Error(Nil)
     _, _, "" -> Error(Nil)
-    origin, key, remote_id -> Ok(SyncConfig(local_tenant_id, remote_id, origin, key))
+    origin, key, remote_id ->
+      Ok(SyncConfig(local_tenant_id, remote_id, origin, key))
   }
 }
 

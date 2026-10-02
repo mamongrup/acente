@@ -22,10 +22,15 @@ import gleeunit/should
 import simplifile
 
 const main_js_path = "priv/static/chisfis/js/main.js"
+
 const custom_css_path = "priv/static/chisfis/css/custom.css"
+
 const header_js_path = "priv/static/header-popovers.js"
+
 const erl_path = "src/nexus_agency/erl/nexus_agency@router_impl.erl"
+
 const bridge_css_path = "priv/static/chisfis-bridge.css"
+
 const bnav_css_path = "priv/static/chisfis/css/custom.css"
 
 fn read_file(path: String) -> String {
@@ -57,7 +62,9 @@ pub fn nav_active_single_source_test() {
   // Kısa kategori yolu ve liste filtresi aynı predicate içinde.
   src |> string.contains("[?&]kategori=([^&]*)") |> should.be_true
   src |> string.contains("window.NEXUS_CATEGORY_CODE(path)") |> should.be_true
-  src |> string.contains("LISTING_PATHS = ['/urunler', '/products']") |> should.be_true
+  src
+  |> string.contains("LISTING_PATHS = ['/urunler', '/products']")
+  |> should.be_true
   // Ortak API
   src |> string.contains("function isActiveCategory(slug)") |> should.be_true
   src |> string.contains("function isActiveHref(href)") |> should.be_true
@@ -77,13 +84,16 @@ pub fn nav_source_load_order_test() {
   let head_def = index_of(erl, "chisfis_head() ->") |> result.unwrap(-1)
   let main_js = index_of(erl, "main.js?v=") |> result.unwrap(-1)
   let head_call = index_of(erl, "| chisfis_head()]") |> result.unwrap(-1)
-  let popovers_def = index_of(erl, "public_header_popovers_script() ->") |> result.unwrap(-1)
+  let popovers_def =
+    index_of(erl, "public_header_popovers_script() ->") |> result.unwrap(-1)
   let popovers_js = index_of(erl, "header-popovers.js?v=") |> result.unwrap(-1)
-  let popovers_call = index_of(erl, "public_header_popovers_script()]") |> result.unwrap(-1)
+  let popovers_call =
+    index_of(erl, "public_header_popovers_script()]") |> result.unwrap(-1)
   // Tüm işaretler bulundu mu? (yol/isim kayarsa test sessizce geçmesin)
-  list.all([head_def, main_js, head_call, popovers_def, popovers_js, popovers_call], fn(i) {
-    i >= 0
-  })
+  list.all(
+    [head_def, main_js, head_call, popovers_def, popovers_js, popovers_call],
+    fn(i) { i >= 0 },
+  )
   |> should.be_true
   // main.js <head> yardımcısının içinde tanımlı...
   { head_def < main_js } |> should.be_true
@@ -105,7 +115,10 @@ pub fn drawer_trigger_is_language_independent_test() {
   // Erken çıkış yedeklerden SONRA gelmeli (tek kapı).
   js |> count_occurrences("if (!burger) return;") |> should.equal(1)
   let before_bail =
-    js |> string.split("if (!burger) return;") |> list.first |> result.unwrap("")
+    js
+    |> string.split("if (!burger) return;")
+    |> list.first
+    |> result.unwrap("")
   before_bail |> string.contains("header .hgi-menu-01") |> should.be_true
   before_bail
   |> string.contains(".bnav-item[data-act=\"menu\"]")
@@ -150,7 +163,9 @@ pub fn mobile_menu_active_class_applied_to_links_test() {
   src |> string.contains("aria-current=\"page\"") |> should.be_true
   let css = read_file(custom_css_path)
   // CSS tarafında her iki link tipi için de vurgu kuralı bulunmalı.
-  css |> string.contains(".mm-acc-inner > a.mm-acc-link-active") |> should.be_true
+  css
+  |> string.contains(".mm-acc-inner > a.mm-acc-link-active")
+  |> should.be_true
   css |> string.contains(".mm-direct.mm-acc-link-active") |> should.be_true
 }
 
@@ -166,7 +181,7 @@ pub fn panel_link_selector_excludes_direct_component_test() {
     |> css_rule_selectors()
     |> list.filter(fn(selector) {
       string.contains(selector, ".mobile-menu__panel > a")
-        && !string.contains(selector, ":not(.mm-direct)")
+      && !string.contains(selector, ":not(.mm-direct)")
     })
   offenders
   |> list.is_empty
@@ -195,7 +210,9 @@ pub fn bottom_bar_uses_real_routes_test() {
 pub fn bottom_bar_marks_active_page_test() {
   let js = read_file(main_js_path)
   js |> string.contains("routeActive") |> should.be_true
-  js |> string.contains("'bnav-item' + (on ? ' is-active' : '')") |> should.be_true
+  js
+  |> string.contains("'bnav-item' + (on ? ' is-active' : '')")
+  |> should.be_true
   js |> string.contains("aria-current=\"page\"") |> should.be_true
   // Şablonun Tailwind kırmızısı yerine proje tokenları kullanılmalı.
   js |> string.contains("text-red-600 dark:text-red-500") |> should.be_false
@@ -278,9 +295,7 @@ pub fn desktop_popover_targets_are_store_routes_test() {
   ]
 
   let leftovers =
-    list.filter(demo_paths, fn(path) {
-      string.contains(js, "href=\"" <> path)
-    })
+    list.filter(demo_paths, fn(path) { string.contains(js, "href=\"" <> path) })
 
   case leftovers {
     [] -> Nil

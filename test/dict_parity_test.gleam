@@ -26,10 +26,8 @@ pub fn dict_parity_test() {
   should.be_true(de_keys != [])
   should.be_true(ru_keys != [])
 
-  let de_missing =
-    list.filter(tr_keys, fn(k) { !list.contains(de_keys, k) })
-  let ru_missing =
-    list.filter(tr_keys, fn(k) { !list.contains(ru_keys, k) })
+  let de_missing = list.filter(tr_keys, fn(k) { !list.contains(de_keys, k) })
+  let ru_missing = list.filter(tr_keys, fn(k) { !list.contains(ru_keys, k) })
 
   case de_missing, ru_missing {
     [], [] -> Nil
@@ -90,16 +88,12 @@ fn balanced_block(src: String) -> String {
   do_balanced(string.to_graphemes(src), 0, [])
 }
 
-fn do_balanced(
-  chars: List(String),
-  depth: Int,
-  acc: List(String),
-) -> String {
+fn do_balanced(chars: List(String), depth: Int, acc: List(String)) -> String {
   case chars, depth {
     [], _ -> string.concat(list.reverse(acc))
     ["{", ..rest], 0 -> do_balanced(rest, 1, ["{", ..acc])
     ["{", ..rest], d -> do_balanced(rest, d + 1, ["{", ..acc])
-    ["}", .._rest], 1 -> string.concat(list.reverse(["}", ..acc]))
+    ["}", ..], 1 -> string.concat(list.reverse(["}", ..acc]))
     ["}", ..rest], d -> do_balanced(rest, d - 1, ["}", ..acc])
     [c, ..rest], d -> do_balanced(rest, d, [c, ..acc])
   }

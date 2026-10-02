@@ -53,10 +53,14 @@ fn check_and_trigger(db: pog.Connection, last_trigger: String) -> String {
     <> int_to_pad2(month_to_int(date.month))
     <> "-"
     <> int_to_pad2(date.day)
-  case day == 1 && time.hours == 8 && time.minutes == 0 && last_trigger != date_key {
+  case
+    day == 1 && time.hours == 8 && time.minutes == 0 && last_trigger != date_key
+  {
     True -> {
       io.println(
-        "Weekly digest scheduler: Pazartesi 08:00 — tetikleniyor (" <> date_key <> ")",
+        "Weekly digest scheduler: Pazartesi 08:00 — tetikleniyor ("
+        <> date_key
+        <> ")",
       )
       enqueue_for_all_tenants(db)
       date_key
@@ -82,7 +86,10 @@ fn enqueue_for_all_tenants(db: pog.Connection) {
       )
     }
     Error(e) -> {
-      io.println("Weekly digest scheduler: Tenant listesi alınamadı: " <> string.inspect(e))
+      io.println(
+        "Weekly digest scheduler: Tenant listesi alınamadı: "
+        <> string.inspect(e),
+      )
     }
   }
 }
@@ -139,19 +146,18 @@ fn enqueue_tenant(db: pog.Connection, tenant_id: String) {
             |> pog.returning(decode.at([0], decode.string))
           case insert |> pog.execute(db) {
             Ok(_) ->
-              io.println(
-                "Weekly digest: " <> tenant_id <> " kuyruğa yazıldı",
-              )
+              io.println("Weekly digest: " <> tenant_id <> " kuyruğa yazıldı")
             Error(e) ->
               io.println(
-                "Weekly digest: " <> tenant_id <> " kuyruğa yazılamadı: " <> string.inspect(e),
+                "Weekly digest: "
+                <> tenant_id
+                <> " kuyruğa yazılamadı: "
+                <> string.inspect(e),
               )
           }
         }
         Error(_) ->
-          io.println(
-            "Weekly digest: " <> tenant_id <> " veri derlenemedi",
-          )
+          io.println("Weekly digest: " <> tenant_id <> " veri derlenemedi")
       }
     }
     Error(e) ->

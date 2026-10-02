@@ -32,9 +32,13 @@ import gleeunit/should
 import simplifile
 
 const bridge_css_path = "priv/static/chisfis-bridge.css"
+
 const main_js_path = "priv/static/chisfis/js/main.js"
+
 const custom_css_path = "priv/static/chisfis/css/custom.css"
+
 const boot_js_path = "priv/static/reveal-boot.js"
+
 const router_erl_path = "src/nexus_agency/erl/nexus_agency@router_impl.erl"
 
 fn read_file(path: String) -> String {
@@ -118,7 +122,11 @@ pub fn reveal_finishes_without_persisted_transform_test() {
     string.split_once(bridge, "html.has-reveal [data-reveal].is-revealed {")
   let assert Ok(#(block, _)) = string.split_once(revealed_block, "}")
   // Bitiş opaklığı hedefin KENDİ değeridir (`--reveal-op`); değişken yoksa 1.
-  contains_all(block, ["transform: none", "opacity: var(--reveal-op, 1);", "transition:"])
+  contains_all(block, [
+    "transform: none",
+    "opacity: var(--reveal-op, 1);",
+    "transition:",
+  ])
   |> should.be_true
   // Geçiş süresi/ivmelendirmesi gizli durumdaki kaymayı hedefler.
   string.contains(block, "cubic-bezier") |> should.be_true
@@ -232,7 +240,9 @@ pub fn reveal_covers_store_page_heading_test() {
   // iki geçişte birden işaretlenirse sarmalayıcı ile çocukları iç içe iki kez
   // animasyon oynatır (sarmalayıcının transform'u alt ağacı taşır).
   js
-  |> string.contains("if (el.tagName === 'DIV' || el.tagName === 'SECTION') return;")
+  |> string.contains(
+    "if (el.tagName === 'DIV' || el.tagName === 'SECTION') return;",
+  )
   |> should.be_true
 }
 

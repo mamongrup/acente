@@ -252,11 +252,11 @@
     let data; try {data=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(document.querySelector('main.product-detail')?.dataset.listingDetail || ''),c=>c.charCodeAt(0))));} catch(_) {return;}
     const translation=data.metadata?.extra_metadata?.translations?.[lang()];
     const title=document.querySelector('main.product-detail h1');
-    if(title) { if(!title.dataset.detailSourceTitle) title.dataset.detailSourceTitle=title.textContent; const value=translation?.title || title.dataset.detailSourceTitle; if(title.textContent!==value) title.textContent=value; }
+    if(title) { if(!title.dataset.detailSourceTitle) title.dataset.detailSourceTitle=document.querySelector("main.product-detail")?.dataset.seoSourceTitle || title.textContent; const value=translation?.title || title.dataset.detailSourceTitle; if(title.textContent!==value) title.textContent=value; }
     // Only publisher-provided translations replace listing descriptions.
     const description=document.querySelector('.detail-main section .prose, .detail-main .reference-about-content');
     if(description){
-      if(!description.dataset.detailSourceDescription) description.dataset.detailSourceDescription=description.textContent;
+      if(!description.dataset.detailSourceDescription) description.dataset.detailSourceDescription=document.querySelector("main.product-detail")?.dataset.seoSourceDescription || description.textContent;
       const value=translation?.description || translate(description.dataset.detailSourceDescription);
       if(description.textContent!==value) description.textContent=value;
     }

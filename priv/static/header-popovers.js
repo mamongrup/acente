@@ -1358,65 +1358,7 @@
   else remove();
 })();
 
-// Normalize public SEO signals for home, category and listing routes.
-(function ensureSeoSignals() {
-  var canonical = document.querySelector('link[rel="canonical"]');
-  if (!canonical) { canonical = document.createElement('link'); canonical.rel = 'canonical'; document.head.appendChild(canonical); }
-  canonical.href = window.location.origin + window.location.pathname;
-  var og = document.querySelector('meta[property="og:url"]');
-  if (!og) { og = document.createElement('meta'); og.setAttribute('property','og:url'); document.head.appendChild(og); }
-  og.content = canonical.href;
-  var robots = document.querySelector('meta[name="robots"]');
-  if (!robots) { robots = document.createElement('meta'); robots.name='robots'; document.head.appendChild(robots); }
-  robots.content = 'index,follow,max-image-preview:large';
-  var heading = document.querySelector('main h1, main h2, h1');
-  var title = (document.title || '').trim();
-  if (!title || title === 'NEXUS Agency') {
-    title = heading ? heading.textContent.trim() + ' | NEXUS Agency' : 'NEXUS Agency | Seyahat ve rezervasyon';
-    document.title = title;
-  }
-  var desc = document.querySelector('meta[name="description"]');
-  var summary = document.querySelector('main p, .hero-subtitle, .category-hero p');
-  var description = desc && desc.content ? desc.content.trim() : (summary ? summary.textContent.trim() : 'Otel, tatil evi, yat, tur ve seyahat deneyimlerini güvenle keşfedin ve rezervasyon yapın.');
-  if (!desc) { desc = document.createElement('meta'); desc.name = 'description'; document.head.appendChild(desc); }
-  if (!desc.content) desc.content = description.slice(0, 160);
-  var keywords = document.querySelector('meta[name="keywords"]');
-  if (!keywords) { keywords = document.createElement('meta'); keywords.name = 'keywords'; document.head.appendChild(keywords); }
-  if (!keywords.content) keywords.content = [heading && heading.textContent.trim(), 'seyahat', 'rezervasyon', 'otel', 'tatil', 'tur'].filter(Boolean).join(', ');
-  var ld = document.getElementById('nexus-seo-jsonld');
-  if (!ld) { ld = document.createElement('script'); ld.id = 'nexus-seo-jsonld'; ld.type = 'application/ld+json'; document.head.appendChild(ld); }
-  ld.textContent = JSON.stringify({
-    '@context': 'https://schema.org', '@type': 'WebSite', name: 'NEXUS Agency', url: canonical.href,
-    inLanguage: document.documentElement.lang || 'tr', description: desc.content,
-    potentialAction: {'@type':'SearchAction', target: window.location.origin + '/urunler?konum={search_term_string}', 'query-input':'required name=search_term_string'}
-  });
-  // Dil kodu URL'ye eklenmez; aynı temiz slug için hreflang alternatifleri verilir.
-  ['tr','en','de','ru','zh','fr'].forEach(function (code) {
-    var alt = document.querySelector('link[rel="alternate"][hreflang="' + code + '"]');
-    if (!alt) { alt = document.createElement('link'); alt.rel = 'alternate'; alt.hreflang = code; document.head.appendChild(alt); }
-    alt.href = canonical.href;
-  });
-  var xdefault = document.querySelector('link[rel="alternate"][hreflang="x-default"]');
-  if (!xdefault) { xdefault = document.createElement('link'); xdefault.rel = 'alternate'; xdefault.hreflang = 'x-default'; document.head.appendChild(xdefault); }
-  xdefault.href = canonical.href;
-  var path = window.location.pathname.toLowerCase();
-  var type = document.body.classList.contains('product-detail') || /\/urunler\/[^/]+$/.test(path) ? 'Product' :
-    (document.body.classList.contains('category-page') || /\/kategori\//.test(path) ? 'ItemList' :
-    (/\/blog(\/|$)/.test(path) ? 'Article' :
-    (/\/bolge(\/|$)|\/region(\/|$)/.test(path) ? 'Place' :
-    (document.body.classList.contains('chisfis-home') || path === '/' ? 'WebSite' : 'WebPage'))));
-  var pageLd = document.getElementById('nexus-page-jsonld');
-  if (!pageLd) { pageLd = document.createElement('script'); pageLd.id = 'nexus-page-jsonld'; pageLd.type = 'application/ld+json'; document.head.appendChild(pageLd); }
-  var pageData = {'@context':'https://schema.org','@type':type,'name':title,'description':desc.content,'url':canonical.href,'inLanguage':document.documentElement.lang || 'tr'};
-  if (type === 'Article') {
-    pageData.headline = title;
-    pageData.mainEntityOfPage = canonical.href;
-    pageData.author = {'@type':'Organization','name':'NEXUS Agency'};
-  }
-  if (type === 'Place') pageData.address = {'@type':'PostalAddress','addressCountry':'TR'};
-  pageLd.textContent = JSON.stringify(pageData);
-})();
-
+// Canonical, hreflang, robots and structured data are rendered by the server.
 
 // Tenant seçimi sunucu tarafında body[data-tenant] ile korunur; UUID'yi SEO URL'sine taşımıyoruz.
 (function cleanTenantUrls() {

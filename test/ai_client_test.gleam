@@ -5,8 +5,6 @@
 //// because these paths either parse already-captured response bodies or
 //// short-circuit on the empty API key.
 
-import gleam/dict
-import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import gleam/string
@@ -195,34 +193,28 @@ pub fn seo_falls_back_without_api_key_test() {
   string.contains(keywords, ",") |> should.be_true
 }
 
-pub fn translation_returns_source_without_api_key_test() {
-  let assert Ok(text) =
+pub fn translation_without_api_key_is_not_faked_test() {
+  let assert Error(_) =
     ai_client.translate_content(cfg(), "<p>Deniz manzarası</p>", "tr", "en")
-  text |> should.equal("<p>Deniz manzarası</p>")
+  Nil
 }
 
-pub fn listing_translation_fallback_is_valid_json_test() {
-  let assert Ok(raw) =
+pub fn listing_translation_without_api_key_is_not_faked_test() {
+  let assert Error(_) =
     ai_client.translate_listing_all(cfg(), "Villa Gül", "<p>Havuzlu</p>")
-  let decoder = {
-    use en <- decode.field("en", lang_decoder())
-    use de <- decode.field("de", lang_decoder())
-    use ru <- decode.field("ru", lang_decoder())
-    use zh <- decode.field("zh", lang_decoder())
-    use fr <- decode.field("fr", lang_decoder())
-    decode.success([en, de, ru, zh, fr])
-  }
-  let assert Ok(langs) = json.parse(raw, decoder)
-  // Every language object must exist with title and description.
-  langs
-  |> list.each(fn(obj) {
-    dict.get(obj, "title") |> should.be_ok
-    dict.get(obj, "description") |> should.be_ok
-  })
+  Nil
 }
 
-fn lang_decoder() {
-  decode.dict(decode.string, decode.string)
+pub fn content_review_rejects_fabricated_evidence_test() {
+  let raw = "{\"summary\":\"Test\",\"findings\":[{\"kind\":\"unsupported_claim\",\"field\":\"description\",\"evidence\":\"Özel havuz\",\"suggestion\":\"Kontrol edin\"}]}"
+  let assert Error(_) = ai_client.validate_listing_review(raw, "Deniz manzaralı yat")
+  let assert Ok(_) = ai_client.validate_listing_review(raw, "Özel havuz açıklaması")
+  Nil
+}
+
+pub fn content_review_without_provider_does_not_claim_success_test() {
+  let assert Error(_) = ai_client.review_listing_content(cfg(), "Deniz manzaralı yat")
+  Nil
 }
 
 pub fn social_post_falls_back_without_api_key_test() {

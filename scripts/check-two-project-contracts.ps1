@@ -52,3 +52,5 @@ try {
 
 Write-Output ""
 Write-Output "İki proje sözleşme kontrolleri tamamlandı."
+& node (Join-Path $AgencyRoot 'scripts/check-channel-operations-parity.mjs')
+if ($LASTEXITCODE -ne 0) { throw 'Ortak kanal operasyonları sözleşmesi farklı.' }

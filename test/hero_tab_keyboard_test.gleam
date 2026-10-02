@@ -30,6 +30,7 @@ import gleeunit/should
 import simplifile
 
 const main_js_path = "priv/static/chisfis/js/main.js"
+
 const export_home_path = "chisfis-final/index.html"
 
 fn read_file(path: String) -> String {
@@ -168,9 +169,7 @@ pub fn hero_tablist_markup_keeps_roving_invariant_test() {
 
   // Seçili sekme hem `aria-selected` hem görsel `data-selected` taşır.
   let selected =
-    list.filter(tabs, fn(t) {
-      string.contains(t, "aria-selected=\"true\"")
-    })
+    list.filter(tabs, fn(t) { string.contains(t, "aria-selected=\"true\"") })
   selected |> list.length |> should.equal(1)
   selected
   |> list.map(fn(t) { string.contains(t, "data-selected") })
@@ -179,7 +178,6 @@ pub fn hero_tablist_markup_keeps_roving_invariant_test() {
   selected |> should.equal(tabbable)
 
   // Kalan sekmeler `-1`: ok tuşu olmadan erişilemezlerdi.
-  let rest =
-    list.filter(tabs, fn(t) { string.contains(t, "tabindex=\"-1\"") })
+  let rest = list.filter(tabs, fn(t) { string.contains(t, "tabindex=\"-1\"") })
   rest |> list.length |> should.equal(list.length(tabs) - 1)
 }

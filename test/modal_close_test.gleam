@@ -33,6 +33,7 @@ import gleeunit/should
 import simplifile
 
 const main_js_path = "priv/static/chisfis/js/main.js"
+
 const bridge_css_path = "priv/static/chisfis-bridge.css"
 
 fn read_file(path: String) -> String {
@@ -76,7 +77,9 @@ fn close_ms(src: String) -> Result(Int, Nil) {
 /// çevirmek için 100 ile çarpılır.
 fn close_css_tenths(css: String) -> Result(Int, Nil) {
   css
-  |> after("#cart-modal > div,\n#search-modal > div {\n  transition: transform 0.")
+  |> after(
+    "#cart-modal > div,\n#search-modal > div {\n  transition: transform 0.",
+  )
   |> take_digits
   |> int.parse
 }
@@ -145,7 +148,9 @@ pub fn modal_reopen_cancels_pending_close_test() {
   let src = read_file(main_js_path)
   // İptal iki yerde: `showModal` girişi ve `finish` içi (zamanlayıcı temizliği).
   src
-  |> count_of("if (el.__nxModalTimer) { clearTimeout(el.__nxModalTimer); el.__nxModalTimer = null; }")
+  |> count_of(
+    "if (el.__nxModalTimer) { clearTimeout(el.__nxModalTimer); el.__nxModalTimer = null; }",
+  )
   |> should.equal(2)
 
   // Alt bardaki "Sepet" düğmesi ayrı IIFE'de; köprüden geçmeli.

@@ -29,19 +29,40 @@ type Delivery =
     String,
   )
 
-pub fn start(db: pog.Connection, api_origin: String, api_key: String, tenant_id: String, remote_tenant_id: String) {
-  let pid = process.spawn_unlinked(fn() { loop(db, api_origin, api_key, tenant_id, remote_tenant_id) })
+pub fn start(
+  db: pog.Connection,
+  api_origin: String,
+  api_key: String,
+  tenant_id: String,
+  remote_tenant_id: String,
+) {
+  let pid =
+    process.spawn_unlinked(fn() {
+      loop(db, api_origin, api_key, tenant_id, remote_tenant_id)
+    })
   io.println("NEXUS reservation worker: started")
   pid
 }
 
-fn loop(db: pog.Connection, api_origin: String, api_key: String, tenant_id: String, remote_tenant_id: String) {
+fn loop(
+  db: pog.Connection,
+  api_origin: String,
+  api_key: String,
+  tenant_id: String,
+  remote_tenant_id: String,
+) {
   process_queue(db, api_origin, api_key, tenant_id, remote_tenant_id)
   process.sleep(poll_interval_ms)
   loop(db, api_origin, api_key, tenant_id, remote_tenant_id)
 }
 
-fn process_queue(db: pog.Connection, api_origin: String, api_key: String, tenant_id: String, remote_tenant_id: String) {
+fn process_queue(
+  db: pog.Connection,
+  api_origin: String,
+  api_key: String,
+  tenant_id: String,
+  remote_tenant_id: String,
+) {
   let decoder = {
     use delivery_id <- decode.field(0, decode.string)
     use reservation_id <- decode.field(1, decode.string)
@@ -142,7 +163,9 @@ fn process_queue(db: pog.Connection, api_origin: String, api_key: String, tenant
   {
     Ok(result) ->
       result.rows
-      |> list.each(fn(delivery) { deliver(db, api_origin, api_key, remote_tenant_id, delivery) })
+      |> list.each(fn(delivery) {
+        deliver(db, api_origin, api_key, remote_tenant_id, delivery)
+      })
     Error(error) ->
       io.println(
         "NEXUS reservation worker: queue unavailable: "
@@ -155,10 +178,12 @@ fn query_error_summary(error: pog.QueryError) -> String {
   case error {
     pog.ConstraintViolated(message, constraint, detail) ->
       message <> " " <> constraint <> " " <> detail
-    pog.PostgresqlError(code, name, message) -> code <> " " <> name <> " " <> message
+    pog.PostgresqlError(code, name, message) ->
+      code <> " " <> name <> " " <> message
     pog.UnexpectedArgumentCount(expected, got) ->
       "argument count " <> int.to_string(expected) <> "/" <> int.to_string(got)
-    pog.UnexpectedArgumentType(expected, got) -> "argument type " <> expected <> "/" <> got
+    pog.UnexpectedArgumentType(expected, got) ->
+      "argument type " <> expected <> "/" <> got
     pog.UnexpectedResultType(_) -> "unexpected result type"
     pog.QueryTimeout -> "query timeout"
     pog.ConnectionUnavailable -> "connection unavailable"

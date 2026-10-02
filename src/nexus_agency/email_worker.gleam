@@ -7,6 +7,9 @@ import gleam/io
 import nexus_agency/email_sender
 import pog
 
+@external(erlang, "customer_phone_worker", "run")
+fn process_phone_queue(db: pog.Connection) -> Nil
+
 const poll_interval_ms = 30_000
 
 pub fn start(db: pog.Connection) {
@@ -28,6 +31,7 @@ fn loop(db: pog.Connection) {
 fn safe_process_queue(db: pog.Connection) -> Result(Nil, String) {
   // email_sender.process_queue kendi hata yönetimini yapıyor,
   // ama yine de dış sarmalayıcı bir güvenlik katmanı ekler
+  process_phone_queue(db)
   email_sender.process_queue(db)
   Ok(Nil)
 }

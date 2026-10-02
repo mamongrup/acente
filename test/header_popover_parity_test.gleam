@@ -31,6 +31,7 @@ import gleeunit/should
 import simplifile
 
 const popover_css = "priv/static/chisfis-bridge.css"
+
 const mobile_css = "priv/static/chisfis/css/custom.css"
 
 fn read_file(path: String) -> String {
@@ -132,6 +133,8 @@ pub fn row_sub_hover_colors_test() {
 pub fn shared_check_uses_token_test() {
   let css = read_file(popover_css)
   css
-  |> string.contains("html.dark .nc-pop__check { color: var(--nc-accent, #a5b4fc); }")
+  |> string.contains(
+    "html.dark .nc-pop__check { color: var(--nc-accent, #a5b4fc); }",
+  )
   |> should.be_true
 }

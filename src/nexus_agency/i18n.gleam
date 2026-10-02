@@ -1,3 +1,11 @@
+//// Panel bölüm başlığı — slug'dan çeviri anahtarına.
+////
+//// `panel.section` dispeç (form seçimi) ve varlık seçimi (script/CSS) için
+//// slug kullanır; görünür başlık yalnızca buradan, seçili dille üretilir.
+//// Böylece başlık çevrilebilir hâle gelirken yönlendirme anahtarı sabit kalır
+//// (eskiden Türkçe başlık hem görünen metin hem de dispeç anahtarıydı, bu
+//// yüzden dil değişince yanlış form/varlık seçilirdi).
+
 // NEXUS Agency — 6-Language (TR, EN, DE, RU, ZH, FR) i18n Translation Engine
 
 pub fn normalize_lang(code: String) -> String {
@@ -51,13 +59,6 @@ pub fn supported_languages() -> List(#(String, String, String)) {
   ]
 }
 
-//// Panel bölüm başlığı — slug'dan çeviri anahtarına.
-////
-//// `panel.section` dispeç (form seçimi) ve varlık seçimi (script/CSS) için
-//// slug kullanır; görünür başlık yalnızca buradan, seçili dille üretilir.
-//// Böylece başlık çevrilebilir hâle gelirken yönlendirme anahtarı sabit kalır
-//// (eskiden Türkçe başlık hem görünen metin hem de dispeç anahtarıydı, bu
-//// yüzden dil değişince yanlış form/varlık seçilirdi).
 pub fn section_heading_key(section: String) -> String {
   case section {
     "catalog" | "listings" -> "catalog"
@@ -219,7 +220,8 @@ pub fn t(lang: String, key: String) -> String {
     "en", "abandoned_carts" -> "Abandoned Carts"
     "en", "customers" -> "Customers"
     "en", "customer_contact" -> "Email (or phone)"
-    "en", "tenant_selector" -> "Agency code (only needed when choosing between accounts)"
+    "en", "tenant_selector" ->
+      "Agency code (only needed when choosing between accounts)"
     "en", "tenant_slug_placeholder" ->
       "If this email belongs to multiple agencies, enter the agency slug (for example, test-agency)"
     "en", "sub_agencies" -> "Agencies & Suppliers"
@@ -503,7 +505,8 @@ pub fn t(lang: String, key: String) -> String {
     "ar", "customers" -> "العملاء"
     "ar", "customer_contact" -> "البريد الإلكتروني (أو الهاتف)"
     "ar", "tenant_selector" -> "رمز الوكالة (لاختيار الحساب عند التعدد)"
-    "ar", "tenant_slug_placeholder" -> "إذا استُخدم البريد في أكثر من وكالة، أدخل رمز الوكالة المطلوبة"
+    "ar", "tenant_slug_placeholder" ->
+      "إذا استُخدم البريد في أكثر من وكالة، أدخل رمز الوكالة المطلوبة"
     "ar", "sub_agencies" -> "الوكالات والموردين"
     "ar", "team" -> "فريق العمل والصلاحيات"
     "ar", "permissions" -> "الصلاحيات"
@@ -594,7 +597,8 @@ pub fn t(lang: String, key: String) -> String {
     "fr", "abandoned_carts" -> "Paniers abandonnés"
     "fr", "customers" -> "Clients"
     "fr", "customer_contact" -> "E-mail (ou téléphone)"
-    "fr", "tenant_selector" -> "Code agence (pour choisir entre plusieurs comptes)"
+    "fr", "tenant_selector" ->
+      "Code agence (pour choisir entre plusieurs comptes)"
     "fr", "tenant_slug_placeholder" ->
       "Si cette adresse e-mail existe dans plusieurs agences, saisissez le slug de l'agence voulue"
     "fr", "sub_agencies" -> "Agences & Fournisseurs"
