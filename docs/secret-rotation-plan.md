@@ -88,6 +88,35 @@ denetler:
 - `unknown` → rotasyon kaydı yok; yaş denetimindeki fail-closed kuralı
   geçerlidir.
 
+## Haftalık rotasyon bildirici (opsiyonel)
+
+`scripts/notify-rotation-overdue.ps1`, pencere denetimini haftalık olarak
+çalıştırıp aşım durumunda webhook/e-posta uyarısı üretir (platform'daki
+aynı adlı betiğin acente aynası):
+
+- Durum kaynağı `agency.rotation_window_state('SECRET_KEY_BASE')`
+  (247 sözleşmesi; hygiene ile aynı kaynak).
+- Çıkış sözleşmesi: `open` ve penceresi dolmuş + PREVIOUS kaldırılmış
+  durumlar → 0; `expired` + PREVIOUS env'de, rotasyon yaşı
+  `-SecretKeyRotationMaxDays` (varsayılan 180 gün) aşımı ve `unknown`
+  (fail-closed) → 1; DB'ye erişilemezse → 2.
+- Yaş kapısı pencere durumundan bağımsızdır ve önce değerlendirilir.
+- Uyarı kanalları bağımsızdır: `-WebhookUrl` (Slack uyumlu POST) ve
+  `-MailTo` + SMTP parametreleri (acente `.env`'sinde MAIL_* sözleşmesi
+  yoktur; SMTP ayarları parametreyle verilir).
+- Her koşum `.local/rotation-check.log` dosyasına yazılır.
+
+Haftalık zamanlama (idempotent; kanal parametreleri görev argümanlarına
+ gömülür, değiştirmek için yeniden çalıştırın):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/register-rotation-check-task.ps1 `
+  -MailTo ops@acme.test -MailHost smtp.acme.test -MailFrom alerts@acme.test
+```
+
+Görev geçerli kullanıcı oturumunda çalışır; makine kapalı kaldığında kaçan
+çalışma (StartWhenAvailable) sonraki açılışta telafi edilir.
+
 ## Lokal doğrulama
 
 ```powershell

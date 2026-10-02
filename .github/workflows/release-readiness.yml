@@ -139,7 +139,9 @@ jobs:
             "scripts/check-wp2-concurrent-booking.ps1",
             "scripts/check-wp2-sales-chain.ps1",
             "scripts/daily-csp-report.ps1",
-            "scripts/record-secret-rotation.ps1"
+            "scripts/record-secret-rotation.ps1",
+            "scripts/notify-rotation-overdue.ps1",
+            "scripts/register-rotation-check-task.ps1"
           )
           foreach ($file in $files) {
             if (!(Test-Path $file)) { throw "Missing script: $file" }
