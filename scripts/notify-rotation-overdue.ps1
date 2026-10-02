@@ -44,6 +44,11 @@ param(
   [string]$MailUser = '',
   [string]$MailPassword = '',
   [string]$EnvPath = '.env',
+  # SMTP kimlik dosyasi (register-rotation-check-task.ps1 gorev argumanina
+  # parolayi DEGIL dosya yolunu gomer). Dosya MAIL_PASSWORD/MAIL_USER/
+  # MAIL_HOST/MAIL_PORT/MAIL_FROM satirlarini icerir; verilmezse .env veya
+  # parametreler kullanilir.
+  [string]$MailCredentialsPath = '',
   [string]$SecretName = 'SECRET_KEY_BASE',
   # Son rotasyon icin kabul edilebilir en yuksek yas (gun); asimda rotasyon
   # overdue uyarisi uretilir (238 sozlesmesi; platform muadili ile ayni
@@ -72,6 +77,30 @@ foreach ($key in @('PGHOST', 'PGPORT', 'PGDATABASE', 'PGUSER', 'PGPASSWORD')) {
 }
 
 if ($MailPort -eq 0) { $MailPort = 587 }
+
+# SMTP kimlik dosyasi: gorev kaydi parolayi duz metin TUTMAZ; betik
+# dosyayi okur. Dosya satirlari parametreleri EZER (acente .env'sinde
+# MAIL_* sozlesmesi yoktur; bu dosya tek kaynaktir).
+if ($MailCredentialsPath) {
+  if (!(Test-Path -LiteralPath $MailCredentialsPath)) {
+    throw "Mail credentials file not found: $MailCredentialsPath"
+  }
+  Get-Content -LiteralPath $MailCredentialsPath | ForEach-Object {
+    $line = $_.Trim()
+    if (!$line -or $line.StartsWith('#')) { return }
+    $i = $line.IndexOf('=')
+    if ($i -lt 1) { return }
+    $k = $line.Substring(0, $i).Trim()
+    $v = $line.Substring($i + 1).Trim()
+    switch ($k) {
+      'MAIL_PASSWORD' { $MailPassword = $v }
+      'MAIL_USER' { $MailUser = $v }
+      'MAIL_HOST' { $MailHost = $v }
+      'MAIL_PORT' { $MailPort = [int]$v }
+      'MAIL_FROM' { $MailFrom = $v }
+    }
+  }
+}
 
 $psql = 'C:/laragon/bin/postgresql/postgresql/bin/psql.exe'
 if (!(Test-Path -LiteralPath $psql)) {

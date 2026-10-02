@@ -13,7 +13,14 @@
 
   Uyari kanallari gorevin argumanlarina gomulur; degistirmek icin bu betigi
   yeniden calistirin. Acente .env'sinde MAIL_* sozlesmesi yoktur; SMTP
-  ayarlari parametreyle verilir ve ayni sekilde gorev argumanlarina gomulur.
+  ayarlari parametreyle verilir.
+
+  GUVENLIK: SMTP PAROLASI gorev argumanina GOMULMEZ. Task Scheduler action
+  argumanlarini duz metin saklar ve herkes tarafindan okunabilir
+  (Get-ScheduledTask, schtasks /query); gomulen parola pratikte acik
+  bir sir olur. -MailPassword verilirse betik parolayi yalnizca BU
+  calismada okunacak gecici bir dosyaya yazar ve dosya yolunu gorev
+  argumanina gomur. Gorel satis yapilmadigi icin arguman sirsizdir.
 
 .EXAMPLE
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/register-rotation-check-task.ps1
@@ -51,7 +58,30 @@ if ($MailHost) { $argument += " -MailHost `"$MailHost`"" }
 if ($MailPort) { $argument += " -MailPort $MailPort" }
 if ($MailFrom) { $argument += " -MailFrom `"$MailFrom`"" }
 if ($MailUser) { $argument += " -MailUser `"$MailUser`"" }
-if ($MailPassword) { $argument += " -MailPassword `"$MailPassword`"" }
+
+# SMTP parolasi gorev argumanina ASLA gomulmez (Task Scheduler argumanlari
+# duz metin saklar). Onun yerine yalnizca bu calisma icin gecici bir
+# kimlik dosyasi yazilir ve dosya YOLU argumana konur. Dosya goreli
+# kullanici icindir ve icerigi yalnizca yerel sahipleri okuyabilir.
+if ($MailPassword) {
+  $secretDir = Join-Path $env:LOCALAPPDATA 'NEXUS\secrets'
+  New-Item -ItemType Directory -Path $secretDir -Force | Out-Null
+  $secretFile = Join-Path $secretDir 'rotation-mail-credentials.env'
+  # Onceki bir dosyadan artik kalan degeri temizle.
+  Remove-Item -LiteralPath $secretFile -Force -ErrorAction SilentlyContinue
+  Set-Content -LiteralPath $secretFile -Encoding UTF8 -Value @(
+    "MAIL_PASSWORD=$MailPassword",
+    "MAIL_USER=$MailUser",
+    "MAIL_HOST=$MailHost",
+    "MAIL_PORT=$MailPort",
+    "MAIL_FROM=$MailFrom"
+  )
+  # Yalnizca iceren kullanici okuyabilsin.
+  & icacls.exe $secretFile /inheritance:r /grant:r "$($env:USERNAME):(R)" | Out-Null
+  $argument += " -MailCredentialsPath `"$secretFile`""
+} elseif ($MailUser) {
+  throw 'MailUser verildi ama MailPassword yok; parola gorev argumanina gomulemez.'
+}
 
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $argument -WorkingDirectory $root
 $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek $DayOfWeek -At $At
