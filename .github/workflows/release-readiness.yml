@@ -129,6 +129,7 @@ jobs:
             "scripts/migrate.ps1",
             "scripts/run-db-tests.ps1",
             "scripts/test-wrong-db-guard.ps1",
+            "scripts/fresh-db-smoke.ps1",
             "scripts/rebaseline-migration.ps1",
             "scripts/check-runtime-health.ps1",
             "scripts/run-audit-retention.ps1",
