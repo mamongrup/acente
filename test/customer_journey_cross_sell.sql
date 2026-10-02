@@ -6,7 +6,14 @@ BEGIN
   IF (SELECT count(DISTINCT source_category) FROM agency.journey_question_rules)<>17 THEN
     RAISE EXCEPTION 'canonical_category_coverage_missing'; END IF;
   SELECT tenant_id,id INTO t,a FROM agency.users WHERE membership_type='admin' AND active LIMIT 1;
-  IF t IS NULL THEN RAISE EXCEPTION 'admin_fixture_missing'; END IF;
+  IF t IS NULL THEN
+    -- Self-seeding: admin yoksa ilk tenant'a tohumlanir.
+    SELECT id INTO t FROM agency.tenants ORDER BY created_at LIMIT 1;
+    IF t IS NULL THEN RAISE EXCEPTION 'tenant fixture missing'; END IF;
+    INSERT INTO agency.users(tenant_id,email,display_name,membership_type)
+      VALUES(t,'seed-admin-'||gen_random_uuid()::text||'@example.test','Seed Admin','admin')
+      RETURNING id INTO a;
+  END IF;
   INSERT INTO agency.users(tenant_id,email,display_name,membership_type)
     VALUES(t,'journey-'||gen_random_uuid()::text||'@example.test','Journey Test','customer')
     RETURNING id INTO u;

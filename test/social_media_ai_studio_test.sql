@@ -96,7 +96,10 @@ BEGIN
   -- therefore passed without asserting anything.
   SELECT id INTO v_other_tenant FROM agency.tenants WHERE id <> v_tenant_id LIMIT 1;
   IF v_other_tenant IS NULL THEN
-    RAISE EXCEPTION 'İzolasyon testi için ikinci bir tenant gerekli';
+    -- Self-seeding: izolasyon senaryosu icin ikinci kiraci yoksa tohumlanir.
+    INSERT INTO agency.tenants(legal_name,brand_name,slug)
+      VALUES('Social Isolation Tenant','Social Isolation Tenant','social-iso-'||substr(gen_random_uuid()::text,1,8))
+      RETURNING id INTO v_other_tenant;
   END IF;
 
   WITH listing AS (

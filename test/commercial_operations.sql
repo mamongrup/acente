@@ -4,8 +4,30 @@ DECLARE v_tenant uuid; v_admin uuid; v_listing uuid; v_base bigint;
   v_proposal uuid; v_org uuid; v_contract uuid; v_product uuid;
   v_reservation uuid; v_campaign uuid; v_channel uuid; v_event uuid;
 BEGIN
+  -- Self-seeding: admin ve gecerli yayinlanmis kaynak ilan garantisi.
   SELECT tenant_id,id INTO v_tenant,v_admin FROM agency.users
     WHERE membership_type='admin' AND active LIMIT 1;
+  IF v_tenant IS NULL THEN
+    SELECT id INTO v_tenant FROM agency.tenants ORDER BY created_at LIMIT 1;
+    IF v_tenant IS NULL THEN RAISE EXCEPTION 'tenant fixture missing'; END IF;
+    INSERT INTO agency.users(tenant_id,email,display_name,membership_type)
+      VALUES(v_tenant,'seed-admin-'||gen_random_uuid()::text||'@example.test','Seed Admin','admin')
+      RETURNING id INTO v_admin;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM agency.listings l WHERE l.status='published'
+      AND NOT EXISTS(SELECT 1 FROM agency.validate_listing_common_contract(l))
+      AND NOT EXISTS(SELECT 1 FROM agency.validate_listing_contract(l.tenant_id,l.category,l.metadata))
+  ) THEN
+    INSERT INTO agency.listings(tenant_id,code,category,title,locality,description,currency,price_minor,status,source,images,owner_info,cancellation_policy,metadata)
+    VALUES(v_tenant,'seed-commerce-'||gen_random_uuid()::text,'hotel','Seed ticari otel','Test Lokasyon','Test aciklama','TRY',250000,'published','manual',
+      jsonb_build_array(jsonb_build_object('url','https://example.test/seed.jpg')),
+      jsonb_build_object('provider','Seed'),
+      jsonb_build_object('policy','Standart'),
+      jsonb_build_object('contract_fields',coalesce((select jsonb_object_agg(f.field_key,'test')
+        from agency.category_fields f join agency.categories cat ON cat.id=f.category_id
+        where cat.tenant_id=v_tenant and cat.code='hotel' and f.required),'{}'::jsonb)));
+  END IF;
   INSERT INTO agency.listings(tenant_id,code,category,title,locality,description,currency,
     price_minor,status,source,metadata,images,amenities,owner_info,cancellation_policy)
   SELECT v_tenant,'commerce-test-'||gen_random_uuid()::text,l.category,l.title,l.locality,

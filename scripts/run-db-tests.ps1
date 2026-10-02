@@ -10,14 +10,13 @@
 # Baglanti cozumlemesi: parametre > ortam degiskeni > .env (CI .env'i
 # PGUSER/PGPASSWORD yazar; yerel .env acente rollerini yazar).
 #
-# Onemli fixture notu: acente kabul testlerinin bir bolumu KENDI verisini
-# kendisi kurar (orn. ai_campaign_*), bir bolumu ise canli veri fixture'i
-# ister (orn. category_service_operations mevcut admin + ilan arar).
-# Bu yuzden katman, tasarlandigi gibi, veri tasiyan yerel/canli veritabanina
-# karsi kosturulmalidir; migration-only bos bir DB'de 'fixture_missing'
-# ile gurultulu kirilir (bu bir hata degil, tasarimdir - sessiz atlama yok).
-# CI'da canli fixture verisi olmadigi icin bu katman CI'ya baglanmadi;
-# bagimsizligi koruyan gleam testleri CI kapsamini olusturur.
+# Onemli fixture notu: tum kabul testleri kendi verisini kendisi kurar
+# (self-seeding); migration-seeded temel veri (demo tenant, kanonik katalog)
+# uzerinde calisir, canli veri fixture'i gerektirmez. Katman hem taze-migrate
+# bir DB'de hem canli veritabaninda kosturulabilir; CI'da release-readiness
+# akisinin db-acceptance isi olarak taze DB'de kosar.
+# Testler agency_app yetkileriyle kosulur (uygulama perspektifi; izin
+# guard'larinin da dogrulanmasi icin super-user ile kosturmayin).
 #
 # Not: Bu dosya bilerek yalnizca ASCII yazar. Windows PowerShell 5.1, BOM'suz
 # UTF-8 betigi ANSI okur; em-dash gibi karakterlerin son bayti tirnak bytesi

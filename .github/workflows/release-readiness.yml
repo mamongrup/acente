@@ -7,11 +7,10 @@ on:
       - main
       - master
 
-# Not: acente test/*.sql SQL kabul katmani bu is akisinda kosulmaz;
-# dosyalarin bir bolumu canli veri fixture'i ister (bkz.
-# scripts/run-db-tests.ps1 baslik notu). Katman, tasarlandigi gibi, veri
-# tasiyan yerel veritabanina karsi scripts/run-db-tests.ps1 ile kosturulur;
-# CI kapsami gleam testleri + statik kontrollerdir (sessiz atlama yok).
+# Not: test/*.sql SQL kabul katmani self-seeding'dir (kendi verisini kendisi
+# kurar) ve asagidaki db-acceptance isinde taze-migrate bir veritabanina
+# karsi agency_app yetkileriyle kosturulur (sessiz atlama yok). Gleam testleri
+# ve statik kontroller readiness isinde kalir.
 jobs:
   readiness:
     runs-on: ubuntu-latest
@@ -175,3 +174,41 @@ jobs:
           if ($LASTEXITCODE -eq 0) { throw "Production gate unexpectedly passed for unsafe env." }
           Write-Host "Unsafe production env rejected as expected."
           exit 0
+
+  # SQL kabul katmani: self-seeding testler taze-migrate veritabaninda
+  # agency_app yetkileriyle kosturulur (uygulama perspektifi; izin guard'lari
+  # da boylece dogrulanir). Migration zinciri postgres ile uygulanir.
+  db-acceptance:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare agency database
+        shell: bash
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE agency_app LOGIN PASSWORD 'ci-agency-test';"
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE nexus_agency OWNER agency_app;"
+          printf 'PGHOST=127.0.0.1\nPGPORT=5432\nPGDATABASE=nexus_agency\nPGUSER=postgres\nPGPASSWORD=postgres\n' > .env
+
+      - name: Apply migrations
+        shell: pwsh
+        run: ./scripts/migrate.ps1
+
+      - name: SQL acceptance chain (test/*.sql, agency_app)
+        shell: pwsh
+        run: ./scripts/run-db-tests.ps1 -DbHost 127.0.0.1 -Port 5432 -Database nexus_agency -User agency_app -Password 'ci-agency-test'

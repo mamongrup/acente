@@ -8,6 +8,12 @@ DECLARE
 BEGIN
   SELECT id INTO v_tenant FROM agency.tenants ORDER BY created_at LIMIT 1;
   SELECT id INTO v_user FROM agency.users WHERE tenant_id = v_tenant AND membership_type IN ('owner','admin') LIMIT 1;
+  -- Self-seeding: onaylayan admin yoksa tohumlanir.
+  IF v_user IS NULL THEN
+    INSERT INTO agency.users(tenant_id,email,display_name,membership_type)
+      VALUES(v_tenant,'seed-admin-'||gen_random_uuid()::text||'@example.test','Seed Admin','admin')
+      RETURNING id INTO v_user;
+  END IF;
 
   -- 1. Insert test submission
   INSERT INTO agency.supplier_onboarding_submissions (

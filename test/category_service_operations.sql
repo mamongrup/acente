@@ -3,10 +3,29 @@ DO $$
 DECLARE v_tenant uuid; v_admin uuid; v_listing uuid; v_reservation uuid;
   v_task uuid; v_category text; v_count integer;
 BEGIN
-  SELECT l.tenant_id,u.id,l.id,l.category INTO v_tenant,v_admin,v_listing,v_category
-  FROM agency.listings l JOIN agency.users u ON u.tenant_id=l.tenant_id
-    AND u.membership_type='admin' AND u.active LIMIT 1;
-  IF v_listing IS NULL THEN RAISE EXCEPTION 'fixture_missing'; END IF;
+  -- Self-seeding: migration-seeded tenant/listing uzerinden admin ve ilan
+  -- garanti edilir; canli veri fixture'i gerektirmez.
+  SELECT l.tenant_id,l.id,l.category INTO v_tenant,v_listing,v_category
+  FROM agency.listings l ORDER BY l.created_at LIMIT 1;
+  IF v_listing IS NULL THEN
+    SELECT id INTO v_tenant FROM agency.tenants ORDER BY created_at LIMIT 1;
+    IF v_tenant IS NULL THEN RAISE EXCEPTION 'tenant fixture missing'; END IF;
+    INSERT INTO agency.listings(tenant_id,code,category,title,locality,description,images,metadata,status,price_minor)
+    VALUES(v_tenant,'seed-svc-'||gen_random_uuid()::text,'hotel','Seed hizmet ilani','Test','Test ilani',
+      '[{"url":"https://example.test/seed.jpg"}]'::jsonb,
+      jsonb_build_object('contract_fields',coalesce((select jsonb_object_agg(f.field_key,'test')
+        from agency.category_fields f join agency.categories cat ON cat.id=f.category_id
+        where cat.tenant_id=v_tenant and cat.code='hotel' and f.required),'{}'::jsonb)),
+      'published',100000)
+    RETURNING id,category INTO v_listing,v_category;
+  END IF;
+  SELECT id INTO v_admin FROM agency.users
+    WHERE tenant_id=v_tenant AND membership_type='admin' AND active LIMIT 1;
+  IF v_admin IS NULL THEN
+    INSERT INTO agency.users(tenant_id,email,display_name,membership_type)
+      VALUES(v_tenant,'seed-admin-'||gen_random_uuid()::text||'@example.test','Seed Admin','admin')
+      RETURNING id INTO v_admin;
+  END IF;
   INSERT INTO agency.reservations(tenant_id,listing_id,reference_code,status)
     VALUES(v_tenant,v_listing,'service-test-'||gen_random_uuid()::text,'confirmed')
     RETURNING id INTO v_reservation;
