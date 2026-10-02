@@ -155,6 +155,34 @@ Migration dosyası numara **ve içerik** ile seçilir: numaralar tekrarlanabilir
 (acente'de 247 iki dosyada kullanılır — `migrate.ps1` bunu zaten preflight
 uyarısıyla bildirir ve `version` tam dosya adı olduğu için güvenlidir).
 
+### NEXUS_CONFIG_KEY penceresi (sürümlü genişletme)
+
+`247` yalnız iki sır seed'liyordu (`SECRET_KEY_BASE`,
+`SECRET_KEY_BASE_PREVIOUS`); `NEXUS_CONFIG_KEY` satırsız kalıp varsayılan
+değere (48 saat) düşüyordu. Pencere artık **açıkça yazılıdır**:
+
+| migration | dosya |
+|---|---|
+| platform | `db/migrations/193_rotation_window_config_key.sql` |
+| acente | `db/migrations/272_rotation_window_config_key.sql` |
+
+`187`/`247` **değiştirilmez** (checksum korunur); genişletme yeni migration'da
+gelir. `ON CONFLICT DO NOTHING` ile operatörün `set_rotation_window` ile
+değiştirdiği mevcut ayar asla ezilmez.
+
+**Kapsam: bu sır enformatiftir.** Ayarları şifreleyen üst anahtardır ve
+kayıpsız değiştirilemez (`config-key.ps1` / `seal-legacy-secrets.ps1`
+şifreli kayıt varken anahtarı yeniden üretmez). Dolayısıyla:
+
+- **PREVIOUS karşılığı yoktur** — `expired` durumunda kaldırılacak bir değer
+  bulunmaz.
+- **Yaş kapısı (overdue) geçerlidir** ve uyarı üretir: anahtarın ne kadar
+  süredir değiştirilmediği izlenir.
+- **`expired` yalnızca raporlanır**, zorlama uygulanmaz.
+
+Bu ayrım `record-secret-rotation.ps1` ve `notify-rotation-overdue.ps1`'nin
+`NEXUS_CONFIG_KEY` metniyle tutarlıdır.
+
 ```powershell
 node scripts/check-rotation-notify-parity.mjs
 # veya iki proje kapısı içinde:

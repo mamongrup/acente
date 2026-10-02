@@ -194,6 +194,12 @@ function findMigration(root, numberPattern, contentPattern) {
 
 const agencyWindow = findMigration(agencyRoot, /^247_/, /rotation_window_hours\s*\(/);
 const nexusWindow = findMigration(nexusRoot, /^187_/, /rotation_window_hours\s*\(/);
+// NEXUS_CONFIG_KEY pencere genisletmesi SURLULU bir migration'da gelir
+// (platform 193, acente 272): 187/247 DEGISTIRILMEZ, checksum korunur.
+// Bu yuzden seed satirlarinin tamami tek dosyada degil, iki migration'in
+// birlesimidir.
+const agencyConfigKey = findMigration(agencyRoot, /^27[2-9]_/, /NEXUS_CONFIG_KEY'/);
+const nexusConfigKey = findMigration(nexusRoot, /^19[3-9]_/, /NEXUS_CONFIG_KEY'/);
 if (!agencyWindow || !nexusWindow) {
   throw new Error(`pencere migration'i bulunamadi: acente=${agencyWindow?.name ?? 'yok'} platform=${nexusWindow?.name ?? 'yok'}`);
 }
@@ -258,14 +264,36 @@ function defaultWindow(sql) {
 }
 compare('varsayilan pencere (saat)', defaultWindow(agencyWindow.sql), defaultWindow(nexusWindow.sql));
 
-// Seed satirlari: varsayilan degerin hangi sirrara yazildigi da sozlesmedir.
-function seededSecrets(sql) {
-  const block = sql.match(/INSERT\s+INTO\s+\w+\.\w*secret_rotation_settings[\s\S]*?ON CONFLICT[^;]*;/i);
-  if (!block) return '(yok)';
-  return [...block[0].matchAll(/\('([A-Z_]+)',\s*(\d+)\)/g)]
-    .map(m => `${m[1]}=${m[2]}`).sort().join(',');
+// Seed satirlari: varsayilan degerin hangi sirlara yazildigi da sozlesmedir.
+// NEXUS_CONFIG_KEY sürümlü genisletme migration'inda gelir; ikisi birlestirilir
+// (yoksa platform tarafinda eksik görünürdü).
+function seededSecrets(...sources) {
+  const values = [];
+  for (const sql of sources.filter(Boolean)) {
+    for (const block of sql.matchAll(/INSERT\s+INTO\s+\w+\.\w*secret_rotation_settings[\s\S]*?ON CONFLICT[^;]*;/gi)) {
+      for (const m of block[0].matchAll(/\('([A-Z_]+)',\s*(\d+)\)/g)) values.push(`${m[1]}=${m[2]}`);
+    }
+  }
+  return [...new Set(values)].sort().join(',');
 }
-compare('seed edilen sir pencereleri', seededSecrets(agencyWindow.sql), seededSecrets(nexusWindow.sql));
+compare('seed edilen sir pencereleri',
+  seededSecrets(agencyWindow.sql, agencyConfigKey?.sql),
+  seededSecrets(nexusWindow.sql, nexusConfigKey?.sql));
+
+// Genisletme migration'i her iki depoda da mevcut olmali: tek tarafta
+// kalirsa NEXUS_CONFIG_KEY'in penceresi ayri ayri olusur ve parite bozulur.
+// Dosya ADLARI farkli olabilir (migration numaralari projeye gore degisir:
+// platform 193, acente 272), bu yuzden varlik karsilastirilir, ad degil.
+compare('NEXUS_CONFIG_KEY pencere migration\'i',
+  agencyConfigKey ? 'var' : 'yok', nexusConfigKey ? 'var' : 'yok');
+
+// NEXUS_CONFIG_KEY penceresi iki depoda da ayni degerde olmali.
+function configKeyWindow(config) {
+  const match = config?.sql.match(/\('NEXUS_CONFIG_KEY',\s*(\d+)\)/);
+  return match ? match[1] : '(yok)';
+}
+compare('NEXUS_CONFIG_KEY varsayilan penceresi (saat)',
+  configKeyWindow(agencyConfigKey), configKeyWindow(nexusConfigKey));
 
 // Durum enum'lari: rotation_window_state yalnizca bu uc degeri dondurur
 // (247/187 govdesi ve COMMENT ayni listeyi verir).
@@ -303,4 +331,5 @@ if (differences.length > 0) {
 console.log(`  parametre: ${agencyParams.length} (${agencyParams.map(p => `$${p.name}`).join(', ')})`);
 console.log(`  cikis kodlari: ${exitCodes(agencySource)} | karar tablosu: acente=${agencyHasDecision ? 'var' : 'yok'} platform=${nexusHasDecision ? 'var' : 'yok'}`);
 console.log(`  pencere semasi (${agencyWindow.name} <-> ${nexusWindow.name}): ${windowFunctions.length} fonksiyon, varsayilan ${defaultWindow(agencyWindow.sql)}s, enum [${stateEnum(agencyWindow.sql)}]`);
+console.log(`  seed pencereler: ${seededSecrets(agencyWindow.sql, agencyConfigKey?.sql)} (NEXUS_CONFIG_KEY genisletmesi: ${agencyConfigKey?.name ?? 'yok'} <-> ${nexusConfigKey?.name ?? 'yok'})`);
 console.log('  rotasyon uyarisi sozlesmesi acente <-> platform ESIT.');
