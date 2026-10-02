@@ -193,6 +193,38 @@ Platform deposu hazır değilse (CI yalnızca acente'yi checkout eder)
 denetim **atlanır** ve exit 0 verir — acente bağımsız çalışmaya devam
 eder; tam denetim iki depo birlikte hazır olduğunda çalışır.
 
+### Canlı karar matrisi (davranışsal parite)
+
+Metin ve şema karşılaştırması tek başına yetersizdir: iki migration dosyası
+aynı görünse de karar tablosunun **gövdesi** tek tarafta değiştirilmiş
+olabilir ve iki proje aynı girdide farklı karar verir. Bu yüzden denetim
+ikinci bir seviyede daha çalışır:
+
+İki veritabanı **aynı senaryo matrisinden** koşulur ve
+`(exit_code, severity, alert_kind)` üçlüleri karşılaştırılır. 14 senaryo:
+
+| senaryo | beklenen |
+|---|---|
+| `open` (± PREVIOUS) | `0｜ok｜none` |
+| `expired` + PREVIOUS var | `1｜warn｜window_expired_previous_present` |
+| `expired` + PREVIOUS yok | `0｜ok｜none` |
+| `unknown` (± PREVIOUS) — **fail-closed** | `1｜warn｜no_record` |
+| 179 gün (eşik altı) | `1｜warn｜window_expired_previous_present` |
+| 180 gün (eşik tam) — `>` kuralı | `1｜warn｜window_expired_previous_present` |
+| 181 gün (eşik üstü) | `1｜warn｜overdue` |
+| `overdue` + `open` durumu — **yaş kapısı öncelikli** | `1｜warn｜overdue` |
+| beklenmeyen durum / NULL durum — **fail-closed** | `2｜error｜unexpected_state` |
+| NULL eşik — yaş kapısı atlanır | `0｜ok｜none` |
+
+Her senaryo **iki yönde** denetlenir: iki proje birbirine eşit olmalı
+(parite) **ve** ikisi de sözleşmenin normaline uymalı — ikisi birlikte
+yanlış olsa bile sapma sessizce geçmez. Ayrıca `alert_kind → exit kodu`
+eşlemesi açıkça sabitlenir (`none→0`, `overdue`/`no_record`/
+`window_expired_previous_present`→`1`, `unexpected_state→2`).
+
+Her proje kendi kimliğiyle bağlanır: acente `agency_app`, platform
+`nexus_owner`.
+
 Haftalık zamanlama (idempotent; kanal parametreleri görev argümanlarına
  gömülür, değiştirmek için yeniden çalıştırın):
 

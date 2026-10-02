@@ -1,15 +1,19 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve, basename } from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 // Iki deponun notify-rotation-overdue betikleri ayni sozlesmeyi paylasir:
 // ayni parametre listesi (ad, tip, varsayilan), ayni karar senaryolari ve
 // ayni cikis kodlari. AGENTS.md "Sozlesme degisikligi tek taraflı olamaz"
 // kurali geregi iki taraf ayrilirsa biri sessizce eskir.
 //
-// Bu denetim SOZLESMEYI karsilastirir (davranisi degil): parametre
-// sozlesmesi ve cikis kodu eslemesi. Karar mantiginin karsiligi olan
-// DB fonksiyonu ayrica kontrol edilir.
+// Bu denetim IKI seviyede calisir:
+//   1) SOZLESME (metin): parametre, sema, seed, enum, cikis dosyasi.
+//   2) SEMANTIK (canli DB): her iki projenin karar tablosu AYNI senaryo
+//      matrisinden kosulur ve (exit_code, severity, alert_kind) uculeleri
+//      karsilastirilir. Metin ayni olsa da karar tablosu govdesi ayrilmis
+//      olabilir; yalnizca bu bolum onu yakalar.
 //
 // Kullanim:
 //   node scripts/check-rotation-notify-parity.mjs
@@ -321,6 +325,133 @@ function rejectRange(sql) {
 }
 compare('set_rotation_window red araligi', rejectRange(agencyWindow.sql), rejectRange(nexusWindow.sql));
 
+// --- SEMANTIK: canli karar matrisi karsilastirmasi -------------------------
+// Metin ayni olsa da karar tablosu GOVDESI tek tarafta degistirilmis
+// olabilir; o zaman iki proje ayni girdide farkli karar verir. Bu bolum
+// iki DB'yi AYNI senaryo matrisinden kosup (exit_code, severity,
+// alert_kind) uculelerini karsilastirir.
+//
+// Matris karar tablosunun tam sozlesmesini oneksiksiz kaplar:
+//   open / expired+previous / expired-no-previous / unknown
+//   yas kapisi (179/180/181 gun esigi) ve onceligi
+//   fail-closed: unknown, NULL state, beklenmeyen durum
+//   NULL esik: yas kapisi atlanir
+function loadEnv(root) {
+  const file = resolve(root, '.env');
+  if (!existsSync(file)) return null;
+  const values = {};
+  for (const raw of readFileSync(file, 'utf8').split(/\r?\n/)) {
+    const line = raw.trim();
+    const index = line.indexOf('=');
+    if (index > 0 && !line.startsWith('#')) {
+      values[line.slice(0, index).trim()] = line.slice(index + 1).trim();
+    }
+  }
+  return values;
+}
+
+const psqlPath = existsSync('C:/laragon/bin/postgresql/postgresql/bin/psql.exe')
+  ? 'C:/laragon/bin/postgresql/postgresql/bin/psql.exe' : 'psql';
+
+function query(settings, user, passwordKey, sql) {
+  const result = spawnSync(psqlPath, ['-X', '-w', '-At', '-v', 'ON_ERROR_STOP=1',
+    '-h', settings.PGHOST, '-p', settings.PGPORT,
+    '-U', user, '-d', settings.PGDATABASE, '-c', sql], {
+    encoding: 'utf8',
+    env: { ...process.env, PGPASSWORD: settings[passwordKey] },
+  });
+  if (result.status !== 0) {
+    throw new Error(`karar tablosu sorgusu basarisiz (${user}): ${result.stderr || result.stdout}`);
+  }
+  return result.stdout.replaceAll('\r', '').trim();
+}
+
+// Senaryo matrisi: [etiket, state, yas_saat, esik_gun, previous, beklenen]
+// Beklenen degerler sozlesmenin NORMALILEDIR; iki proje bunlara uymak
+// zorundadir. Esik satirlari 179/180/181 yas kapisinin '>' kuralini ve
+// overdue onceligini kanitlar.
+const H = 24;
+const DECISION_MATRIX = [
+  ['open', 'open', 0.5 * H, 180, true, '0|ok|none'],
+  ['open+previous-yok', 'open', 0.5 * H, 180, false, '0|ok|none'],
+  ['expired+previous', 'expired', 72, 180, true, '1|warn|window_expired_previous_present'],
+  ['expired-previous-yok', 'expired', 72, 180, false, '0|ok|none'],
+  ['unknown (fail-closed)', 'unknown', null, 180, false, '1|warn|no_record'],
+  ['unknown+previous', 'unknown', null, 180, true, '1|warn|no_record'],
+  ['yas-179gun (esik alti)', 'expired', 179 * H, 180, true, '1|warn|window_expired_previous_present'],
+  ['yas-180gun (esik tam)', 'expired', 180 * H, 180, true, '1|warn|window_expired_previous_present'],
+  ['yas-181gun (esik ustu)', 'expired', 181 * H, 180, true, '1|warn|overdue'],
+  ['overdue+previous', 'expired', 200 * H, 180, true, '1|warn|overdue'],
+  ['overdue, pencere acik', 'open', 200 * H, 180, false, '1|warn|overdue'],
+  ['unknown-durum (fail-closed)', 'weird_state', 1, 180, false, '2|error|unexpected_state'],
+  ['null-durum (fail-closed)', null, 1, 180, false, '2|error|unexpected_state'],
+  ['null-esik: yas kapisi atlanir', 'open', 5000 * H, null, false, '0|ok|none'],
+];
+
+// Sorgu govdesi: her senaryo icin uc deger tek satırda, etiketli.
+function decisionSql(schema, matrix) {
+  const union = matrix.map(([label, state, age, maxDays, previous]) => {
+    const stateSql = state === null ? 'NULL' : `'${state}'`;
+    const ageSql = age === null ? 'NULL' : age.toFixed(2);
+    const maxSql = maxDays === null ? 'NULL' : String(maxDays);
+    return `select '${label.replaceAll("'", "''")}' as label, d.exit_code::text||'|'||d.severity||'|'||d.alert_kind as decision
+    from ${schema}.rotation_check_decision(${stateSql}, ${ageSql}, ${maxSql}, ${previous}) as d`;
+  }).join(' union all ');
+  return `${union} order by 1`;
+}
+
+function decisionMatrix(settings, user, passwordKey, schema) {
+  const rows = query(settings, user, passwordKey, decisionSql(schema, DECISION_MATRIX));
+  const map = new Map();
+  for (const line of rows.split('\n').filter(Boolean)) {
+    const separator = line.indexOf('|');
+    const label = line.slice(0, line.lastIndexOf('|', separator));
+    map.set(line.slice(0, separator), line.slice(separator + 1));
+  }
+  return map;
+}
+
+const agencyEnv = loadEnv(agencyRoot);
+const nexusEnv = loadEnv(nexusRoot);
+let semanticChecked = 0;
+if (agencyEnv && nexusEnv) {
+  // Acente uygulama roluyle (agency_app) baglanir; platform owner roluyle
+  // (nexus_owner) - her projenin kendi kimligi kullanilir.
+  const agencyDecisions = decisionMatrix(agencyEnv, agencyEnv.PGUSER ?? 'agency_app', 'PGPASSWORD', 'agency');
+  const nexusDecisions = decisionMatrix(nexusEnv, nexusEnv.PGOWNER ?? 'nexus_owner', 'PGOWNER_PASSWORD', 'events');
+
+  for (const [label, , , , , expected] of DECISION_MATRIX) {
+    const agencyDecision = agencyDecisions.get(label) ?? '(yok)';
+    const nexusDecision = nexusDecisions.get(label) ?? '(yok)';
+    compare(`karar matrisi [${label}]`, agencyDecision, nexusDecision);
+    // Karsilastirmaya ek olarak sozlesmenin kendisine uyuldugunu da dogrula:
+    // iki proje birlikte yanlis olsa bile beklenen degerden sapma sessizce
+    // gecmemelidir.
+    if (agencyDecision !== expected) {
+      differences.push(`acente sozlesme ihlali [${label}]\n    beklenen: ${expected}\n    gelen   : ${agencyDecision}`);
+    }
+    if (nexusDecision !== expected) {
+      differences.push(`platform sozlesme ihlali [${label}]\n    beklenen: ${expected}\n    gelen   : ${nexusDecision}`);
+    }
+    semanticChecked++;
+  }
+} else {
+  console.log('  uyari: bir deponun .env dosyasi yok; canli karar matrisi atlandi.');
+}
+
+// Cikis kodu sozlesmesi: karar tablosunun her turu hangi cikis koduna
+// donusmelidir. Betikler `exit $exitCode` yazdigindan bu esleme tek
+// kaynaktan (DB) gelir; yine de acikca sabitlenir.
+if (semanticChecked > 0) {
+  const exitOf = kind => DECISION_MATRIX.find(([, , , , , d]) => d.endsWith(kind))?.[5].split('|')[0];
+  compare('exit kodu: none -> 0', exitOf('none') ?? '(yok)', '0');
+  compare('exit kodu: overdue -> 1', exitOf('overdue') ?? '(yok)', '1');
+  compare('exit kodu: no_record -> 1', exitOf('no_record') ?? '(yok)', '1');
+  compare('exit kodu: window_expired_previous_present -> 1',
+    exitOf('window_expired_previous_present') ?? '(yok)', '1');
+  compare('exit kodu: unexpected_state -> 2', exitOf('unexpected_state') ?? '(yok)', '2');
+}
+
 if (differences.length > 0) {
   process.stderr.write(`\n${basename(SCRIPT)} sozlesme farki (acente <-> platform):\n\n`);
   for (const line of differences) process.stderr.write(`  - ${line}\n\n`);
@@ -332,4 +463,7 @@ console.log(`  parametre: ${agencyParams.length} (${agencyParams.map(p => `$${p.
 console.log(`  cikis kodlari: ${exitCodes(agencySource)} | karar tablosu: acente=${agencyHasDecision ? 'var' : 'yok'} platform=${nexusHasDecision ? 'var' : 'yok'}`);
 console.log(`  pencere semasi (${agencyWindow.name} <-> ${nexusWindow.name}): ${windowFunctions.length} fonksiyon, varsayilan ${defaultWindow(agencyWindow.sql)}s, enum [${stateEnum(agencyWindow.sql)}]`);
 console.log(`  seed pencereler: ${seededSecrets(agencyWindow.sql, agencyConfigKey?.sql)} (NEXUS_CONFIG_KEY genisletmesi: ${agencyConfigKey?.name ?? 'yok'} <-> ${nexusConfigKey?.name ?? 'yok'})`);
+  if (semanticChecked > 0) {
+    console.log(`  canli karar matrisi: ${semanticChecked} senaryo iki DB'de kosuldu ve birebir ayni (exit|severity|alert_kind)`);
+  }
 console.log('  rotasyon uyarisi sozlesmesi acente <-> platform ESIT.');
