@@ -73,7 +73,7 @@ foreach ($file in $files) {
     }
   }
   foreach ($legacyRole in $missingLegacyRoles) {
-    if ($content.Contains($legacyRole)) {
+    if ($content.Contains("$legacyRole;") -or $content.Contains("$legacyRole, ")) {
       $patched = $content `
         -replace "(?m)^GRANT [^\r\n]*?TO $legacyRole;\s*$", "-- $legacyRole role is absent on this standalone agency; grant omitted." `
         -replace "(?m)^TO $legacyRole;\s*$", "-- $legacyRole role is absent on this standalone agency; grant omitted." `
