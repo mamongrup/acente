@@ -6,14 +6,14 @@
 --   3) States with the default 48h window: fresh record -> 'open', boundary
 --      (age == window) -> 'open', past the window -> 'expired'.
 --   4) Owner path: set_rotation_window persists and moves the state
---      boundary; invalid values (0, 721, NULL) and blank names are rejected.
---   5) Application path (agency_app): rotation settings are operational
---      data - direct writes and set_rotation_window are rejected.
--- Self-seeding and rollback-only: touches only CI_ROT_* fixture rows inside
--- the transaction; never mutates live rotation records.
-\set ON_ERROR_STOP on
-BEGIN;
-DO $$
+--      boundary; invalid values (0, 721, NULL) and blank names are rejected.  -- 5) Application path (agency_app): rotation settings are operational
+  --      data - direct writes and set_rotation_window are written by the
+  --      owner/management role only.
+  -- Self-seeding and rollback-only: touches only CI_ROT_* fixture rows inside
+  -- the transaction; never mutates live rotation records.
+  \set ON_ERROR_STOP on
+  BEGIN;
+  DO $$
 DECLARE
   v_open_secret text := 'CI_ROT_OPEN';
   v_edge_secret text := 'CI_ROT_EDGE';

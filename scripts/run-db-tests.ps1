@@ -63,7 +63,8 @@ if (!$Psql) {
 # Siraya duyarli fixture zinciri - yalnizca burada tanimlanir. Zincire
 # eklenen her dosya bu listeye de eklenmelidir; aksi halde tripwire durdurur.
 $ChainOrder = @(
-  'secret_rotation_window.sql'
+  'secret_rotation_window.sql',
+  'fresh_install_seed_contracts.sql'
 )
 
 $oldPassword = $env:PGPASSWORD
@@ -94,6 +95,18 @@ try {
   foreach ($file in $acceptance) {
     Invoke-SqlFile -Path $file.FullName -Label "test/$($file.Name)"
   }
+  $operationsTests = Join-Path $root 'test/sql'
+  if (Test-Path -LiteralPath $operationsTests) {
+    # These fixtures use application permissions. Legacy identity fixtures
+    # require owner-only setup and must not expand runtime privileges.
+    foreach ($name in @('external_calendar_operations_test.sql', 'ai_review_source_consistency_test.sql')) {
+      Invoke-SqlFile -Path (Join-Path $operationsTests $name) -Label "test/sql/$name"
+    }
+  }
+  # Concurrent fixtures need the migration owner's setup/cleanup privileges.
+  # Public function authorization is still checked with the fixture actor.
+  & node (Join-Path $root 'scripts/test-session-capacity-race.mjs') $DbHost $Port 'fixture-owner' $Database
+  if ($LASTEXITCODE -ne 0) { throw 'Session concurrent capacity acceptance failed.' }
   Write-Host "run-db-tests: YESIL - $script:ran SQL dosyasi gecti."
 } finally {
   $env:PGPASSWORD = $oldPassword
