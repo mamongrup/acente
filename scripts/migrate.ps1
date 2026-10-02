@@ -25,6 +25,16 @@ if ($foreignSchema -ne '0') { throw "Hedef veritabanı bir NEXUS platform verita
 & $pg @common -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA IF NOT EXISTS system; CREATE TABLE IF NOT EXISTS system.schema_migrations (version text PRIMARY KEY, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now());'
 if ($LASTEXITCODE -ne 0) { throw 'Migration takip tablosu oluşturulamadı' }
 $files = Get-ChildItem (Join-Path $root 'db/migrations') -Filter '*.sql' | Sort-Object Name
+# Legacy migrations grant to the NEXUS operator roles (nexus_owner/nexus_app).
+# Neither role exists on a standalone agency installation; detect their
+# absence once and omit only those grant lines at apply time (source files
+# and their recorded checksums stay untouched).
+$missingLegacyRoles = @()
+foreach ($legacyRole in @('nexus_owner', 'nexus_app')) {
+  $roleExists = ((& $pg @common -Atc "SELECT 1 FROM pg_roles WHERE rolname='$legacyRole'") | Out-String).Trim()
+  if ($LASTEXITCODE -ne 0) { throw "Could not check optional $legacyRole role." }
+  if (!$roleExists) { $missingLegacyRoles += $legacyRole }
+}
 # Preflight: aynı sayısal öneki paylaşan dosyalar varsa uyar (version tam dosya adı olduğu
 # için güvenlidir ama karışıklığa yol açar; yenileri için benzersiz numara kullanılmalı).
 $files | ForEach-Object { if ($_.BaseName -match '^(\d{3})_') { [pscustomobject]@{ Num = $Matches[1]; Name = $_.Name } } } |
@@ -60,6 +70,17 @@ foreach ($file in $files) {
       $legacyGrant = 'GRANT CONNECT ON DATABASE nexustraveltech TO agency_app;'
       if (!$content.Contains($legacyGrant)) { throw 'Legacy migration 024 changed unexpectedly.' }
       $content = $content.Replace($legacyGrant, '-- Optional NEXUS database is absent on this standalone agency.')
+    }
+  }
+  foreach ($legacyRole in $missingLegacyRoles) {
+    if ($content.Contains($legacyRole)) {
+      $patched = $content `
+        -replace "(?m)^GRANT [^\r\n]*?TO $legacyRole;\s*$", "-- $legacyRole role is absent on this standalone agency; grant omitted." `
+        -replace "(?m)^TO $legacyRole;\s*$", "-- $legacyRole role is absent on this standalone agency; grant omitted." `
+        -replace ", $legacyRole;", ";" `
+        -replace "$legacyRole, ", ""
+      if ($patched -eq $content) { throw "Legacy grant to $legacyRole could not be omitted." }
+      $content = $patched
     }
   }
   if ($version -eq '072_user_wizard_prefs') {
