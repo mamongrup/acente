@@ -117,7 +117,7 @@ $rotationStatus = "unknown"
 $rotationDays = $null
 if ($hasRotationTable) {
   $latest = & $psql -X -w -v ON_ERROR_STOP=1 -h $env:PGHOST -p $env:PGPORT -U $env:PGUSER -d $env:PGDATABASE -At -c @"
-select coalesce(extract(day from now() - max(rotated_at))::int, -1)
+select coalesce(floor(extract(epoch from now() - max(rotated_at)) / 86400.0)::int, -1)
 from agency.secret_rotations
 where secret_name = 'SECRET_KEY_BASE'
 "@
@@ -135,6 +135,52 @@ if ($rotationStatus -eq "unknown") {
 } elseif ($rotationStatus -eq "overdue") {
   $msg = "secret_key_rotation overdue: $rotationDays gun (beklenen aralik: en fazla $SecretKeyRotationMaxDays gun) -- rotasyon yapin (docs/secret-rotation-plan.md)"
   if ($WarnOnly) { Write-Warning $msg } else { $failed += $msg }
+}
+
+# ---------------------------------------------------------------------------
+# Rotasyon penceresi durumu -- platform'daki 187 sozlesmesinin acente
+# aynasi (db/migrations/247). 'expired' + SECRET_KEY_BASE_PREVIOUS hala
+# env'deyse hygiene hatasi; 'open' bilgi; 'unknown' icin yas kontrolundeki
+# fail-closed kurali gecerli.
+# ---------------------------------------------------------------------------
+$hasWindowSettings = Test-Table "agency.secret_rotation_settings"
+if ($hasWindowSettings) {
+  $win = & $psql -X -w -v ON_ERROR_STOP=1 -h $env:PGHOST -p $env:PGPORT -U $env:PGUSER -d $env:PGDATABASE -At -c @"
+select agency.rotation_window_state('SECRET_KEY_BASE') || '|' ||
+       coalesce(agency.latest_rotation_age_hours('SECRET_KEY_BASE')::text, '-') || '|' ||
+       agency.rotation_window_hours('SECRET_KEY_BASE')::text
+"@
+  if ($LASTEXITCODE -ne 0) { throw "PostgreSQL command failed: $LASTEXITCODE" }
+  $wparts = "$win" -split '\|'
+  $windowState = $wparts[0]
+  $windowHours = $wparts[2]
+  $prevPresent = -not [string]::IsNullOrWhiteSpace([string]$env:SECRET_KEY_BASE_PREVIOUS)
+  switch ($windowState) {
+    "open" {
+      Write-Host "[OK]   Rotasyon penceresi acik (pencere=${windowHours}h)."
+      if ($prevPresent) {
+        Write-Host "[INFO] SECRET_KEY_BASE_PREVIOUS hala env'de; ${windowHours} saat icinde kaldirilmali."
+      }
+    }
+    "expired" {
+      if ($prevPresent) {
+        Write-Host "[FAIL] Rotasyon penceresi doldu ama SECRET_KEY_BASE_PREVIOUS hala env'de. Kaldirin."
+        $failed += "secret_rotation_window=expired_with_previous"
+      } else {
+        Write-Host "[OK]   Pencere doldu ve SECRET_KEY_BASE_PREVIOUS kaldirilmis."
+      }
+    }
+    "unknown" {
+      Write-Host "[INFO] Pencere durumu unknown (rotasyon kaydi yok; yas kontrolu fail-closed)."
+    }
+    default {
+      Write-Host "[FAIL] Beklenmeyen pencere durumu: $windowState"
+      $failed += "secret_rotation_window=unexpected_state_$windowState"
+    }
+  }
+} else {
+  Write-Host "[FAIL] agency.secret_rotation_settings tablosu yok (db/migrations/247 uygulanmadi)."
+  $failed += "secret_rotation_window=settings_table_missing"
 }
 
 if ($failed.Count -gt 0) {

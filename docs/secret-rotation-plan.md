@@ -71,6 +71,23 @@ powershell -ExecutionPolicy Bypass -File scripts/record-secret-rotation.ps1 -Nam
   **overdue** → hygiene hatası (`-WarnOnly` ile uyarıya düşürülebilir).
 - Yaş aralık içindeyse → kontrol geçer.
 
+### 48 saatlik çift sırlı pencere denetimi
+
+Pencere durumu artık veritabanında da izlenir
+(db/migrations/247_secret_rotation_window.sql; platform karşılığı 187/188 —
+çift yönlü sözleşme paritesi). `agency.secret_rotation_settings` tablosu sır
+bazlı pencere süresini tutar (varsayılan 48 saat) ve owner tarafında
+`SELECT agency.set_rotation_window('SECRET_KEY_BASE', 48);` ile
+değiştirilebilir. `scripts/check-secret-hygiene.ps1` pencere durumunu da
+denetler:
+
+- `open` → pencere açık; `SECRET_KEY_BASE_PREVIOUS` env'deyse pencere
+  içinde kaldırılmalıdır (bilgi mesajı).
+- `expired` → pencere kapandı; `SECRET_KEY_BASE_PREVIOUS` hâlâ env'deyse
+  hygiene hatası (kaldırın), kaldırılmışsa kontrol geçer.
+- `unknown` → rotasyon kaydı yok; yaş denetimindeki fail-closed kuralı
+  geçerlidir.
+
 ## Lokal doğrulama
 
 ```powershell
