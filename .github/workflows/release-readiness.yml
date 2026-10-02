@@ -56,10 +56,11 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: |
-          # CREATEDB: scratch-tabanli yanlis-DB guard reddetme simleri
-          # hedef rolun gecici veritabani yaratmasini ister (db-acceptance
-          # isindeki hazirlik ile ayni sozlesme).
-          psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE agency_app LOGIN PASSWORD 'ci-agency-test' CREATEDB;"
+          # agency_app burada yalniz LOGIN yetkisiyle kurulur: bu is ucu
+          # gecici veritabani yaratmaz, dolayisiyla uygulama kimligine
+          # CREATEDB verilmez. CREATEDB yalnizca yanlis-DB guard simini
+          # kosturan db-acceptance isinde gereklidir (asagida).
+          psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE agency_app LOGIN PASSWORD 'ci-agency-test';"
           psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE nexus_owner NOLOGIN;"
           psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE nexustraveltech;"
           printf 'PGHOST=%s\nPGPORT=%s\nPGDATABASE=%s\nPGUSER=postgres\nPGPASSWORD=postgres\n' "$PGHOST" "$PGPORT" "$PGDATABASE" > .env
@@ -217,8 +218,9 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: |
-          # CREATEDB: yanlis-DB guard reddetme simleri scratch veritabani
-          # yaratir (readiness isindeki hazirlik ile ayni sozlesme).
+          # CREATEDB: yanlis-DB guard reddetme simi gecici (scratch) veritabani
+          # yaratir. Bu yetki yalnizca sim icindeki hedef rolde (agency_app)
+          # tanimlidir; migration zinciri postgres ile uygulanir.
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE agency_app LOGIN PASSWORD 'ci-agency-test' CREATEDB;"
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE nexus_agency OWNER agency_app;"
           printf 'PGHOST=127.0.0.1\nPGPORT=5432\nPGDATABASE=nexus_agency\nPGUSER=postgres\nPGPASSWORD=postgres\n' > .env
@@ -229,11 +231,17 @@ jobs:
 
       # Yanlis-DB guard reddetme testi: scratch DB'de 'catalog' semasi ile
       # migrate.ps1'in platform bicimli hedefi, DDL uygulamadan reddetmesi
-      # gerekir (scripts/test-wrong-db-guard.ps1). CI .env'i PGUSER=postgres
-      # yazdigi icin sim scratch DB'yi kendi kurup temizler.
+      # gerekir (scripts/test-wrong-db-guard.ps1).
+      #
+      # Sim CI .env'indeki superuser (postgres) kimligiyle DEGIL, uygulama
+      # kimligiyle (agency_app) kosar. Boylece guard'in yalnizca superuser
+      # kimliginde tetiklenen bir kontrol olmadigi kanitlanir; superuser
+      # ile kosturulan bir sim sessizce gecerdi. CREATEDB yalnizca gecici
+      # veritabani yaratip temizlemek icin gereklidir ve role yalnizca
+      # burada verilir.
       - name: Wrong-database guard rejection test
         shell: pwsh
-        run: ./scripts/test-wrong-db-guard.ps1
+        run: ./scripts/test-wrong-db-guard.ps1 -DbHost 127.0.0.1 -Port 5432 -User agency_app -Password 'ci-agency-test' -ControlDatabase nexus_agency
 
       - name: SQL acceptance chain (test/*.sql, agency_app)
         shell: pwsh

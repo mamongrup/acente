@@ -7,18 +7,28 @@
 #      ayri -c cagrilarlari; tek -c "transaction block" hatasi verir)
 #   2) scratch icinde yabanci platform semasini yarat (CREATE SCHEMA catalog)
 #   3) migrate.ps1'i gecici .env ile scratch veritabanina yonlendir
-#   4) red bekle: migrate'in throw mesaji yabanci semayi adlandirmali
+#   4) red bekle: migrate'in throw mesaji yabanci semayi adalandirmali
 #      (baska bir hata reddetme kaniti degildir)
 #   5) DDL-yok iddiasi: 'system' semasi (migrate'in ilk adimi) hic
 #      yaratilmamis olmali; 'catalog' semasi dokunulmamis kalmali
 #   6) finally: scratch veritabanini dus (kume temiz kalir, kosum idempotent)
 #
+# Kimlik siniri: sim gecici veritabani yaratip temizleyecegi icin hedef rol
+# CREATEDB sahibi olmak ZORUNDADIR. CI bu rolu agency_app olarak tanimlar ve
+# simi o kimlikle kosturur: guard'in yalnizca superuser'de tetiklenen bir
+# kontrol olmadigi ancak boyle kanitlanir (superuser ile kosturulan bir sim
+# sessizce gecerdi). Sim superuser olarak kostugunda SUPERUSER uyarisi
+# yazar; bu bir hata degil, kanit seviyesinin dusuk oldugunun isaretidir.
+# .env PGUSER=postgres yazsa bile parametre verilirse .env ezilir; CI bu
+# yuzden uygulama kimligini parametre olarak acikca gecer.
+#
 # Baglanti cozumlemesi: parametre > ortam degiskeni > .env (run-db-tests
-# kalibi). Scratch yaratma yonetici yetkisi ister: CI'da release-readiness
-# .env'i PGUSER=postgres yazar. Yerelde acente .env'i agency_app yazar
-# (CREATE DATABASE yetkisi yok); superkullaniciyi acik verin:
+# kalibi). Yerelde calistirmak icin:
 #   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-wrong-db-guard.ps1 `
-#     -DbHost 127.0.0.1 -Port 5432 -User postgres -Password <postgres-sifresi>
+#     -DbHost 127.0.0.1 -Port 5432 -User agency_app -Password <agency_app-sifresi> `
+#     -ControlDatabase nexus_agency
+# agency_app'in CREATEDB yetkisi yoksa once superuser ile verilmelidir:
+#   ALTER ROLE agency_app CREATEDB;   (sim sonrasi: ALTER ROLE agency_app NOCREATEDB;)
 #
 # Not: Bu dosya bilerek yalnizca ASCII yazar. Windows PowerShell 5.1,
 # BOM'suz UTF-8 betigi ANSI okur; ASCII disi karakterler betigi bozabilir.
@@ -54,8 +64,8 @@ foreach ($pair in @(@('PGHOST', $DbHost), @('PGPORT', $Port), @('PGUSER', $User)
 }
 if (!$Psql) {
   $Psql = if ($env:PSQL_EXECUTABLE) { $env:PSQL_EXECUTABLE }
-  elseif (Test-Path -LiteralPath 'C:/laragon/bin/postgresql/postgresql/bin/psql.exe') { 'C:/laragon/bin/postgresql/postgresql/bin/psql.exe' }
-  else { (Get-Command psql -ErrorAction Stop).Source }
+    elseif (Test-Path -LiteralPath 'C:/laragon/bin/postgresql/postgresql/bin/psql.exe') { 'C:/laragon/bin/postgresql/postgresql/bin/psql.exe' }
+    else { (Get-Command psql -ErrorAction Stop).Source }
 }
 if ($ScratchDatabase -notmatch '^[a-z_][a-z0-9_]{0,62}$') { throw "Gecersiz scratch veritabani adi: '$ScratchDatabase' (beklenen [a-z_][a-z0-9_]*)" }
 if ($ScratchDatabase -in @('postgres', 'template0', 'template1')) { throw "Scratch veritabani adi sistem veritabani olamaz: $ScratchDatabase" }
@@ -63,6 +73,26 @@ if ($ScratchDatabase -eq $ControlDatabase) { throw "Scratch veritabani adi kontr
 
 $control = @('-X', '-w', '-v', 'ON_ERROR_STOP=1', '-h', $DbHost, '-p', $Port, '-U', $User, '-d', $ControlDatabase)
 $target = @('-X', '-w', '-v', 'ON_ERROR_STOP=1', '-h', $DbHost, '-p', $Port, '-U', $User, '-d', $ScratchDatabase)
+
+# Kimlik yetki denetimi: sim gecici veritabani yaratip dusurdugu icin
+# CREATEDB zorunludur. Superuser ile kostugunda SUPERUSER uyarisi yazilir
+# (guard kaniti zayiflar; sim yine de calisir).
+# Rol bayraklari ::int ile alinir: boolean::text 'true'/'false' dondurur,
+# karsilastirmada '1' beklemek hem kulturden hem surumden bagimsizdir.
+$env:PGPASSWORD = $Password
+$identity = ((& $Psql @control -Atc "SELECT current_user || '|' || rolsuper::int::text || '|' || rolcreatedb::int::text FROM pg_roles WHERE rolname = current_user") | Out-String).Trim()
+$identityExit = $LASTEXITCODE
+Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+if ($identityExit -ne 0) { throw "Sim kimligi dogrulanamadi (rol ozellikleri okunamadi): $User at ${DbHost}:${Port}/${ControlDatabase}" }
+$identityParts = $identity.Split('|')
+if ($identityParts.Count -ne 3) { throw "Beklenmeyen rol ozellikleri ciktisi (current_user|superuser|createdb bekleniyordu): $identity" }
+if ($identityParts[2] -ne '1') {
+  throw "Sim icin CREATEDB gerekir ama rol '$($identityParts[0])' CREATEDB degil. Sim gecici veritabani yaratip temizlemek zorunda; superuser ile bir kez verin: ALTER ROLE $($identityParts[0]) CREATEDB;"
+}
+if ($identityParts[1] -eq '1') {
+  Write-Warning "SUPERUSER: guard reddi '$($identityParts[0])' superuser kimligiyle kanitlaniyor. Uygulama kimligiyle (agency_app) kosturmak daha guclu kanittir."
+}
+Write-Host "[wrong-db-guard] kimlik: $($identityParts[0]) superuser=$($identityParts[1] -eq '1') createdb=$($identityParts[2] -eq '1') kontrol=$ControlDatabase"
 
 # migrate.ps1 .env'i kendi surecine yukler; sonunda eski degerlere geri koy.
 $oldEnv = @{}
