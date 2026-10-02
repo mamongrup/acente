@@ -67,7 +67,8 @@ başlıklarını güvenlik kararı için kullanmaz.
   uygulanmadıysa veya veritabanı geçici olarak cevap vermezse uygulama
   çalışmaya devam eder; edge limitleri geçerli kalır.
 - Log saklama süresi ve boyut kotası tanımlanır; log sistemi disk/veritabanı
-  tüketerek ikinci bir DoS kaynağı haline gelmemelidir.
+  tüketerek ikinci bir DoS kaynağı haline gelmemelidir. Uygulanan dosya
+  politikası aşağıdaki bölümdedir.
 - Ani `401`, `403`, `404`, `429` ve ödeme hatası artışları için alarm kurulur.
 - Kalıcı IP engeli otomatik verilmez. Önce süreli edge karantinası uygulanır;
   kalıcı karar yönetici incelemesi gerektirir.
@@ -75,3 +76,39 @@ başlıklarını güvenlik kararı için kullanmaz.
   ve kontrollü yük testi çalıştırılır.
 - Güvenlik olayları ve süresi dolmuş karantinalar zamanlanmış olarak
   `scripts/run-security-retention.ps1` ile temizlenir.
+
+## Log dosyası saklama politikası
+
+`scripts/run-security-retention.ps1` veritabanı temizliğinin ardından operasyonel
+log dosyalarına da yaş ve boyut sınırı uygular. `check-release-readiness.ps1`
+akışındaki "Security retention smoke" adımı betiği zaten çağırdığı için bu
+temizlik ayrı bir zamanlama gerekmez ve her production kontrolünde çalışır.
+
+| Parametre | Varsayılan | Aralık | Davranış |
+|---|---|---|---|
+| `LogPath` | `.local/rotation-check.log` | dosya yolu listesi | Boş bırakılırsa varsayılan dosya kullanılır; verilirse liste varsayılanın yerine geçer. Kök yolu olmayan yollar depo köküne göre çözülür. |
+| `LogKeepDays` | `30` | 1-3650 | Satır başındaki `YYYY-MM-DD HH:MM:SS` damgası bu eşiği aşan satırlar atılır. |
+| `LogMaxKb` | `256` | 1-102400 | Dosya bu bütçeyi aşarsa **en yeni satırlar korunur**, eskiler atılır. |
+
+Kurallar:
+
+- Satırlar ham bayt aralığı olarak işlenir; kalan içerik bit düzeyinde kopyalanır.
+  Kısmen bozuk kodlamalı satırlar yeniden kodlanmaz.
+- Damgası okunamayan satırlar yaş filtresiyle asla atılmaz; kanıt satırı
+  olduğu varsayılır. Boyut tavanı gerektiğinde yine de atılabilirler.
+- Boyut tavanı her zaman en az bir satır bırakır; tek satır tavanı aşsa bile
+  en yeni satır korunur.
+- Kırpma geçici dosyaya yazılıp `Move-Item -Force` ile değiştirilir; yazma
+  satır sonları CRLF olarak normalleştirilir.
+- Kırpma gerekmediğinde dosya hiç yeniden yazılmaz; ikinci çalıştırma
+  değişiklik yapmaz (idempotent).
+- Olmayan dosya atlanır ve özet çıktıda belirtilir; eksik kanıt dosyası
+  temizlik akışını durdurmaz.
+- Aralık dışı parametre, veritabanına bağlanılmadan başta reddedilir.
+
+Her çalıştırma atılan satır sayısını, kalan bayt sayısını ve bütçeyi özetler:
+
+```
+Log retention: trimmed .local/rotation-check.log (age=12 lines, size=340 lines, 262144 bytes left)
+Log retention summary: files=1 age_dropped=12 size_dropped=340 (keep_days=30 max_kb=256)
+```
