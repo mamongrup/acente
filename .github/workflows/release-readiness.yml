@@ -156,6 +156,15 @@ jobs:
         shell: pwsh
         run: ./scripts/check-worker-hygiene.ps1
 
+      # Iki deponun notify-rotation-overdue.ps1 parametre ve cikis sozlesmesi
+      # esit olmalidir (AGENTS.md: sozlesme degisikligi tek taraflı olamaz).
+      # Bu adim yalnizca acente'yi checkout eder, platform deposu olmadigi
+      # icin denetim ATLANIR ve exit 0 verir; tam denetim iki depo birlikte
+      # oldugunda (yerel check-two-project-contracts.ps1) calisir.
+      - name: Rotation notification contract parity (skipped without platform checkout)
+        shell: pwsh
+        run: node scripts/check-rotation-notify-parity.mjs
+
       - name: Shared test admin usage check
         shell: pwsh
         run: ./scripts/check-test-shared-admin.ps1

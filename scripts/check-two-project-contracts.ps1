@@ -54,3 +54,8 @@ Write-Output ""
 Write-Output "İki proje sözleşme kontrolleri tamamlandı."
 & node (Join-Path $AgencyRoot 'scripts/check-channel-operations-parity.mjs')
 if ($LASTEXITCODE -ne 0) { throw 'Ortak kanal operasyonları sözleşmesi farklı.' }
+
+Write-Output ""
+Write-Output "== Rotasyon uyarısı parametre/çıkış sözleşmesi =="
+& node (Join-Path $AgencyRoot 'scripts/check-rotation-notify-parity.mjs')
+if ($LASTEXITCODE -ne 0) { throw 'Rotasyon uyarısı sözleşmesi iki projede farklı.' }

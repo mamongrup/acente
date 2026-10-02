@@ -106,6 +106,46 @@ aynı adlı betiğin acente aynası):
   yoktur; SMTP ayarları parametreyle verilir).
 - Her koşum `.local/rotation-check.log` dosyasına yazılır.
 
+### Karar tablosu tek kaynakta (migration 271)
+
+Dört karar senaryosu artık betiğin `switch`'i yerine
+`agency.rotation_check_decision(state, age_hours, max_days,
+previous_present)` fonksiyonunda yasar ve betik **bu fonksiyonu çağırır**.
+Platform aynı tabloyu `events.rotation_check_decision` adıyla migration
+192'de yazdı; iki projenin govdesi birebir aynıdır, yalnızca şema adı
+farklıdır (`agency` ↔ `events`).
+
+Dönen üçlü `(exit_code, severity, alert_kind)`:
+
+| `alert_kind` | Karar |
+|---|---|
+| `none` | pencere açık, ya da doldu ama PREVIOUS kaldırılmış → çıkış 0 |
+| `overdue` | yaş sınırı aşıldı (varsayılan 180 gün) → çıkış 1 |
+| `window_expired_previous_present` | pencere doldu **ve** PREVIOUS hâlâ `.env`'de → çıkış 1 |
+| `no_record` | kayıt yok (fail-closed) → çıkış 1 |
+| `unexpected_state` | beklenmeyen/NULL durum → çıkış 2, uyarı yok |
+
+Yaş kapısı (`overdue`) pencere durumundan **bağımsız ve önceliklidir**;
+sıra platform muadiliyle ve eski betikle aynıdır.
+
+### İki proje parite denetimi
+
+`scripts/check-rotation-notify-parity.mjs` iki deponun betiğini
+karşılaştırır: parametre adı/tipi/varsayılanı/**sırası**, karar
+senaryoları, alarm kanalları, günlük yaş sınırı, çıkış dosyası ve karar
+tablosu DB fonksiyonunun varlığı. Fark varsa stderr'e yazıp exit 1 verir
+(AGENTS.md: sözleşme değişikliği tek taraflı olamaz).
+
+```powershell
+node scripts/check-rotation-notify-parity.mjs
+# veya iki proje kapısı içinde:
+powershell -ExecutionPolicy Bypass -File scripts/check-two-project-contracts.ps1
+```
+
+Platform deposu hazır değilse (CI yalnızca acente'yi checkout eder)
+denetim **atlanır** ve exit 0 verir — acente bağımsız çalışmaya devam
+eder; tam denetim iki depo birlikte hazır olduğunda çalışır.
+
 Haftalık zamanlama (idempotent; kanal parametreleri görev argümanlarına
  gömülür, değiştirmek için yeniden çalıştırın):
 
