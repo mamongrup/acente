@@ -136,6 +136,25 @@ senaryoları, alarm kanalları, günlük yaş sınırı, çıkış dosyası ve k
 tablosu DB fonksiyonunun varlığı. Fark varsa stderr'e yazıp exit 1 verir
 (AGENTS.md: sözleşme değişikliği tek taraflı olamaz).
 
+Aynı denetim **pencere şemasını** da karşılaştırır — acente
+`247_secret_rotation_window.sql` ↔ platform `187_secret_rotation_window.sql`:
+
+- 4 fonksiyonun **imzası**: parametre tipleri, dönüş tipi ve
+  **volatility** (`STABLE`/`VOLATILE`/`IMMUTABLE`). Aynı imza farklı
+  volatility ile farklı plan/yanlış sonuç üretebilir.
+- **Parametre adları**: çağıran taraflar named notation'a geçerse veya
+  dokümantasyonlar birlikte güncellenmezse ayrılma olur.
+- **Varsayılan pencere** (48 saat) ve seed edilen sır pencereleri
+  (`SECRET_KEY_BASE`, `SECRET_KEY_BASE_PREVIOUS`).
+- **Durum enum'u**: yalnız `unknown` / `open` / `expired`. Yeni bir durum
+  tek tarafta eklenirse betiğin `switch`'i diğer projede eşleşmez.
+- **CHECK kısıtı** (`window_hours` aralığı) ve `set_rotation_window`
+  reddedilen aralık (fail-closed).
+
+Migration dosyası numara **ve içerik** ile seçilir: numaralar tekrarlanabilir
+(acente'de 247 iki dosyada kullanılır — `migrate.ps1` bunu zaten preflight
+uyarısıyla bildirir ve `version` tam dosya adı olduğu için güvenlidir).
+
 ```powershell
 node scripts/check-rotation-notify-parity.mjs
 # veya iki proje kapısı içinde:

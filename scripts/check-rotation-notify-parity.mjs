@@ -172,6 +172,127 @@ const nexusHasDecision = hasDecisionFunction(nexusRoot, 'events', /^19[0-9]/);
 compare('karar tablosu DB fonksiyonu',
   agencyHasDecision ? 'var' : 'yok', nexusHasDecision ? 'var' : 'yok');
 
+// --- 247 <-> 187 pencere semasi karsilastirmasi ---------------------------
+// Pencere sozlesmesi iki depoda ayri migrationlarda yazilir: acente 247,
+// platform 187. Imzalar, varsayilan pencere ve durum enum'lari ayrilirsa
+// rotasyon uyarisi iki projede farkli karar verir (betik sozlesmesi denetimi
+// bunu yakalamaz; yakalayan sey semadir).
+// Migration numaralari TEKRARLANABILIR (ornegin acente'de 247 iki farkli
+// dosyada kullanilir), bu yuzden dosya yalnizca numara ve degil, ICERIK
+// ile de secilir: rotation_window_hours tanimini iceren dosya aranir.
+function findMigration(root, numberPattern, contentPattern) {
+  const dir = resolve(root, 'db', 'migrations');
+  if (!existsSync(dir)) return null;
+  const candidates = readdirSync(dir).sort().filter(name => numberPattern.test(name));
+  for (const name of candidates) {
+    const sql = readFileSync(resolve(dir, name), 'utf8');
+    if (!contentPattern.test(sql)) continue;
+    return { name, sql };
+  }
+  return null;
+}
+
+const agencyWindow = findMigration(agencyRoot, /^247_/, /rotation_window_hours\s*\(/);
+const nexusWindow = findMigration(nexusRoot, /^187_/, /rotation_window_hours\s*\(/);
+if (!agencyWindow || !nexusWindow) {
+  throw new Error(`pencere migration'i bulunamadi: acente=${agencyWindow?.name ?? 'yok'} platform=${nexusWindow?.name ?? 'yok'}`);
+}
+
+// Fonksiyon imzalari: isim + parametre tipleri + donus tipi. Govde ve sema
+// adi farkli olabilir; yalnizca sozlesme yuzeyi karsilastirilir.
+function functionSignatures(sql, schema) {
+  const signatures = new Map();
+  const re = new RegExp(
+    `CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+${schema}\\.(\\w+)\\s*\\(([^)]*)\\)\\s*\\nRETURNS\\s+(\\w+)([\\s\\S]*?)AS\\s+\\$\\$`, 'gi');
+  for (const match of sql.matchAll(re)) {
+    const [, name, args, returns, between] = match;
+    // Arguman listesi sema-qualified olabilir; yalnizca tip adlari sozlesmedir.
+    const normalizedArgs = args.split(',').map(arg => arg.trim().split(/\s+/).pop()).join(',');
+    // Volatility sozlesmenin parcasidir: ayni imza farkli volatility ile
+    // farkli plan/yanlis sonuc uretebilir. RETURNS ve govde arasinda yer alir.
+    const volatility = (between.match(/\b(STABLE|IMMUTABLE|VOLATILE)\b/i) || ['', '?'])[1].toUpperCase();
+    signatures.set(name.toLowerCase(), `${name}(${normalizedArgs})->${returns.toLowerCase()} [${volatility}]`);
+  }
+  return signatures;
+}
+
+const agencySignatures = functionSignatures(agencyWindow.sql, 'agency');
+const nexusSignatures = functionSignatures(nexusWindow.sql, 'events');
+compare('pencere fonksiyon sayisi', String(agencySignatures.size), String(nexusSignatures.size));
+
+const windowFunctions = ['rotation_window_hours', 'set_rotation_window',
+  'latest_rotation_age_hours', 'rotation_window_state'];
+for (const fn of windowFunctions) {
+  compare(`pencere fonksiyonu ${fn}()`,
+    agencySignatures.get(fn) ?? '(yok)', nexusSignatures.get(fn) ?? '(yok)');
+}
+
+// Parametre ADLARI sozlesmenin parcasidir: cagiran taraflar ileride
+// named notation'a gecerse ya da iki taraf dokumantasyonu birlikte
+// guncellenmezse ayrilma olur. Tip imzasinda degil, sozlesme yuzeyinde
+// raporlanir.
+function parameterNames(sql, schema) {
+  const names = new Map();
+  const re = new RegExp(
+    `CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+${schema}\\.(\\w+)\\s*\\(([^)]*)\\)`, 'gi');
+  for (const match of sql.matchAll(re)) {
+    names.set(match[1].toLowerCase(), match[2].split(',')
+      .map(arg => arg.trim().split(/\s+/)[0] || '?').join(','));
+  }
+  return names;
+}
+const agencyParams_ = parameterNames(agencyWindow.sql, 'agency');
+const nexusParams_ = parameterNames(nexusWindow.sql, 'events');
+for (const fn of windowFunctions) {
+  compare(`pencere fonksiyonu ${fn}() parametre adlari`,
+    agencyParams_.get(fn) ?? '(yok)', nexusParams_.get(fn) ?? '(yok)');
+}
+
+// Varsayilan pencere: rotation_window_hours govdesindeki COALESCE degeri
+// (bilinen sirlar icin satir satir da seed edilir; varsayilan deger burada).
+function defaultWindow(sql) {
+  const start = sql.search(/rotation_window_hours\s*\(/);
+  if (start < 0) return '(yok)';
+  const match = sql.slice(start).match(/COALESCE\([\s\S]*?,\s*(\d+)\s*\);/);
+  return match ? match[1] : '(yok)';
+}
+compare('varsayilan pencere (saat)', defaultWindow(agencyWindow.sql), defaultWindow(nexusWindow.sql));
+
+// Seed satirlari: varsayilan degerin hangi sirrara yazildigi da sozlesmedir.
+function seededSecrets(sql) {
+  const block = sql.match(/INSERT\s+INTO\s+\w+\.\w*secret_rotation_settings[\s\S]*?ON CONFLICT[^;]*;/i);
+  if (!block) return '(yok)';
+  return [...block[0].matchAll(/\('([A-Z_]+)',\s*(\d+)\)/g)]
+    .map(m => `${m[1]}=${m[2]}`).sort().join(',');
+}
+compare('seed edilen sir pencereleri', seededSecrets(agencyWindow.sql), seededSecrets(nexusWindow.sql));
+
+// Durum enum'lari: rotation_window_state yalnizca bu uc degeri dondurur
+// (247/187 govdesi ve COMMENT ayni listeyi verir).
+function stateEnum(sql) {
+  const values = new Set();
+  for (const match of sql.matchAll(/RETURN\s+'([a-z_]+)'/gi)) values.add(match[1]);
+  const comment = sql.match(/COMMENT ON FUNCTION\s+\w+\.\w*rotation_window_state[\s\S]*?;/i);
+  if (comment) for (const match of comment[0].matchAll(/\b(unknown|open|expired)\b/gi)) values.add(match[1].toLowerCase());
+  return [...values].sort().join(',');
+}
+compare('durum enum degerleri', stateEnum(agencyWindow.sql), stateEnum(nexusWindow.sql));
+
+// CHECK kisiti: pencere araligi [1, 720] saat olmali.
+function checkRange(sql) {
+  const match = sql.match(/CHECK\s*\(\s*window_hours\s+BETWEEN\s+(\d+)\s+AND\s+([\d* ]+?)\s*\)/i);
+  if (!match) return '(yok)';
+  return `${match[1]}..${match[2].replace(/\s+/g, '')}`;
+}
+compare('pencere CHECK kisiti', checkRange(agencyWindow.sql), checkRange(nexusWindow.sql));
+
+// set_rotation_window reddedilen aralik ayni olmali (fail-closed).
+function rejectRange(sql) {
+  const match = sql.match(/p_hours\s*<\s*(\d+)\s+OR\s+p_hours\s*>\s*([\d* ]+?)\s*THEN/i);
+  return match ? `${match[1]}..${match[2].replace(/\s+/g, '')}` : '(yok)';
+}
+compare('set_rotation_window red araligi', rejectRange(agencyWindow.sql), rejectRange(nexusWindow.sql));
+
 if (differences.length > 0) {
   process.stderr.write(`\n${basename(SCRIPT)} sozlesme farki (acente <-> platform):\n\n`);
   for (const line of differences) process.stderr.write(`  - ${line}\n\n`);
@@ -181,4 +302,5 @@ if (differences.length > 0) {
 
 console.log(`  parametre: ${agencyParams.length} (${agencyParams.map(p => `$${p.name}`).join(', ')})`);
 console.log(`  cikis kodlari: ${exitCodes(agencySource)} | karar tablosu: acente=${agencyHasDecision ? 'var' : 'yok'} platform=${nexusHasDecision ? 'var' : 'yok'}`);
+console.log(`  pencere semasi (${agencyWindow.name} <-> ${nexusWindow.name}): ${windowFunctions.length} fonksiyon, varsayilan ${defaultWindow(agencyWindow.sql)}s, enum [${stateEnum(agencyWindow.sql)}]`);
 console.log('  rotasyon uyarisi sozlesmesi acente <-> platform ESIT.');
