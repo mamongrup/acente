@@ -63,7 +63,8 @@ if (!$Psql) {
 # Siraya duyarli fixture zinciri - yalnizca burada tanimlanir. Zincire
 # eklenen her dosya bu listeye de eklenmelidir; aksi halde tripwire durdurur.
 $ChainOrder = @(
-  'secret_rotation_window.sql'
+  'secret_rotation_window.sql',
+  'fresh_install_seed_contracts.sql'
 )
 
 $oldPassword = $env:PGPASSWORD
