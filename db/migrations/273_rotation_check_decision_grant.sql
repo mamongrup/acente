@@ -1,0 +1,25 @@
+-- Karar tablosunun uygulama rolune acikca yetki verilmesi.
+--
+-- 271'de agency.rotation_check_decision icin 'REVOKE ALL ... FROM PUBLIC'
+-- yazilmisti. Bu, canli DB'de sessizce yanlis sonuc verdi: migration
+-- zinciri agency_app (uygulama rolu) ile kostugu icin REVOKE gercekten
+-- uygulandi ve notifier'in cagirmasi gereken fonksiyon agency_app icin
+-- ERISILEMEZ oldu.
+--
+--   agency_app icin EXECUTE yetkisi: false
+--   notify-rotation-overdue.ps1 -> permission denied for function
+--
+-- Notifier production'da .env'deki PGUSER (agency_app) ile baglanir
+-- (bkz. scripts/notify-rotation-overdue.ps1: -U $values['PGUSER']), bu
+-- yuzden fonksiyon uygulama rolune ACIKCA verilmelidir.
+--
+-- KAPSAM: REVOKE ALL ... FROM PUBLIC kalsin; yalnizca uygulama rolune
+-- EXECUTE verilir. Boylece karar tablosu varsayilan olarak herkese kapali
+-- kalir ve yalnizca uygulamanin baglandigi kimlik cagirabilir. En dar
+-- yetki budur.
+--
+-- Idempotent: tekrar calistirmak etkisizdir.
+--
+-- NOT: bu migration 271'i DEGISTIRMEZ; checksum korunur.
+
+GRANT EXECUTE ON FUNCTION agency.rotation_check_decision(text, numeric, int, boolean) TO agency_app;
