@@ -1,0 +1,38 @@
+{
+  "contract_version": "1.0.0",
+  "backward_compatibility": "Additive operations; existing listing contract and accepted reservations remain valid.",
+  "calendar": {
+    "categories": ["holiday_home", "yacht"],
+    "inventory_scope": "entire_unit",
+    "source_authority": "local_owner",
+    "end_date": "exclusive",
+    "max_active_feeds_per_listing": 8,
+    "max_events": 5000,
+    "max_response_bytes": 1048576,
+    "max_event_days": 730,
+    "refresh_minutes": 15,
+    "claim_lease_minutes": 5,
+    "transport": "https_public_network_only",
+    "error_policy": "retain_last_successful_blocks",
+    "remove_policy": "remove_only_this_feed_overlay",
+    "conflict_policy": "preserve_accepted_reservation_and_require_review",
+    "export": "rotatable_hashed_secret_without_guest_pii"
+  },
+  "delivery": {
+    "states": ["pending", "sending", "sent", "failed"],
+    "idempotency": "source_system_tenant_aggregate_event",
+    "success_evidence": "authenticated_receiver_acknowledgement",
+    "conflict_policy": "reject_stale_version_or_different_payload_for_same_key",
+    "offline_policy": "local_operations_continue_and_delivery_retries",
+    "competitor_connection_required": false
+  },
+  "ai_review": {
+    "mode": "advisory_only",
+    "finding_kinds": ["missing", "contradiction", "unsupported_claim"],
+    "max_findings": 12,
+    "source_limit_characters": 12000,
+    "evidence_policy": "literal_quote_from_source_except_missing",
+    "missing_provider_policy": "explicit_error",
+    "automatic_price_stock_publication_or_identity_changes": false
+  }
+}

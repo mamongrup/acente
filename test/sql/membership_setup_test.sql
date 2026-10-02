@@ -1,0 +1,23 @@
+BEGIN;
+DO $$ DECLARE t uuid:=gen_random_uuid(); x uuid:=gen_random_uuid(); a uuid:=gen_random_uuid(); u uuid:=gen_random_uuid(); job uuid; c uuid; d jsonb; BEGIN
+INSERT INTO agency.tenants(id,legal_name,brand_name,slug) VALUES(t,'Setup tests','Tests',t::text),(x,'Other','Other',x::text);
+INSERT INTO agency.users(id,tenant_id,email,display_name,membership_type,password_hash) VALUES(a,t,'admin@setup.example.test','Admin','admin',crypt('fixture-password',gen_salt('bf',4))),(u,t,'customer@setup.example.test','Customer','customer',crypt('fixture-password',gen_salt('bf',4)));
+IF agency.membership_setup_data(x,a)<>'{}'::jsonb OR agency.membership_setup_data(t,u)<>'{}'::jsonb THEN RAISE EXCEPTION 'Setup scope leak'; END IF;
+IF agency.membership_connection_test(t,u,'email','customer@setup.example.test')<>'forbidden' THEN RAISE EXCEPTION 'Customer test permission'; END IF;
+IF agency.membership_connection_test(t,a,'email','admin@setup.example.test')<>'provider_unavailable' THEN RAISE EXCEPTION 'Unconfigured test'; END IF;
+INSERT INTO agency.settings(tenant_id,key,value) VALUES(t,'smtp_host','"127.0.0.1"'),(t,'smtp_username','"fixture"'),(t,'smtp_password_sealed','"sealed-fixture"'),(t,'smtp_from','"sender@setup.example.test"');
+IF agency.membership_connection_test(t,a,'email','other@setup.example.test')<>'own_email_required' THEN RAISE EXCEPTION 'Arbitrary email test'; END IF;
+IF agency.membership_connection_test(t,a,'email','admin@setup.example.test')<>'queued' THEN RAISE EXCEPTION 'Email test not queued'; END IF;
+IF agency.membership_connection_test(t,a,'email','admin@setup.example.test')<>'rate_limited' THEN RAISE EXCEPTION 'Test cooldown bypass'; END IF;
+INSERT INTO agency.integrations(tenant_id,provider,kind,active,credentials) VALUES(t,'sms_whatsapp','notification',true,'{"whatsapp_phone_id":"123456789","whatsapp_token_sealed":"fixture"}');
+INSERT INTO agency.customer_auth_challenges(tenant_id,user_id,purpose,channel,code_hash,expires_at) VALUES(t,u,'phone','whatsapp','fixture',now()+interval '10 minutes') RETURNING id INTO c;
+INSERT INTO agency.customer_phone_outbox(tenant_id,user_id,challenge_id,phone,code,status,provider_message_id,delivery_status) VALUES(t,u,c,'+905551234567','','sent','fixture-message','accepted') RETURNING id INTO job;
+IF agency.customer_phone_delivery(x,'123456789','fixture-message','delivered') OR agency.customer_phone_delivery(t,'987654321','fixture-message','delivered') THEN RAISE EXCEPTION 'Delivery tenant/phone bypass'; END IF;
+IF NOT agency.customer_phone_delivery(t,'123456789','fixture-message','delivered') THEN RAISE EXCEPTION 'Delivery not recorded'; END IF;
+PERFORM agency.customer_phone_delivery(t,'123456789','fixture-message','sent');
+IF agency.customer_phone_delivery_state(t,u)<>'delivered' THEN RAISE EXCEPTION 'Delivery regressed'; END IF;
+PERFORM agency.customer_phone_delivery(t,'123456789','fixture-message','read');PERFORM agency.customer_phone_delivery(t,'123456789','fixture-message','failed');
+IF agency.customer_phone_delivery_state(t,u)<>'read' THEN RAISE EXCEPTION 'Read regressed'; END IF;
+IF EXISTS(SELECT 1 FROM agency.customer_verification WHERE user_id=u AND phone_verified_at IS NOT NULL) THEN RAISE EXCEPTION 'Delivery approved identity'; END IF;
+END $$;
+ROLLBACK;
