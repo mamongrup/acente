@@ -40,7 +40,11 @@ durumda tek başına yetmez, tüm oturumlar iptal edilmelidir.
   Dağıtım öncesi tam denetim için 8082'de sunucu çalışırken koşulmalı
   (`scripts/run-dev.ps1`).
 - [ ] `scripts/check-production-gates.ps1` production env ile temiz dönüyor.
-- [ ] Veritabanı migration'ları güncel (`scripts/apply-pending-migrations.ps1`).
+- [ ] Veritabanı migration'ları güncel (`scripts/migrate.ps1`;
+  `apply-pending-migrations.ps1` yalnız **güncel** bir veritabanında idempotent
+  üst-dolum aracıdır: hedefi sert kodlar (`-U postgres -d nexus_agency`) ve
+  boş bir veritabanına (taze kurulum) uygulanamaz — bunun için fresh-db-smoke
+  ve migrate kullanın.)
 - [ ] `POST /api/csp-report` uç noktasına uygulama kullanıcısından erişilebildiği
   ve `agency.security_events`'e yazabildiği doğrulandı (aşağıdaki smoke adımı).
 
@@ -77,10 +81,13 @@ curl -si -X POST https://<domain>/api/csp-report \
 2. Ortam değişkenlerini ayarla (yeni değişkenler dahil).
 3. Uygulamayı yeniden başlat, `/health` çıktısında `"environment":"production"`
    görüldüğünü doğrula (artık sabit `development` yazmıyor).
-4. Proxy arkasında IP doğrulaması: hız-limitli bir uca (`/v1/search/intent`)
-   üst üste istek atıp 429 dönen yanıtların `retry-after` taşıdığını ve
-   `agency.security_events`'te `client_id`'nin gerçek IP olarak kaydedildiğini
-   kontrol et. `unknown` görünüyorsa proxy başlık zinciri bozuk demektir.
+4. Proxy arkasında IP doğrulaması: hız-limitli bir uca (`POST /api/csp-report`,
+   20/dk; 2026-10-02 provasında 20×204 + 5×429 ve `retry-after: 60`
+   doğrulandı) üst üste istek atıp 429 dönen yanıtların `retry-after`
+   taşıdığını ve `agency.security_events`'te `client_id`'nin gerçek IP olarak
+   kaydedildiğini kontrol et. `unknown` görünüyorsa proxy başlık zinciri
+   bozuk demektir. Not: `POST /v1/search/intent` platform API ucudur; acente
+   uygulamasında yoktur (404).
 5. Public form akışı: `/iletisim` sayfasından gerçek bir teklif talebi gönder —
    anonim ziyaretçi akışı 303 `/iletisim?sent=1` dönmeli. (Oturumlu akış
    otomatik testlerle sabitlendi: `public_inquiry_csrf_session_bound_token_test`.)
@@ -114,6 +121,10 @@ order by adet desc;
 - Uyarı eşiği: aynı `client_id`'den dakikada 20'den fazla rapor zaten
   uygulama tarafında 429 ile kesilir; SQL'de ani sıçramalar enjeksiyon
   denemesi sinyali olabilir.
+- 2026-10-02 yerel provasında 429'ların `agency.security_events`'e
+  `rate_limit` olayı yazmadığı gözlendi; rate_limit satırları üretim
+  proxy/WAF katmanı olaylarını da kapsar.
+- Yerel prova kaydı: [rehearsal-security-checklist-2026-10-02.md](rehearsal-security-checklist-2026-10-02.md).
 - `security_events` saklama süresi `agency.purge_security_defense_data`
   politikasına bağlıdır; CSP olayları `info` seviyesindedir ve alarm gürültüsü
   yaratmamak için `warning`/`critical` akışından ayrı değerlendirilmelidir.
