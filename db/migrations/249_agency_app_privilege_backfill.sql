@@ -7,16 +7,17 @@
 --      application_documents); identity-column sequences are unaffected
 --      either way, granting them here is harmless and keeps the rule uniform.
 --   2. helper functions the app calls directly or through its workers
---      (commercial_admin, SEO, connected-order and supplier-review guards).
+--      (commercial workspace, connected-order, public-inquiry and
+--      supplier-review guards).
 --
 -- Only missing grants are added; nothing already granted is tightened.
+-- Note: functions owned by in-review migrations (e.g. the SEO listing
+-- helpers) grant their own EXECUTE in their own migrations.
 
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA agency TO agency_app;
 
 GRANT EXECUTE ON FUNCTION agency.commercial_admin(uuid, uuid) TO agency_app;
-GRANT EXECUTE ON FUNCTION agency.ensure_listing_seo() TO agency_app;
 GRANT EXECUTE ON FUNCTION agency.guard_connected_category_order() TO agency_app;
 GRANT EXECUTE ON FUNCTION agency.guard_public_inquiry_listing_scope() TO agency_app;
 GRANT EXECUTE ON FUNCTION agency.reconcile_partner_bonus(uuid, uuid) TO agency_app;
-GRANT EXECUTE ON FUNCTION agency.seo_listing_data(uuid, uuid, text) TO agency_app;
 GRANT EXECUTE ON FUNCTION agency.supplier_review_actor_allowed(uuid, uuid) TO agency_app;
