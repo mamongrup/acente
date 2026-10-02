@@ -56,7 +56,10 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: |
-          psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE agency_app LOGIN PASSWORD 'ci-agency-test';"
+          # CREATEDB: scratch-tabanli yanlis-DB guard reddetme simleri
+          # hedef rolun gecici veritabani yaratmasini ister (db-acceptance
+          # isindeki hazirlik ile ayni sozlesme).
+          psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE agency_app LOGIN PASSWORD 'ci-agency-test' CREATEDB;"
           psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE nexus_owner NOLOGIN;"
           psql -h "$PGHOST" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE nexustraveltech;"
           printf 'PGHOST=%s\nPGPORT=%s\nPGDATABASE=%s\nPGUSER=postgres\nPGPASSWORD=postgres\n' "$PGHOST" "$PGPORT" "$PGDATABASE" > .env
@@ -202,7 +205,9 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: |
-          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE agency_app LOGIN PASSWORD 'ci-agency-test';"
+          # CREATEDB: yanlis-DB guard reddetme simleri scratch veritabani
+          # yaratir (readiness isindeki hazirlik ile ayni sozlesme).
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE agency_app LOGIN PASSWORD 'ci-agency-test' CREATEDB;"
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE nexus_agency OWNER agency_app;"
           printf 'PGHOST=127.0.0.1\nPGPORT=5432\nPGDATABASE=nexus_agency\nPGUSER=postgres\nPGPASSWORD=postgres\n' > .env
 
