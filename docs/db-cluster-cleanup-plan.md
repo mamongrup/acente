@@ -10,7 +10,37 @@ Tarih: 2026-10-02 · Küme: `127.0.0.1:5432` (acente geliştirme) · Yöntem: sa
 4. **Tek kalıntı: eski `nexustraveltech` DB (12 MB).** Sahibi `nexus_owner`, aktif bağlantı yok, migration-takipsiz (`system` yok). İçerik: `agency` (91 obje), `agency_auth` (1), `auth` (1), `core` (0) — açıkta kalmış eski bir acente şema kopyası + boş platform şema iskeleti. Canlı platform akışı 5433'tedir; `.env`'ler doğru kümelere işaret ediyor (doğrulandı).
 5. **5432'de `nexus_owner` (SÜPERKULLANICI) ve `nexus_app` rolleri duruyor.** `nexus_agency` içinde sahiplikleri yok; eski DB düştükten sonra güvenle düşürülebilirler. `nexus_owner` kendi kendini düşüremez → işlem `postgres` süper kullanıcısıyla yapılmalı.
 
-## Temizlik planı (ONAY BEKLİYOR — çalıştırılmadı)
+## Temizlik planı (UYGULANDI — 2026-10-02)
+
+Kullanıcı onayıyla yürütüldü. Yedekler: `.local/backup_nexustraveltech_5432.dump`
+(pg_dump -Fc, 98 TABLE DATA/FUNCTION/SEQUENCE girdisi) ve
+`.local/backup_roles_5432_20261002.sql` (pg_dumpall --roles-only, 5 rol).
+
+Plan adımlarına ek olarak tespit ve işlem:
+
+- `DROP ROLE nexus_owner` ilk denemede 13 bağımlılıkla reddedildi: taramanın
+  görmmediği `nexus_owner`'a **verilmiş** ayrıcalıklar (9 tabloda arwd,
+  dashboard_metrics'te r, agency_auth.sessions'ta arwd, auth.login/logout'ta
+  EXECUTE, agency_auth şemasında USAGE — tümü grantor=agency_app).
+  `DROP OWNED BY nexus_owner` (nexus_agency) ile temizlendi; agency_app'in
+  self-grant ayrıcalıkları etkilenmedi (doğrulandı).
+- Teşhis simlerinde kirlenen geçici roller/DB'ler de kaldırıldı
+  (rdbt_ci_sim/rdbt_ci2/rdbt_ci3/rdbt_ci4, rdbt_ci_app/rdbt_ci_owner,
+  geçici nexus_owner/nexus_app/nexustraveltech).
+
+Son durum doğrulandı: kümede yalnız `nexus_agency` + `postgres`; rollerde
+yalnız `agency_app` + `postgres`. nexus_agency bütünlüğü: auth.sessions
+1421 kayıt, agency_app agency_auth.sessions/dashboard_metrics erişimi yerinde,
+parent kategori alanları 106, secret_rotations 1 kayıt.
+
+### Temizlik sonrası tespitler (ayrı işler)
+
+- canlı `nexus_agency`'de 61 adet `stock-<uuid>` sızmış test tenant'ı var
+  (temizlik kapsamı dışı; veri müdahalesi ayrı onay ister).
+- `system.schema_migrations` canlıda kısmi kayıtlı (238 satır, max 237);
+  şema durumu sağlam, sadece takip defteri eksik.
+
+### Orijinal plan (arşiv)
 
 Ön koşul (mevcut durumda doğru): platform `.env` → 5433/nexustraveltech; acente `.env` → 5432/nexus_agency. Ayrıca her iki `scripts/migrate.ps1` artık iki yönlü yanlış-DB guard'ı içeriyor (acente: `catalog` varsa durur; platform: `agency` varsa durur) — bu tür kirletmelerin yeniden oluşmasını zorlaştırır.
 
