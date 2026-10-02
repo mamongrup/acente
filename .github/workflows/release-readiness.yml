@@ -7,6 +7,11 @@ on:
       - main
       - master
 
+# Not: acente test/*.sql SQL kabul katmani bu is akisinda kosulmaz;
+# dosyalarin bir bolumu canli veri fixture'i ister (bkz.
+# scripts/run-db-tests.ps1 baslik notu). Katman, tasarlandigi gibi, veri
+# tasiyan yerel veritabanina karsi scripts/run-db-tests.ps1 ile kosturulur;
+# CI kapsami gleam testleri + statik kontrollerdir (sessiz atlama yok).
 jobs:
   readiness:
     runs-on: ubuntu-latest
@@ -120,6 +125,7 @@ jobs:
             "scripts/check-nexus-callback-flow.ps1",
             "scripts/check-nexus-rest-contract.ps1",
             "scripts/migrate.ps1",
+            "scripts/run-db-tests.ps1",
             "scripts/rebaseline-migration.ps1",
             "scripts/check-runtime-health.ps1",
             "scripts/run-audit-retention.ps1",
