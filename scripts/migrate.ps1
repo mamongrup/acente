@@ -61,15 +61,20 @@ foreach ($file in $files) {
   }
   $content = Get-Content -LiteralPath $file.FullName -Raw -Encoding utf8
   if ($version -eq '024_runtime_compatibility') {
-    # This legacy migration grants access to the separate NEXUS database.
-    # A standalone agency has no such database. Preserve the source checksum
-    # while omitting only that irrelevant grant during a fresh installation.
+    # Leftover marker: line 6 of this migration grants CONNECT on the
+    # pre-split platform database 'nexustraveltech', which the 5432 cluster
+    # cleanup dropped (docs/db-cluster-cleanup-plan.md). Applied-migration
+    # checksums are immutable, so the source line stays untouched and is
+    # retired at apply time: when the platform database is absent from this
+    # cluster the grant is omitted with an explicit leftover marker, and
+    # migration 258_retire_platform_db_grant revokes it on clusters that
+    # still host the platform database.
     $nexusDatabase = ((& $pg @common -Atc "SELECT 1 FROM pg_database WHERE datname='nexustraveltech'") | Out-String).Trim()
     if ($LASTEXITCODE -ne 0) { throw 'Could not check optional NEXUS database.' }
     if (!$nexusDatabase) {
       $legacyGrant = 'GRANT CONNECT ON DATABASE nexustraveltech TO agency_app;'
       if (!$content.Contains($legacyGrant)) { throw 'Legacy migration 024 changed unexpectedly.' }
-      $content = $content.Replace($legacyGrant, '-- Optional NEXUS database is absent on this standalone agency.')
+      $content = $content.Replace($legacyGrant, "-- Leftover grant to the pre-split platform database 'nexustraveltech' (dropped by the 5432 cluster cleanup); omitted on this standalone agency.")
     }
   }
   foreach ($legacyRole in $missingLegacyRoles) {

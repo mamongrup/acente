@@ -35,6 +35,14 @@ parent kategori alanları 106, secret_rotations 1 kayıt.
 
 ### Temizlik sonrası tespitler (ayrı işler)
 
+- `024_runtime_compatibility` 6. satırdaki `GRANT CONNECT ON DATABASE
+  nexustraveltech TO agency_app` hibesi eski platform DB'sinin kalıntısıdır
+  (işaretlendi, 2026-10-02). Uygulanmış migration checksum'ı değişmez; kaynak
+  satır olduğu gibi bırakılıp iki katmanda emekliye ayrıldı: `migrate.ps1`
+  platform DB'si kümede yoksa hibe satırını apply anında "leftover" notuyla
+  değiştirir (checksum korunur), hâlâ platform DB'si barındıran kümelerde
+  `258_retire_platform_db_grant.sql` hibeyi geri alır (yetki yoksa no-op,
+  acente zinciri asla engellenmez).
 - canlı `nexus_agency`'de 61 adet `stock-<uuid>` sızmış test tenant'ı var
   (temizlik kapsamı dışı; veri müdahalesi ayrı onay ister).
 - `system.schema_migrations` canlıda kısmi kayıtlı (238 satır, max 237);
