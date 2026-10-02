@@ -1,5 +1,13 @@
 param(
-  [string]$EnvPath = ".env"
+  [string]$EnvPath = ".env",
+  # SECRET_KEY_BASE icin beklenen rotasyon araligi (gun). Denetim: son kayitli
+  # rotasyon yaşı bu aralığın üstündeyse başarısız; hiç kayıt yoksa da
+  # başarısız (fail-closed — kayıtsız sır denetlenemez).
+  [int]$SecretKeyRotationMaxDays = 180,
+  # Rotasyon yaşı beklenen aralığı aştığında denetimi kırıp kırmama.
+  # Set edilirse: aralık aşımı yalnız uyarı (exit 0). Set edilmezse (varsayılan):
+  # aralık aşımı hygiene hatası (throw).
+  [switch]$WarnOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -97,6 +105,36 @@ foreach ($name in $checks.Keys) {
   if ($count -ne 0) {
     $failed += "$name=$count"
   }
+}
+
+# ---------------------------------------------------------------------------
+# SECRET_KEY_BASE rotasyon yaşı — kayıt yoksa "bilinmiyor" → fail-closed.
+# Kaynak: agency.secret_rotations (db/migrations/238_secret_rotation_baseline.sql,
+# kayıt: scripts/record-secret-rotation.ps1).
+# ---------------------------------------------------------------------------
+$hasRotationTable = Test-Table "agency.secret_rotations"
+$rotationStatus = "unknown"
+$rotationDays = $null
+if ($hasRotationTable) {
+  $latest = & $psql -X -w -v ON_ERROR_STOP=1 -h $env:PGHOST -p $env:PGPORT -U $env:PGUSER -d $env:PGDATABASE -At -c @"
+select coalesce(extract(day from now() - max(rotated_at))::int, -1)
+from agency.secret_rotations
+where secret_name = 'SECRET_KEY_BASE'
+"@
+  if ($LASTEXITCODE -ne 0) { throw "PostgreSQL command failed: $LASTEXITCODE" }
+  $days = [int]($latest | Select-Object -First 1)
+  if ($days -ge 0) {
+    $rotationDays = $days
+    if ($days -gt $SecretKeyRotationMaxDays) { $rotationStatus = "overdue" } else { $rotationStatus = "ok" }
+  }
+}
+
+Write-Host "secret_key_rotation_status=$rotationStatus days=$rotationDays max_days=$SecretKeyRotationMaxDays"
+if ($rotationStatus -eq "unknown") {
+  $failed += "secret_key_rotation=unknown (kayit yok; scripts/record-secret-rotation.ps1 ile baseline alin)"
+} elseif ($rotationStatus -eq "overdue") {
+  $msg = "secret_key_rotation overdue: $rotationDays gun (beklenen aralik: en fazla $SecretKeyRotationMaxDays gun) -- rotasyon yapin (docs/secret-rotation-plan.md)"
+  if ($WarnOnly) { Write-Warning $msg } else { $failed += $msg }
 }
 
 if ($failed.Count -gt 0) {

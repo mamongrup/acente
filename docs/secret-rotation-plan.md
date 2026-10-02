@@ -24,6 +24,53 @@ Bu plan production ortamındaki kritik sırların güvenli biçimde yenilenmesi 
 6. Audit log ve provider panelinden beklenmeyen başarısız giriş/işlem var mı kontrol et.
 7. Rotation tarihini operasyon notuna işle.
 
+## SECRET_KEY_BASE rotasyonunun oturum etkisi
+
+### Çift sırlı pencere (kullanıcı kaybı olmadan rotasyon)
+
+`SECRET_KEY_BASE` değiştirilirken eski değeri 24–48 saat boyunca
+`SECRET_KEY_BASE_PREVIOUS` olarak da tanımlayın. Pencere açıkken uygulama:
+
+1. İmzalı `agency_session` çerezini current sır ile doğrulamayı dener.
+2. Olmazsa previous sır ile dener; geçerliyse isteği current-era bağlantıyla
+   işler ve **yanıt çerezini current sır ile yeniden damgalar** — tarayıcı
+   ilk yanıtta yeni döneme taşınır (dönüş yolculuğu penceresiz çalışır).
+3. Pencere kapatıldığında (env unset) eski imzalar yeniden reddedilir;
+   pencere kalıcı bir gevşeme değildir.
+
+Bu pencere yalnızca **imzalı çerez** katmanını kurtarır: kullanıcılar oturum
+ve oturum-türevli CSRF token'larını korur, public anonim double-submit
+akışı sırdan bağımsız olduğundan hiçbir zaman etkilenmez. Sırrın sızdığı
+acil rotasyonda pencere yeterli değildir — eski sırrı yeniden başlatmayın ve
+`tüm oturumları iptal edin` (aşağıya bakınız).
+
+### Penceresiz acil rotasyon
+
+`SECRET_KEY_BASE` tek başına değişirse imzalı çerezlerin tümü geçersizleşir:
+kullanıcılar bir sonraki istekte anonim kalır ve yeniden giriş yapmalıdır.
+Regresyon sözleşmesi: `test/router_test.gleam` altındaki `secret_rotation_*`
+testleri (imzalı oturum + oturum-türevli CSRF reddi, anonim akışın
+etkilenmemesi, yeni oturumun yeniden bağlanması, pencere migrasyonu +
+yeniden damgalama + pencere kapandığında düşme).
+
+## Rotasyon yaşı denetimi
+
+`SECRET_KEY_BASE` (ve `NEXUS_CONFIG_KEY`) rotasyon tarihleri
+`agency.secret_rotations` tablosunda tutulur
+(db/migrations/238_secret_rotation_baseline.sql). Her rotasyonda:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/record-secret-rotation.ps1 -Name SECRET_KEY_BASE -Source planned
+```
+
+`scripts/check-secret-hygiene.ps1` son rotasyon yaşını bu tablodan hesaplar:
+
+- Kayıt yok → **bilinmiyor** → hygiene hatası (fail-closed; kayıtsız sır
+  denetlenemez). Mevcut sırrın devreye alınma tarihiyle baseline alın.
+- Yaş, `-SecretKeyRotationMaxDays` (varsayılan 180 gün) üstündeyse →
+  **overdue** → hygiene hatası (`-WarnOnly` ile uyarıya düşürülebilir).
+- Yaş aralık içindeyse → kontrol geçer.
+
 ## Lokal doğrulama
 
 ```powershell
