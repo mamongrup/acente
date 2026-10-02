@@ -1,10 +1,10 @@
 # SQL kabul katmani kosucusu (acente) - tek kaynak, capraz platform (pwsh).
 #
-# Acente'de platformdaki gibi siraya duyarli bir db/tests fixture zinciri
-# yoktur; bu betik test/*.sql kabul katmanini ada gore sirali kosturur.
-# Ileride db/tests eklenirse once asagidaki $ChainOrder doldurulmalidir:
-# tanimli siraya girmeyen bir db/tests dosyasi betigi gurultulu durdurur
-# (sessiz atlama yasak). Platform aynasi icin bkz.
+# Acente'de db/tests fixture zinciri, platformdaki gibi asagidaki
+# $ChainOrder dizisiyle siraya duyarli kosturulur; test/*.sql kabul katmani
+# ada gore sirali kosturulur. Zincire yeni bir db/tests dosyasi eklenirken
+# once $ChainOrder'a da eklenmelidir; tanimli siraya girmeyen bir dosya
+# betigi gurultulu durdurur (sessiz atlama yasak). Platform aynasi icin bkz.
 # Nexustraveltech/scripts/run-db-tests.ps1.
 #
 # Baglanti cozumlemesi: parametre > ortam degiskeni > .env (CI .env'i
@@ -60,9 +60,11 @@ if (!$Psql) {
   else { (Get-Command psql -ErrorAction Stop).Source }
 }
 
-# Siraya duyarli fixture zinciri: acente'de su an bos. db/tests altina dosya
-# eklenirse Once buraya sirayla eklenmelidir; aksi halde tripwire durdurur.
-$ChainOrder = @()
+# Siraya duyarli fixture zinciri - yalnizca burada tanimlanir. Zincire
+# eklenen her dosya bu listeye de eklenmelidir; aksi halde tripwire durdurur.
+$ChainOrder = @(
+  'secret_rotation_window.sql'
+)
 
 $oldPassword = $env:PGPASSWORD
 $script:ran = 0

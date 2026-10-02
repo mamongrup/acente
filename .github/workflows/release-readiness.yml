@@ -125,6 +125,7 @@ jobs:
             "scripts/check-nexus-rest-contract.ps1",
             "scripts/migrate.ps1",
             "scripts/run-db-tests.ps1",
+            "scripts/test-wrong-db-guard.ps1",
             "scripts/rebaseline-migration.ps1",
             "scripts/check-runtime-health.ps1",
             "scripts/run-audit-retention.ps1",
@@ -208,6 +209,14 @@ jobs:
       - name: Apply migrations
         shell: pwsh
         run: ./scripts/migrate.ps1
+
+      # Yanlis-DB guard reddetme testi: scratch DB'de 'catalog' semasi ile
+      # migrate.ps1'in platform bicimli hedefi, DDL uygulamadan reddetmesi
+      # gerekir (scripts/test-wrong-db-guard.ps1). CI .env'i PGUSER=postgres
+      # yazdigi icin sim scratch DB'yi kendi kurup temizler.
+      - name: Wrong-database guard rejection test
+        shell: pwsh
+        run: ./scripts/test-wrong-db-guard.ps1
 
       - name: SQL acceptance chain (test/*.sql, agency_app)
         shell: pwsh
